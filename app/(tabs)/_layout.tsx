@@ -4,7 +4,7 @@ import { MapScreen } from '../src/views/screen/MapScreen';
 
 const App = () => {
   useEffect(() => {
-    // Initialize Mapbox on app start
+   
     initMapbox();
   }, []);
 
@@ -12,3 +12,4 @@ const App = () => {
 };
 
 export default App;
+

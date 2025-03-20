@@ -1,10 +1,9 @@
-// src/styles/routeInfoStyles.ts
 import { StyleSheet } from 'react-native';
 
 export const routeInfoStyles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 100,
+    bottom: 30, // Moved up since we removed the buttons
     left: 20,
     right: 20,
     backgroundColor: 'white',

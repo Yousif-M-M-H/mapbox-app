@@ -1,3 +1,4 @@
+// src/styles/mapStyles.ts
 import { StyleSheet } from 'react-native';
 
 export const mapStyles = StyleSheet.create({
@@ -35,7 +36,7 @@ export const mapStyles = StyleSheet.create({
   },
   titleContainer: {
     position: 'absolute',
-    top: 50,
+    top: 120, // Moved down to make room for the search bar
     left: 0,
     right: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',

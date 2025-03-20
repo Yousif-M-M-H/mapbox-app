@@ -1,4 +1,3 @@
-// src/models/Route.ts
 export interface RouteModel {
   coordinates: [number, number][];
   distance?: number; // in meters

@@ -13,7 +13,6 @@ Logger.setLogCallback(log => {
 // Mapbox configuration
 export const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1IjoieW9zaWZtb2hhbWVkYWluIiwiYSI6ImNtODNsNzAwMDA2YjMyanBuamhxYzNucTYifQ.KoWrvWMmp4ZhrOXkVN640Q';
 
-
 export const initMapbox = () => {
   MapboxGL.setAccessToken(MAPBOX_ACCESS_TOKEN);
   MapboxGL.setTelemetryEnabled(true);
