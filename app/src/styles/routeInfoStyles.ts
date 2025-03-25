@@ -1,9 +1,10 @@
+// src/styles/routeInfoStyles.ts
 import { StyleSheet } from 'react-native';
 
 export const routeInfoStyles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 30, // Moved up since we removed the buttons
+    bottom: 30,
     left: 20,
     right: 20,
     backgroundColor: 'white',
@@ -19,6 +20,7 @@ export const routeInfoStyles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
+    marginBottom: 12,
   },
   infoItem: {
     flex: 1,
@@ -38,5 +40,17 @@ export const routeInfoStyles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#111827',
+  },
+  startButton: {
+    backgroundColor: '#4080FF',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  startButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

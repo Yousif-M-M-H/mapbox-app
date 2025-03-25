@@ -1,7 +1,6 @@
-import { Alert } from 'react-native';
+// src/services/DirectionsService.ts
 import { MAPBOX_ACCESS_TOKEN } from '../utils/mapboxConfig';
-import { RouteModel } from '../models/Routes';
-
+import { RouteModel, RouteStep } from '../models/Routes';
 
 export class DirectionsService {
   static async fetchDirections(
@@ -13,14 +12,18 @@ export class DirectionsService {
       const startCoord = `${start[0]},${start[1]}`;
       const endCoord = `${end[0]},${end[1]}`;
       
-      // Add new options for better route handling
+      // Add parameters for turn-by-turn navigation
       const params = new URLSearchParams({
         access_token: MAPBOX_ACCESS_TOKEN,
         geometries: 'geojson',
-        overview: 'full', // Get full route path
-        steps: 'true',    // Include step information for better visualization
+        overview: 'full',
+        steps: 'true',
+        annotations: 'duration,distance,speed',
+        voice_instructions: 'true',
+        banner_instructions: 'true',
         alternatives: 'false',
         continue_straight: 'true',
+        language: 'en'
       });
       
       // Construct the Mapbox Directions API URL
@@ -35,10 +38,29 @@ export class DirectionsService {
       }
       
       const route = data.routes[0];
+      
+      // Extract steps for turn-by-turn directions
+      const steps: RouteStep[] = [];
+      if (route.legs && route.legs.length > 0 && route.legs[0].steps) {
+        route.legs[0].steps.forEach((step: any) => {
+          steps.push({
+            instructions: step.maneuver.instruction,
+            distance: step.distance,
+            duration: step.duration,
+            maneuver: {
+              type: step.maneuver.type,
+              modifier: step.maneuver.modifier,
+              location: step.maneuver.location
+            }
+          });
+        });
+      }
+      
       return {
         coordinates: route.geometry.coordinates,
         distance: route.distance, // in meters
-        duration: route.duration  // in seconds
+        duration: route.duration,  // in seconds
+        steps: steps
       };
     } catch (error) {
       console.error('Error fetching directions:', error);
@@ -79,10 +101,33 @@ export class DirectionsService {
       // Create the full route with start, intermediate points, and end
       const coordinates = [start, ...intermediatePoints, end];
       
+      // Create simplified navigation steps
+      const steps: RouteStep[] = [
+        {
+          instructions: "Head toward your destination",
+          distance: directDistance,
+          duration: directDistance / 12, // Assuming 12 m/s average speed
+          maneuver: {
+            type: "depart",
+            location: start
+          }
+        },
+        {
+          instructions: "Arrive at your destination",
+          distance: 0,
+          duration: 0,
+          maneuver: {
+            type: "arrive",
+            location: end
+          }
+        }
+      ];
+      
       return {
         coordinates,
         distance: directDistance,
-        duration: directDistance / 12 // Assuming 12 m/s average speed (~43 km/h)
+        duration: directDistance / 12, // Assuming 12 m/s average speed (~43 km/h)
+        steps: steps
       };
     } catch (error) {
       console.error('Error generating simplified route:', error);
@@ -90,13 +135,14 @@ export class DirectionsService {
       return {
         coordinates: [start, end],
         distance: this.calculateDirectDistance(start[1], start[0], end[1], end[0]),
-        duration: 0
+        duration: 0,
+        steps: []
       };
     }
   }
   
   // Calculate direct distance in meters
-  private static calculateDirectDistance(
+  static calculateDirectDistance(
     lat1: number, 
     lon1: number, 
     lat2: number, 

@@ -1,14 +1,16 @@
-import { observer } from "mobx-react-lite";
-import { MapViewModel } from "../../viewModel/MapViewModel";
-import React from "react";
-import { View, Text } from "react-native";
-import { routeInfoStyles } from '../../styles/routeInfoStyles'
+// src/views/components/RouteInfo.tsx
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { observer } from 'mobx-react-lite';
+import { MapViewModel } from '../../viewModel/MapViewModel';
+import { routeInfoStyles } from '../../styles/routeInfoStyles';
+
 interface RouteInfoProps {
   viewModel: MapViewModel;
 }
 
 export const RouteInfo: React.FC<RouteInfoProps> = observer(({ viewModel }) => {
-  if (!viewModel.showRoute) return null;
+  if (!viewModel.showRoute || viewModel.isNavigating) return null;
 
   return (
     <View style={routeInfoStyles.container}>
@@ -23,6 +25,13 @@ export const RouteInfo: React.FC<RouteInfoProps> = observer(({ viewModel }) => {
           <Text style={routeInfoStyles.infoValue}>{viewModel.formattedDuration}</Text>
         </View>
       </View>
+      
+      <TouchableOpacity 
+        style={routeInfoStyles.startButton}
+        onPress={() => viewModel.startNavigation()}
+      >
+        <Text style={routeInfoStyles.startButtonText}>Start Navigation</Text>
+      </TouchableOpacity>
     </View>
   );
 });

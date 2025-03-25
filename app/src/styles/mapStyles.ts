@@ -49,5 +49,32 @@ export const mapStyles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
-  }
+  },
+  // Add to mapStyles.ts
+navigatingMarker: { 
+  width: 24,
+  height: 24,
+  borderRadius: 12,
+  backgroundColor: '#4285F4',
+  borderWidth: 2,
+  borderColor: '#FFFF00', // Yellow border to indicate navigation mode
+  justifyContent: 'center',
+  alignItems: 'center',
+  position: 'relative',
+},
+directionIndicator: {
+  position: 'absolute',
+  width: 0,
+  height: 0,
+  backgroundColor: 'transparent',
+  borderStyle: 'solid',
+  borderLeftWidth: 6,
+  borderRightWidth: 6,
+  borderBottomWidth: 12,
+  borderLeftColor: 'transparent',
+  borderRightColor: 'transparent',
+  borderBottomColor: '#FFFF00',
+  transform: [{ rotate: '180deg' }],
+  top: -14,
+},
 });
