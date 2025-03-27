@@ -1,4 +1,3 @@
-
 {
   "expo": {
     "plugins": [
@@ -23,7 +22,12 @@
     },
     "android": {
       "package": "com.yosifmohamedain.mapboxapp",
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ]
     },
     "ios": {
       "infoPlist": {
