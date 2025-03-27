@@ -1,19 +1,20 @@
-// src/features/Map/viewmodels/MapViewModel.ts
+// src/features/Map/viewmodels/LocationViewModel.ts
 import { makeAutoObservable, runInAction } from 'mobx';
 import { Alert } from 'react-native';
-import { Coordinate, toGeoJSONCoordinate } from '../models/Location';
+import { Coordinate } from '../models/Location';
 import { LocationService } from '../services/LocationService';
+import { BaseViewModel } from '../../../core/viewmodels/BaseViewModel';
 
-export class MapViewModel {
+export class LocationViewModel extends BaseViewModel {
   userLocation: Coordinate = { longitude: -85.2749, latitude: 35.0458 };
   isInitialized: boolean = false;
-  loading: boolean = false;
-
+  
   constructor() {
+    super();
     makeAutoObservable(this);
     this.init();
   }
-
+  
   async init() {
     try {
       const hasPermission = await LocationService.requestPermission();
@@ -31,7 +32,7 @@ export class MapViewModel {
       });
     }
   }
-
+  
   async getCurrentLocation() {
     this.setLoading(true);
     try {
@@ -59,21 +60,8 @@ export class MapViewModel {
       this.setLoading(false);
     }
   }
-
-  setUserLocation(location: Coordinate) {
-    this.userLocation = location;
-  }
-
-  setLoading(loading: boolean) {
-    this.loading = loading;
-  }
-
-  get userLocationCoordinate(): [number, number] {
-    return toGeoJSONCoordinate(this.userLocation);
-  }
   
-  // Calculate appropriate zoom level based on context
-  get zoomLevel(): number {
-    return 16; // Default zoom level
+  get userLocationCoordinate(): [number, number] {
+    return [this.userLocation.longitude, this.userLocation.latitude];
   }
 }

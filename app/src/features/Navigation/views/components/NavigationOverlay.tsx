@@ -1,22 +1,23 @@
+// src/features/Navigation/views/components/NavigationOverlay.tsx
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { styles } from '../../styles';
-import { RouteViewModel } from '../../../Route/viewmodels/RouteViewModel';
+import { NavigationViewModel } from '../../viewmodels/NavigationViewModel';
 import { Ionicons } from '@expo/vector-icons';
 
 interface NavigationOverlayProps {
-  viewModel: RouteViewModel;
+  navigationViewModel: NavigationViewModel;
 }
 
-export const NavigationOverlay: React.FC<NavigationOverlayProps> = observer(({ viewModel }) => {
-  if (!viewModel.isNavigating) return null;
+export const NavigationOverlay: React.FC<NavigationOverlayProps> = observer(({ navigationViewModel }) => {
+  if (!navigationViewModel.isNavigating) return null;
   
   const getManeuverIcon = () => {
-    if (!viewModel.currentStep) return 'arrow-forward';
+    if (!navigationViewModel.currentStep) return 'arrow-forward';
     
-    const type = viewModel.currentStep.maneuver.type;
-    const modifier = viewModel.currentStep.maneuver.modifier || '';
+    const type = navigationViewModel.currentStep.maneuver.type;
+    const modifier = navigationViewModel.currentStep.maneuver.modifier || '';
     
     if (type === 'turn') {
       if (modifier.includes('right')) return 'arrow-forward-circle';
@@ -42,7 +43,7 @@ export const NavigationOverlay: React.FC<NavigationOverlayProps> = observer(({ v
         <Text style={styles.title}>Turn-by-Turn Navigation</Text>
         <TouchableOpacity 
           style={styles.stopButton} 
-          onPress={() => viewModel.stopNavigation()}
+          onPress={() => navigationViewModel.stopNavigation()}
         >
           <Text style={styles.stopButtonText}>Exit</Text>
         </TouchableOpacity>
@@ -53,13 +54,13 @@ export const NavigationOverlay: React.FC<NavigationOverlayProps> = observer(({ v
           <Ionicons 
             name={getManeuverIcon()} 
             size={36} 
-            color={viewModel.isApproachingStep ? "#FF6B6B" : "#4080FF"} 
+            color={navigationViewModel.isApproachingStep ? "#FF6B6B" : "#4080FF"} 
           />
         </View>
         <View style={styles.instructionContainer}>
-          <Text style={styles.distance}>{viewModel.formattedStepDistance}</Text>
+          <Text style={styles.distance}>{navigationViewModel.formattedStepDistance}</Text>
           <Text style={styles.instruction}>
-            {viewModel.currentStep?.instructions || "Proceed to route"}
+            {navigationViewModel.currentStep?.instructions || "Proceed to route"}
           </Text>
         </View>
       </View>
@@ -67,11 +68,11 @@ export const NavigationOverlay: React.FC<NavigationOverlayProps> = observer(({ v
       <View style={styles.summaryContainer}>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryLabel}>Remaining</Text>
-          <Text style={styles.summaryValue}>{viewModel.formattedRemainingDistance}</Text>
+          <Text style={styles.summaryValue}>{navigationViewModel.formattedRemainingDistance}</Text>
         </View>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryLabel}>ETA</Text>
-          <Text style={styles.summaryValue}>{viewModel.formattedRemainingDuration}</Text>
+          <Text style={styles.summaryValue}>{navigationViewModel.formattedRemainingDuration}</Text>
         </View>
       </View>
     </View>

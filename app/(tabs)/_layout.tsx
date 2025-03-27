@@ -1,20 +1,28 @@
+// app/(tabs)/_layout.tsx
 import React from 'react';
 import { StatusBar, SafeAreaView, StyleSheet } from 'react-native';
 import { MainScreen } from '../src/Main/views/screens/MainScreen';
-import { RouteViewModel } from '../src/features/Route/viewmodels/RouteViewModel';
+import { MainViewModel } from '../src/Main/viewmodels/MainViewModel';
 import { initMapbox } from '../src/core/api/mapbox';
 
 // Initialize Mapbox configuration
 initMapbox();
 
-// Create a singleton instance of the RouteViewModel
-const routeViewModel = new RouteViewModel();
+// Create a singleton instance of the MainViewModel
+const mainViewModel = new MainViewModel();
 
 const App = () => {
+  // Clean up resources when the app is unmounted
+  React.useEffect(() => {
+    return () => {
+      mainViewModel.cleanup();
+    };
+  }, []);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <MainScreen viewModel={routeViewModel} />
+      <MainScreen viewModel={mainViewModel} />
     </SafeAreaView>
   );
 };

@@ -1,14 +1,15 @@
+// src/features/Search/views/components/SearchBar.tsx
 import React from 'react';
 import { View, TextInput, ActivityIndicator, FlatList, Text, TouchableOpacity } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { styles } from '../../styles';
-import { RouteViewModel } from '../../../Route/viewmodels/RouteViewModel';
+import { SearchViewModel } from '../../viewmodels/SearchViewModel';
 
 interface SearchBarProps {
-  viewModel: RouteViewModel;
+  searchViewModel: SearchViewModel;
 }
 
-export const SearchBar: React.FC<SearchBarProps> = observer(({ viewModel }) => {
+export const SearchBar: React.FC<SearchBarProps> = observer(({ searchViewModel }) => {
   // Format distance to be human readable
   const formatDistance = (distance?: number) => {
     if (!distance) return '';
@@ -26,21 +27,21 @@ export const SearchBar: React.FC<SearchBarProps> = observer(({ viewModel }) => {
         <TextInput 
           style={styles.input}
           placeholder="Enter destination address"
-          value={viewModel.searchQuery}
-          onChangeText={(text) => viewModel.setSearchQuery(text)}
+          value={searchViewModel.searchQuery}
+          onChangeText={(text) => searchViewModel.setSearchQuery(text)}
           placeholderTextColor="#888"
         />
         
-        {viewModel.searchQuery.length > 0 && (
+        {searchViewModel.searchQuery.length > 0 && (
           <TouchableOpacity 
             style={styles.clearButton} 
-            onPress={() => viewModel.clearSearch()}
+            onPress={() => searchViewModel.clearSearch()}
           >
             <Text style={styles.clearButtonText}>✕</Text>
           </TouchableOpacity>
         )}
         
-        {viewModel.isSearching && (
+        {searchViewModel.isSearching && (
           <ActivityIndicator 
             style={styles.spinner} 
             size="small" 
@@ -49,16 +50,16 @@ export const SearchBar: React.FC<SearchBarProps> = observer(({ viewModel }) => {
         )}
       </View>
       
-      {viewModel.searchResults.length > 0 && (
+      {searchViewModel.searchResults.length > 0 && (
         <FlatList
-          data={viewModel.searchResults}
+          data={searchViewModel.searchResults}
           keyExtractor={(item, index) => `result-${index}`}
           style={styles.resultsList}
           keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => (
             <TouchableOpacity 
               style={styles.resultItem}
-              onPress={() => viewModel.selectDestination(item)}
+              onPress={() => searchViewModel.selectDestination(item)}
             >
               <Text style={styles.resultText}>
                 {item.placeName}

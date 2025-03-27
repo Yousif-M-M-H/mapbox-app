@@ -4,32 +4,41 @@ import { View } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import { observer } from 'mobx-react-lite';
 import { styles } from '../../styles';
+import { MapViewModel } from '../../viewmodels/MapViewModel';
 import { RouteViewModel } from '../../../Route/viewmodels/RouteViewModel';
+import { NavigationViewModel } from '../../../Navigation/viewmodels/NavigationViewModel';
 
 interface MapViewProps {
-  viewModel: RouteViewModel;
+  mapViewModel: MapViewModel;
+  routeViewModel: RouteViewModel;
+  navigationViewModel: NavigationViewModel;
   children?: React.ReactNode;
 }
 
-export const MapViewComponent: React.FC<MapViewProps> = observer(({ viewModel, children }) => {
+export const MapViewComponent: React.FC<MapViewProps> = observer(({ 
+  mapViewModel, 
+  routeViewModel, 
+  navigationViewModel, 
+  children 
+}) => {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
   
   // Effect to fit the route on the screen when route changes
   useEffect(() => {
-    if (viewModel.showRoute && 
-        viewModel.routeGeometry.geometry.coordinates.length > 0 && 
-        !viewModel.isNavigating) {
+    if (routeViewModel.showRoute && 
+        routeViewModel.routeGeometry.geometry.coordinates.length > 0 && 
+        !navigationViewModel.isNavigating) {
       // Delay to ensure map is ready before fitting bounds
       setTimeout(() => fitToRoute(), 500);
     }
-  }, [viewModel.showRoute, viewModel.routeGeometry, viewModel.isNavigating]);
+  }, [routeViewModel.showRoute, routeViewModel.routeGeometry, navigationViewModel.isNavigating]);
   
   // Function to make camera fit the entire route
   const fitToRoute = () => {
     if (!mapRef.current || !cameraRef.current) return;
     
-    const coordinates = viewModel.routeGeometry.geometry.coordinates;
+    const coordinates = routeViewModel.routeGeometry.geometry.coordinates;
     
     if (!coordinates || coordinates.length < 2) return;
     
@@ -67,12 +76,12 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({ viewModel, c
 
   // Calculate camera options based on navigation state
   const getCameraOptions = () => {
-    const zoomLevel = viewModel.isNavigating ? 18 : 16;
-    const pitch = viewModel.isNavigating ? 45 : 0;
+    const zoomLevel = navigationViewModel.isNavigating ? 18 : 16;
+    const pitch = navigationViewModel.isNavigating ? 45 : 0;
     
     return {
       zoomLevel,
-      centerCoordinate: viewModel.userLocationCoordinate,
+      centerCoordinate: mapViewModel.userLocationCoordinate,
       pitch,
       animationDuration: 1000
     };
@@ -96,22 +105,22 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({ viewModel, c
       {/* Custom user location marker */}
       <MapboxGL.PointAnnotation
         id="userLocation"
-        coordinate={viewModel.userLocationCoordinate}
+        coordinate={mapViewModel.userLocationCoordinate}
         anchor={{x: 0.5, y: 0.5}}
       >
-        <View style={viewModel.isNavigating ? styles.navigatingMarker : styles.userMarker}>
+        <View style={navigationViewModel.isNavigating ? styles.navigatingMarker : styles.userMarker}>
           <View style={styles.markerInner} />
-          {viewModel.isNavigating && (
+          {navigationViewModel.isNavigating && (
             <View style={styles.directionIndicator} />
           )}
         </View>
       </MapboxGL.PointAnnotation>
 
-      {/* Destination marker */}
-      {viewModel.destinationLocationCoordinate && (
+      {/* Destination marker - Now using the public getter */}
+      {routeViewModel.destination && (
         <MapboxGL.PointAnnotation
           id="destinationLocation"
-          coordinate={viewModel.destinationLocationCoordinate}
+          coordinate={routeViewModel.destination}
           anchor={{x: 0.5, y: 0.5}}
         >
           <View style={styles.destinationMarker}>
@@ -121,8 +130,8 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({ viewModel, c
       )}
 
       {/* Route line */}
-      {viewModel.showRoute && viewModel.routeGeometry.geometry.coordinates.length > 0 && (
-        <MapboxGL.ShapeSource id="routeSource" shape={viewModel.routeGeometry}>
+      {routeViewModel.showRoute && routeViewModel.routeGeometry.geometry.coordinates.length > 0 && (
+        <MapboxGL.ShapeSource id="routeSource" shape={routeViewModel.routeGeometry}>
           <MapboxGL.LineLayer
             id="routeLayer"
             style={{

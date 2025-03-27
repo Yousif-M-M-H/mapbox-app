@@ -15,6 +15,13 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
   },
+  title: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
