@@ -116,7 +116,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         </View>
       </MapboxGL.PointAnnotation>
 
-      {/* Destination marker - Now using the public getter */}
+      {/* Destination marker */}
       {routeViewModel.destination && (
         <MapboxGL.PointAnnotation
           id="destinationLocation"
