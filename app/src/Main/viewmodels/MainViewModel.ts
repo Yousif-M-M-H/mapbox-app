@@ -1,10 +1,11 @@
-// src/features/Main/viewmodels/MainViewModel.ts
+// app/src/Main/viewmodels/MainViewModel.ts
 import { makeAutoObservable, reaction, runInAction } from 'mobx';
 import { Coordinate } from '../../features/Map/models/Location';
 import { MapViewModel } from '../../features/Map/viewmodels/MapViewModel';
 import { SearchViewModel } from '../../features/Search/viewmodels/SearchViewModel';
 import { RouteViewModel } from '../../features/Route/viewmodels/RouteViewModel';
 import { NavigationViewModel } from '../../features/Navigation/viewmodels/NavigationViewModel';
+import { SDSMViewModel } from '../../features/SDSM/viewmodels/SDSMViewModel';
 import { SearchResult } from '../../features/Search/models/Search';
 import { RouteModel } from '../../features/Route/models/Route';
 
@@ -13,6 +14,7 @@ export class MainViewModel {
   searchViewModel: SearchViewModel;
   routeViewModel: RouteViewModel;
   navigationViewModel: NavigationViewModel;
+  sdsmViewModel: SDSMViewModel;
   
   constructor() {
     // Create the MapViewModel first
@@ -37,6 +39,9 @@ export class MainViewModel {
       () => this.routeViewModel.routeGeometry.geometry.coordinates,
       () => this.recalculateRoute()
     );
+    
+    // Create the SDSMViewModel
+    this.sdsmViewModel = new SDSMViewModel();
     
     makeAutoObservable(this);
     
@@ -143,5 +148,6 @@ export class MainViewModel {
   
   cleanup() {
     this.navigationViewModel.cleanup();
+    this.sdsmViewModel.cleanup();
   }
 }

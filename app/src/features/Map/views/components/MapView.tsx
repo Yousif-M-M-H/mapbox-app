@@ -1,5 +1,5 @@
-// src/features/Map/views/components/MapView.tsx
-import React, { useEffect, useRef } from 'react';
+// app/src/features/Map/views/components/MapView.tsx
+import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import { observer } from 'mobx-react-lite';
@@ -7,22 +7,30 @@ import { styles } from '../../styles';
 import { MapViewModel } from '../../viewmodels/MapViewModel';
 import { RouteViewModel } from '../../../Route/viewmodels/RouteViewModel';
 import { NavigationViewModel } from '../../../Navigation/viewmodels/NavigationViewModel';
+import { SDSMLayer } from '../../../SDSM/views/components/SDSMLayer';
+import { SDSMViewModel } from '../../../SDSM/viewmodels/SDSMViewModel';
+import { SDSMVehicle } from '../../../SDSM/models/SDSMData';
 
 interface MapViewProps {
   mapViewModel: MapViewModel;
   routeViewModel: RouteViewModel;
   navigationViewModel: NavigationViewModel;
+  sdsmViewModel: SDSMViewModel;
   children?: React.ReactNode;
 }
 
 export const MapViewComponent: React.FC<MapViewProps> = observer(({ 
   mapViewModel, 
   routeViewModel, 
-  navigationViewModel, 
+  navigationViewModel,
+  sdsmViewModel,
   children 
 }) => {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
+  
+  // Add a state for selected vehicle
+  const [selectedVehicle, setSelectedVehicle] = useState<SDSMVehicle | null>(null);
   
   // Effect to fit the route on the screen when route changes
   useEffect(() => {
@@ -33,6 +41,19 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       setTimeout(() => fitToRoute(), 500);
     }
   }, [routeViewModel.showRoute, routeViewModel.routeGeometry, navigationViewModel.isNavigating]);
+  
+  // Handle vehicle selection
+  const handleVehiclePress = (vehicle: SDSMVehicle) => {
+    setSelectedVehicle(vehicle);
+    // Optionally center the map on the selected vehicle
+    if (cameraRef.current) {
+      cameraRef.current.setCamera({
+        centerCoordinate: vehicle.location.coordinates,
+        zoomLevel: 18,
+        animationDuration: 500
+      });
+    }
+  };
   
   // Function to make camera fit the entire route
   const fitToRoute = () => {
@@ -78,6 +99,16 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   const getCameraOptions = () => {
     const zoomLevel = navigationViewModel.isNavigating ? 18 : 16;
     const pitch = navigationViewModel.isNavigating ? 45 : 0;
+    
+    // If we have a selected vehicle, center on it
+    if (selectedVehicle) {
+      return {
+        zoomLevel: 18,
+        centerCoordinate: selectedVehicle.location.coordinates,
+        pitch,
+        animationDuration: 1000
+      };
+    }
     
     return {
       zoomLevel,
@@ -143,6 +174,12 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           />
         </MapboxGL.ShapeSource>
       )}
+      
+      {/* Add SDSM Layer */}
+      <SDSMLayer 
+        viewModel={sdsmViewModel}
+        onVehiclePress={handleVehiclePress}
+      />
       
       {children}
     </MapboxGL.MapView>

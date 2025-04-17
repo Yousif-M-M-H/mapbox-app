@@ -1,11 +1,8 @@
 // src/core/api/config.ts
 export const API_CONFIG = {
-  // Mapbox access token for map rendering
+  // Mapbox access token (keep this the same)
   MAPBOX_ACCESS_TOKEN: 'pk.eyJ1IjoieW9zaWZtb2hhbWVkYWluIiwiYSI6ImNtODNsNzAwMDA2YjMyanBuamhxYzNucTYifQ.KoWrvWMmp4ZhrOXkVN640Q',
   
-  // Server base URL (your computer's IP address)
-  SERVER_URL: 'http://192.168.0.112:5000',
-  
-  // API URL with /api prefix
-  API_URL: 'http://192.168.0.112:5000/api'
+    SERVER_URL: 'http://10.0.2.2:5000', // <-- Emulator's alias for localhost
+  API_URL: 'http://10.0.2.2:5000/api'
 };
