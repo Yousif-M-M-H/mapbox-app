@@ -9,8 +9,8 @@ export class SDSMViewModel {
   error: string | null = null;
   lastUpdated: Date | null = null;
   
-  // Update interval in milliseconds (e.g., 5000ms = 5 seconds)
-  updateInterval: number = 5000;
+  // Update interval in milliseconds
+  updateInterval: number = 200; // 200ms (5Hz) for refresh
   private intervalId: NodeJS.Timeout | null = null;
   
   constructor() {
@@ -32,7 +32,7 @@ export class SDSMViewModel {
       this.fetchSDSMData();
     }, this.updateInterval);
     
-    console.log(`Auto-refresh started with interval: ${this.updateInterval}ms`);
+    console.log(`SDSM auto-refresh started with interval: ${this.updateInterval}ms`);
   }
   
   /**
@@ -42,7 +42,7 @@ export class SDSMViewModel {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
-      console.log('Auto-refresh stopped');
+      console.log('SDSM auto-refresh stopped');
     }
   }
   
@@ -51,7 +51,6 @@ export class SDSMViewModel {
    */
   async fetchSDSMData() {
     this.loading = true;
-    this.error = null;
     
     try {
       const response = await SDSMService.fetchSDSMData();
@@ -60,6 +59,7 @@ export class SDSMViewModel {
         if (response.success) {
           this.vehicles = response.data;
           this.lastUpdated = new Date();
+          console.log(`Updated with ${this.vehicles.length} vehicles`);
         } else {
           this.error = 'Failed to fetch SDSM data';
         }
@@ -78,5 +78,6 @@ export class SDSMViewModel {
    */
   cleanup() {
     this.stopAutoRefresh();
+    console.log('SDSM view model cleaned up');
   }
 }

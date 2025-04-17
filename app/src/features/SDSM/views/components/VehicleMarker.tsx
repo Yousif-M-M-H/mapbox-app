@@ -10,45 +10,55 @@ interface VehicleMarkerProps {
 }
 
 export const VehicleMarker: React.FC<VehicleMarkerProps> = ({ vehicle, onPress }) => {
-  // Calculate marker size based on vehicle dimensions
-  // We'll scale the vehicle size to make it visible on the map
-  const scaleFactor = 0.5;
-  const width = Math.max(15, vehicle.size.width * scaleFactor / 10);
-  const length = Math.max(20, vehicle.size.length * scaleFactor / 10);
-  
-  // Handle rotation based on vehicle heading
+  // Use heading field for rotation
   const rotation = vehicle.heading || 0;
-  
-  // Create style based on vehicle properties
-  const getVehicleStyle = () => {
-    // You could change color based on speed, type, etc.
-    return {
-      width: width,
-      height: length,
-      borderRadius: 3,
-      backgroundColor: '#FF5722', // Vehicle color
-      borderWidth: 1,
-      borderColor: '#FFF',
-      transform: [{ rotate: `${rotation}deg` }]
-    };
-  };
   
   return (
     <MapboxGL.PointAnnotation
       id={`vehicle-${vehicle.objectID}`}
       coordinate={vehicle.location.coordinates}
-      anchor={{ x: 0.5, y: 0.5 }}
+      anchor={{x: 0.5, y: 0.5}}
       onSelected={() => onPress && onPress(vehicle)}
     >
-      <View style={[styles.vehicleMarker, getVehicleStyle()]} />
+      <View style={styles.vehicleContainer}>
+        <View 
+          style={[
+            styles.vehicleBody, 
+            { 
+              backgroundColor: '#FF0000', 
+              transform: [{ rotate: `${rotation}deg` }] 
+            }
+          ]}
+        >
+          <View style={styles.vehicleFront} />
+        </View>
+      </View>
     </MapboxGL.PointAnnotation>
   );
 };
 
 const styles = StyleSheet.create({
-  vehicleMarker: {
-    justifyContent: 'center',
+  vehicleContainer: {
     alignItems: 'center',
-    // Base styles - will be overridden by dynamic styles
+    justifyContent: 'center',
+  },
+  vehicleBody: {
+    width: 24,
+    height: 36,
+    backgroundColor: '#FF0000',
+    borderRadius: 4,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  vehicleFront: {
+    position: 'absolute',
+    top: 0,
+    width: '60%',
+    height: 5,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
   }
 });

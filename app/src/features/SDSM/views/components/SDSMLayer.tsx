@@ -1,5 +1,5 @@
 // app/src/features/SDSM/views/components/SDSMLayer.tsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { SDSMVehicle } from '../../models/SDSMData';
@@ -16,25 +16,27 @@ export const SDSMLayer: React.FC<SDSMLayerProps> = observer(({
   onVehiclePress 
 }) => {
   // Start auto-refresh when component mounts
-  React.useEffect(() => {
+  useEffect(() => {
+    console.log("SDSM Layer mounted, starting auto-refresh");
     viewModel.startAutoRefresh();
     
     // Clean up when component unmounts
     return () => {
+      console.log("SDSM Layer unmounted, cleaning up");
       viewModel.cleanup();
     };
   }, [viewModel]);
   
-  // If there are no vehicles or we're still loading the first batch, return empty
-  if (viewModel.vehicles.length === 0 && !viewModel.lastUpdated) {
-    return null;
-  }
+  // Log vehicle info for debugging
+  useEffect(() => {
+    console.log(`Rendering ${viewModel.vehicles.length} vehicles`);
+  }, [viewModel.vehicles]);
   
   return (
     <View>
       {viewModel.vehicles.map(vehicle => (
         <VehicleMarker 
-          key={`${vehicle._id}-${vehicle.objectID}`}
+          key={`vehicle-${vehicle.objectID}`}
           vehicle={vehicle}
           onPress={onVehiclePress}
         />

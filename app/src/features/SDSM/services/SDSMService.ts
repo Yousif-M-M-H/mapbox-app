@@ -13,7 +13,11 @@ export class SDSMService {
       console.log('Fetching SDSM data from API...');
       
       const url = `${API_CONFIG.API_URL}/sdsm/all?limit=${limit}`;
+      console.log('Request URL:', url);
+      
       const response = await fetch(url);
+      
+      console.log('Response status:', response.status);
       
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
@@ -21,6 +25,11 @@ export class SDSMService {
       
       const data: SDSMResponse = await response.json();
       console.log(`Received ${data.count} SDSM objects from API`);
+      
+      // Log a sample vehicle if available
+      if (data.data && data.data.length > 0) {
+        console.log('Sample vehicle:', JSON.stringify(data.data[0], null, 2));
+      }
       
       return data;
     } catch (error) {
@@ -33,17 +42,5 @@ export class SDSMService {
       };
     }
   }
-  
-  /**
-   * Filter SDSM data to only include MLK_Central intersection
-   * (This is redundant if the API already filters, but added as a safeguard)
-   */
-  static filterByIntersection(data: SDSMResponse, intersection: string = 'MLK_Central'): SDSMResponse {
-    const filteredData = data.data.filter(item => item.intersection === intersection);
-    return {
-      success: data.success,
-      count: filteredData.length,
-      data: filteredData
-    };
-  }
 }
+
