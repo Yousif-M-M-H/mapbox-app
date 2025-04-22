@@ -1,10 +1,6 @@
-// controllers/sdsmController.js
-const SDSMData = require('../models/SDSMData');
+// mongodb-server/controllers/sdsmController.js
+const SDSMData = require('../models/SDSMData'); // Add this import
 
-/**
- * Get all SDSM data (implicitly from MLK_Central)
- * @route GET /api/sdsm/all
- */
 exports.getAllSDSM = async (req, res) => {
   try {
     const { limit = 100, timestamp } = req.query;
@@ -33,10 +29,32 @@ exports.getAllSDSM = async (req, res) => {
 
     console.log(`Found ${data.length} SDSM data points`);
 
+    // Transform the data to ensure correct coordinate format
+    const transformedData = data.map(item => {
+      // Check if coordinates exist and are in the reversed format
+      if (item.location && 
+          Array.isArray(item.location.coordinates) && 
+          item.location.coordinates.length === 2) {
+        
+        // Create a new object with the same structure but swapped coordinates
+        return {
+          ...item,
+          location: {
+            ...item.location,
+            // Swap the coordinates to ensure [longitude, latitude] format for GeoJSON
+            coordinates: [item.location.coordinates[1], item.location.coordinates[0]]
+          }
+        };
+      }
+      
+      // If no coordinates or wrong format, return item unchanged
+      return item;
+    });
+
     res.json({
       success: true,
-      count: data.length,
-      data: data
+      count: transformedData.length,
+      data: transformedData
     });
   } catch (error) {
     console.error('Error fetching SDSM data:', error);

@@ -74,6 +74,6 @@ export class MapViewModel {
   
   // Calculate appropriate zoom level based on context
   get zoomLevel(): number {
-    return 16; // Default zoom level
+    return 20; // Default zoom level
   }
 }

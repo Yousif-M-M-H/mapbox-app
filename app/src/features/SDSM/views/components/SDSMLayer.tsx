@@ -15,19 +15,19 @@ export const SDSMLayer: React.FC<SDSMLayerProps> = observer(({
   viewModel, 
   onVehiclePress 
 }) => {
-  // Start auto-refresh when component mounts
+  
   useEffect(() => {
     console.log("SDSM Layer mounted, starting auto-refresh");
     viewModel.startAutoRefresh();
     
-    // Clean up when component unmounts
+  
     return () => {
       console.log("SDSM Layer unmounted, cleaning up");
       viewModel.cleanup();
     };
   }, [viewModel]);
   
-  // Log vehicle info for debugging
+  
   useEffect(() => {
     console.log(`Rendering ${viewModel.vehicles.length} vehicles`);
   }, [viewModel.vehicles]);

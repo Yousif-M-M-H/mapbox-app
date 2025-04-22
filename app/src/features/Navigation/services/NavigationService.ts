@@ -80,7 +80,7 @@ export class NavigationService {
       
       minDistance = Math.min(minDistance, distance);
       
-      // Optimization: break early if we find a very close point
+      
       if (minDistance < 5) {
         break;
       }

@@ -45,11 +45,10 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   // Handle vehicle selection
   const handleVehiclePress = (vehicle: SDSMVehicle) => {
     setSelectedVehicle(vehicle);
-    // Optionally center the map on the selected vehicle
     if (cameraRef.current) {
       cameraRef.current.setCamera({
         centerCoordinate: vehicle.location.coordinates,
-        zoomLevel: 18,
+        zoomLevel: 25,
         animationDuration: 500
       });
     }
@@ -97,7 +96,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 
   // Calculate camera options based on navigation state
   const getCameraOptions = () => {
-    const zoomLevel = navigationViewModel.isNavigating ? 18 : 16;
+    const zoomLevel = navigationViewModel.isNavigating ? 25 : 16;
     const pitch = navigationViewModel.isNavigating ? 45 : 0;
     
     // If we have a selected vehicle, center on it
