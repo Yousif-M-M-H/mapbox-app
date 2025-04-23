@@ -9,3 +9,7 @@ export interface NavigationState {
   remainingDistance: number | null;
   remainingDuration: number | null;
 }
+
+
+
+
