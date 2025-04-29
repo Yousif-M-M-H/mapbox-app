@@ -10,12 +10,16 @@ import { NavigationViewModel } from '../../../Navigation/viewmodels/NavigationVi
 import { SDSMLayer } from '../../../SDSM/views/components/SDSMLayer';
 import { SDSMViewModel } from '../../../SDSM/viewmodels/SDSMViewModel';
 import { SDSMVehicle } from '../../../SDSM/models/SDSMData';
+import { LanesViewModel } from "../../../lanes/viewmodels/LanesViewModel";
+import { LaneLayer } from "../../../lanes/views/components/LaneLayer";
+
 
 interface MapViewProps {
   mapViewModel: MapViewModel;
   routeViewModel: RouteViewModel;
   navigationViewModel: NavigationViewModel;
   sdsmViewModel: SDSMViewModel;
+  lanesViewModel: LanesViewModel;
   children?: React.ReactNode;
 }
 
@@ -24,6 +28,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   routeViewModel, 
   navigationViewModel,
   sdsmViewModel,
+  lanesViewModel,
   children 
 }) => {
   const mapRef = useRef<MapboxGL.MapView>(null);
@@ -131,6 +136,9 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         ref={cameraRef}
         {...getCameraOptions()}
       />
+
+      {/* Add Lane Layer */}
+      <LaneLayer viewModel={lanesViewModel} />
 
       {/* Custom user location marker */}
       <MapboxGL.PointAnnotation

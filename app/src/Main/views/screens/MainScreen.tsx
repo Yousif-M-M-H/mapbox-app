@@ -25,6 +25,7 @@ export const MainScreen: React.FC<MainScreenProps> = observer(({ viewModel }) =>
         routeViewModel={viewModel.routeViewModel}
         navigationViewModel={viewModel.navigationViewModel}
         sdsmViewModel={viewModel.sdsmViewModel}
+        lanesViewModel={viewModel.lanesViewModel}
       />
       
       {!viewModel.isNavigating && (

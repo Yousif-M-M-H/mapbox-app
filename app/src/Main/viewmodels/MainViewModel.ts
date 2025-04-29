@@ -6,6 +6,7 @@ import { SearchViewModel } from '../../features/Search/viewmodels/SearchViewMode
 import { RouteViewModel } from '../../features/Route/viewmodels/RouteViewModel';
 import { NavigationViewModel } from '../../features/Navigation/viewmodels/NavigationViewModel';
 import { SDSMViewModel } from '../../features/SDSM/viewmodels/SDSMViewModel';
+import { LanesViewModel } from "../../features/lanes/viewmodels/LanesViewModel";
 import { SearchResult } from '../../features/Search/models/Search';
 import { RouteModel } from '../../features/Route/models/Route';
 
@@ -15,6 +16,7 @@ export class MainViewModel {
   routeViewModel: RouteViewModel;
   navigationViewModel: NavigationViewModel;
   sdsmViewModel: SDSMViewModel;
+  lanesViewModel: LanesViewModel;
   
   constructor() {
     // Create the MapViewModel first
@@ -42,6 +44,9 @@ export class MainViewModel {
     
     // Create the SDSMViewModel
     this.sdsmViewModel = new SDSMViewModel();
+    
+    // Create the LanesViewModel
+    this.lanesViewModel = new LanesViewModel();
     
     makeAutoObservable(this);
     
@@ -149,5 +154,6 @@ export class MainViewModel {
   cleanup() {
     this.navigationViewModel.cleanup();
     this.sdsmViewModel.cleanup();
+    this.lanesViewModel.cleanup();
   }
 }
