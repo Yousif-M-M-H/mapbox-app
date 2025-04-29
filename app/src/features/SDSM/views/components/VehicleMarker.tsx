@@ -13,7 +13,7 @@ export const VehicleMarker: React.FC<VehicleMarkerProps> = ({ vehicle, onPress }
   // Use heading field for rotation
   const rotation = vehicle.heading || 0;
   
-  // Ensure coordinates are in [longitude, latitude] format
+  // Ensure coordinates are in [longitude, latitude] format for MapboxGL
   const coordinates = vehicle.location.coordinates;
   
   // Validation to ensure coordinates are valid
@@ -22,9 +22,12 @@ export const VehicleMarker: React.FC<VehicleMarkerProps> = ({ vehicle, onPress }
     return null;
   }
   
+  // For debugging
+  console.log(`Rendering vehicle ${vehicle.objectID} at [${coordinates[0]}, ${coordinates[1]}]`);
+  
   return (
     <MapboxGL.PointAnnotation
-      id={`vehicle-${vehicle.objectID}-${vehicle._id}`} // Use both ID fields for uniqueness
+      id={`vehicle-${vehicle.objectID}`}
       coordinate={coordinates}
       anchor={{x: 0.5, y: 0.5}}
       onSelected={() => onPress && onPress(vehicle)}

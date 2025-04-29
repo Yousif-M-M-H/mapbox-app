@@ -1,25 +1,26 @@
 // app/src/features/SDSM/models/SDSMData.ts
 export interface SDSMVehicle {
-    _id: string;
-    size: {
-      width: number;
-      length: number;
-    };
-    heading: number;
-    intersection: string;
-    intersectionID: string;
-    location: {
-      coordinates: [number, number]; // [longitude, latitude]
-      type: string;
-    };
+  _id?: string; // May not be present in Redis data
+  intersectionID: string;
+  intersection: string;
+  objectID: number;
+  type: string;
+  timestamp: string;
+  location: {
     type: string;
-    objectID: number;
-    speed: number;
-    timestamp: string;
-  }
-  
-  export interface SDSMResponse {
-    success: boolean;
-    count: number;
-    data: SDSMVehicle[];
-  }
+    coordinates: [number, number]; // Will be [longitude, latitude] after transformation
+  };
+  heading: number;
+  speed: number;
+  size: {
+    width: number;
+    length: number;
+  };
+  // Add any other fields from Redis data
+}
+
+export interface SDSMResponse {
+  success: boolean;
+  count: number;
+  data: SDSMVehicle[];
+}

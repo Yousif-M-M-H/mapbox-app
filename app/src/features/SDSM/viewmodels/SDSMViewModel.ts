@@ -10,7 +10,7 @@ export class SDSMViewModel {
   lastUpdated: Date | null = null;
   
   // Update interval in milliseconds
-  updateInterval: number = 200; // 200ms (5Hz) for smooth updates
+  updateInterval: number = 1000; // Increase to 1000ms (1 second) for debugging
   private intervalId: NodeJS.Timeout | null = null;
   
   constructor() {
@@ -50,34 +50,56 @@ export class SDSMViewModel {
    * Process vehicle data to ensure coordinates and headings are valid
    */
   processVehicleData(vehicles: SDSMVehicle[]): SDSMVehicle[] {
-    return vehicles.filter(vehicle => {
-      if (!vehicle.location || !Array.isArray(vehicle.location.coordinates) || vehicle.location.coordinates.length !== 2) {
-        console.warn(`Vehicle ${vehicle.objectID} has invalid location data`);
+    const validVehicles = vehicles.filter(vehicle => {
+      // Check if location exists
+      if (!vehicle.location) {
+        console.warn(`Vehicle ${vehicle.objectID} has no location data`);
+        return false;
+      }
+      
+      // Check if coordinates exist
+      if (!Array.isArray(vehicle.location.coordinates) || vehicle.location.coordinates.length !== 2) {
+        console.warn(`Vehicle ${vehicle.objectID} has invalid coordinates structure:`, 
+          JSON.stringify(vehicle.location));
         return false;
       }
       
       const [longitude, latitude] = vehicle.location.coordinates;
       
-      // Check if coordinates are numbers and within valid ranges
+      // Check if coordinates are numbers
+      if (typeof longitude !== 'number' || typeof latitude !== 'number') {
+        console.warn(`Vehicle ${vehicle.objectID} has non-numeric coordinates:`, 
+          longitude, latitude);
+        return false;
+      }
+      
+      // Check if coordinates are within valid ranges
       if (isNaN(longitude) || isNaN(latitude) || 
           Math.abs(longitude) > 180 || Math.abs(latitude) > 90) {
-        console.warn(`Vehicle ${vehicle.objectID} has invalid coordinates: [${longitude}, ${latitude}]`);
+        console.warn(`Vehicle ${vehicle.objectID} has invalid coordinate ranges:`, 
+          longitude, latitude);
         return false;
       }
       
       return true;
-    }).map(vehicle => {
-      // Normalize heading to 0-360 range
-      if (vehicle.heading !== undefined) {
-        vehicle.heading = ((vehicle.heading % 360) + 360) % 360;
+    });
+    
+    console.log(`Filtered ${vehicles.length} vehicles down to ${validVehicles.length} valid ones`);
+    
+    // Process valid vehicles
+    return validVehicles.map(vehicle => {
+      // Normalize heading to 0-360 range if it exists
+      const processedVehicle = { ...vehicle };
+      if (processedVehicle.heading !== undefined) {
+        processedVehicle.heading = ((processedVehicle.heading % 360) + 360) % 360;
       }
       
-      return vehicle;
+      return processedVehicle;
     });
   }
   
   /**
-   * Fetch SDSM data from the API
+   * Fetch SDSM data from the Redis API
    */
   async fetchSDSMData() {
     this.loading = true;
@@ -93,8 +115,11 @@ export class SDSMViewModel {
           this.vehicles = processedVehicles;
           this.lastUpdated = new Date();
           
+          console.log(`Updated with ${processedVehicles.length} vehicles`);
+          
+          // Debug - log a sample vehicle if available
           if (processedVehicles.length > 0) {
-            console.log(`Updated with ${processedVehicles.length} vehicles`);
+            console.log('Sample vehicle:', JSON.stringify(processedVehicles[0]));
           }
         } else {
           this.error = 'Failed to fetch SDSM data';

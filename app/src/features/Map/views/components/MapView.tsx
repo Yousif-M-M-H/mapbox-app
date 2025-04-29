@@ -10,9 +10,8 @@ import { NavigationViewModel } from '../../../Navigation/viewmodels/NavigationVi
 import { SDSMLayer } from '../../../SDSM/views/components/SDSMLayer';
 import { SDSMViewModel } from '../../../SDSM/viewmodels/SDSMViewModel';
 import { SDSMVehicle } from '../../../SDSM/models/SDSMData';
-import { LanesViewModel } from "../../../lanes/viewmodels/LanesViewModel";
-import { LaneLayer } from "../../../lanes/views/components/LaneLayer";
-
+import { LaneLayer } from '../../../lanes/views/components/LaneLayer';
+import { LanesViewModel } from '../../../lanes/viewmodels/LanesViewModel';
 
 interface MapViewProps {
   mapViewModel: MapViewModel;
@@ -47,8 +46,25 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     }
   }, [routeViewModel.showRoute, routeViewModel.routeGeometry, navigationViewModel.isNavigating]);
   
+  // Effect to center map on first SDSM vehicle when available
+  useEffect(() => {
+    if (sdsmViewModel.vehicles.length > 0 && cameraRef.current) {
+      const firstVehicle = sdsmViewModel.vehicles[0];
+      console.log('First SDSM vehicle detected, coordinates:', 
+        JSON.stringify(firstVehicle.location.coordinates));
+      
+      // Center on the first vehicle
+      cameraRef.current.setCamera({
+        centerCoordinate: firstVehicle.location.coordinates,
+        zoomLevel: 18,
+        animationDuration: 1000
+      });
+    }
+  }, [sdsmViewModel.vehicles.length > 0]);
+  
   // Handle vehicle selection
   const handleVehiclePress = (vehicle: SDSMVehicle) => {
+    console.log('Vehicle selected:', vehicle.objectID);
     setSelectedVehicle(vehicle);
     if (cameraRef.current) {
       cameraRef.current.setCamera({
@@ -101,7 +117,8 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 
   // Calculate camera options based on navigation state
   const getCameraOptions = () => {
-    const zoomLevel = navigationViewModel.isNavigating ? 25 : 16;
+    // If we're navigating, use a higher zoom level
+    const zoomLevel = navigationViewModel.isNavigating ? 25 : 18;
     const pitch = navigationViewModel.isNavigating ? 45 : 0;
     
     // If we have a selected vehicle, center on it
@@ -114,6 +131,21 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       };
     }
     
+    // If we have SDSM vehicles, center on the first one
+    if (sdsmViewModel.vehicles.length > 0) {
+      const firstVehicle = sdsmViewModel.vehicles[0];
+      console.log('Centering map on first SDSM vehicle:', firstVehicle.objectID, 
+        JSON.stringify(firstVehicle.location.coordinates));
+      
+      return {
+        zoomLevel: 18,
+        centerCoordinate: firstVehicle.location.coordinates,
+        pitch,
+        animationDuration: 1000
+      };
+    }
+    
+    // Default to user location
     return {
       zoomLevel,
       centerCoordinate: mapViewModel.userLocationCoordinate,

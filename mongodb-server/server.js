@@ -3,9 +3,9 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 
-// Routes import
+// Routes import (remove sdsmRoutes)
 const mapRoutes = require('./routes/mapRoutes');
-const sdsmRoutes = require('./routes/sdsmRoutes'); // Your existing routes
+// const sdsmRoutes = require('./routes/sdsmRoutes'); // Remove this line
 
 // Initialize Express app
 const app = express();
@@ -28,9 +28,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Mount routes - maintain existing SDSM routes and add new map routes
-app.use('/api/sdsm', sdsmRoutes); // Your existing route
-app.use('/api/maps', mapRoutes); // New route for map events
+// Mount routes (remove sdsmRoutes)
+// app.use('/api/sdsm', sdsmRoutes); // Remove this line
+app.use('/api/maps', mapRoutes); // Keep this line if you still need map data
 
 // 404 handler
 app.use((req, res) => {
@@ -57,5 +57,3 @@ app.listen(PORT, () => {
 });
 
 module.exports = app;
-
-
