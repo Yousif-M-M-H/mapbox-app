@@ -1,7 +1,8 @@
+// app/src/features/lanes/models/Lane.ts
 export interface LaneAttributes {
   directionalUse: number[];
-  laneType: any; // Mixed type as per MongoDB schema
-  sharedWidth: number[];
+  laneType: any; // Mixed type as per Redis schema
+  sharedWith: number[]; // Changed from sharedWidth to match Redis
 }
 
 export interface LaneLocation {
@@ -10,14 +11,14 @@ export interface LaneLocation {
 }
 
 export interface Lane {
-  _id: string;
-  connectsTo: string[];
+  _id?: string; // Make optional since Redis may not have it
+  connectsTo: any[];
   laneId: number;
   laneAttributes: LaneAttributes;
   intersectionId: number;
   location: LaneLocation;
   intersectionName: string;
-  maneuvers: string[];
+  maneuvers: any[];
   timestamp: string;
 }
 
@@ -28,4 +29,5 @@ export interface LanesResponse {
   totalPages: number;
   currentPage: number;
   data: Lane[];
+  error?: any;
 }

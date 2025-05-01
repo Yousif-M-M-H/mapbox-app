@@ -23,7 +23,7 @@ export const VehicleMarker: React.FC<VehicleMarkerProps> = ({ vehicle, onPress }
   }
   
   // For debugging
-  console.log(`Rendering vehicle ${vehicle.objectID} at [${coordinates[0]}, ${coordinates[1]}]`);
+  // console.log(`Rendering vehicle ${vehicle.objectID} at [${coordinates[0]}, ${coordinates[1]}]`);
   
   return (
     <MapboxGL.PointAnnotation

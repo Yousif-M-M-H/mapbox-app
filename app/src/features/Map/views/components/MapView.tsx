@@ -33,25 +33,25 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
   
-  // Add a state for selected vehicle
+  
   const [selectedVehicle, setSelectedVehicle] = useState<SDSMVehicle | null>(null);
   
-  // Effect to fit the route on the screen when route changes
+  
   useEffect(() => {
     if (routeViewModel.showRoute && 
         routeViewModel.routeGeometry.geometry.coordinates.length > 0 && 
         !navigationViewModel.isNavigating) {
-      // Delay to ensure map is ready before fitting bounds
+      
       setTimeout(() => fitToRoute(), 500);
     }
   }, [routeViewModel.showRoute, routeViewModel.routeGeometry, navigationViewModel.isNavigating]);
   
-  // Effect to center map on first SDSM vehicle when available
+  
   useEffect(() => {
     if (sdsmViewModel.vehicles.length > 0 && cameraRef.current) {
       const firstVehicle = sdsmViewModel.vehicles[0];
-      console.log('First SDSM vehicle detected, coordinates:', 
-        JSON.stringify(firstVehicle.location.coordinates));
+       
+        JSON.stringify(firstVehicle.location.coordinates);
       
       // Center on the first vehicle
       cameraRef.current.setCamera({
@@ -134,8 +134,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     // If we have SDSM vehicles, center on the first one
     if (sdsmViewModel.vehicles.length > 0) {
       const firstVehicle = sdsmViewModel.vehicles[0];
-      console.log('Centering map on first SDSM vehicle:', firstVehicle.objectID, 
-        JSON.stringify(firstVehicle.location.coordinates));
+        JSON.stringify(firstVehicle.location.coordinates);
       
       return {
         zoomLevel: 18,

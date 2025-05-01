@@ -1,4 +1,5 @@
 import React from 'react';
+import { View, StyleSheet } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import { Lane } from '../../models/Lane';
 
@@ -11,51 +12,65 @@ export const LaneRenderer: React.FC<LaneRendererProps> = ({
   lanes, 
   intersectionId 
 }) => {
-  // Skip rendering if no lanes
-  if (!lanes || lanes.length === 0) return null;
+  if (!lanes || lanes.length === 0) {
+    console.log(`Rendering 0 lanes`);
+    return null;
+  }
+  
+  console.log(`Rendering ${lanes.length} lanes`);
 
   return (
     <>
       {lanes.map(lane => {
-        // Create a GeoJSON feature for the lane
-        const feature = {
-          type: 'Feature',
-          geometry: {
-            type: 'LineString',
-            coordinates: lane.location.coordinates
-          },
-          properties: {
-            laneId: lane.laneId,
-            laneType: Array.isArray(lane.laneAttributes.laneType) ? lane.laneAttributes.laneType[0] : 'unknown',
-          }
-        };
-
-        // Determine lane color based on laneType
-        const isVehicleLane = 
-          lane.laneAttributes.laneType && 
-          Array.isArray(lane.laneAttributes.laneType) && 
-          lane.laneAttributes.laneType[0] === 'vehicle';
-
-        const laneColor = isVehicleLane ? '#3B82F6' : '#F59E0B';
-        const laneWidth = lane.laneAttributes.sharedWidth ? 
-          (lane.laneAttributes.sharedWidth[1] || 2) / 2 : 2;
-
+        console.log(`Rendering lane ${lane.laneId} with coordinates:`, JSON.stringify(lane.location.coordinates));
+        
+        // For debugging: Render points at each coordinate
         return (
-          <MapboxGL.ShapeSource 
-            key={`lane-${lane._id}`}
-            id={`lane-source-${lane._id}`}
-            shape={feature as any}
-          >
-            <MapboxGL.LineLayer
-              id={`lane-layer-${lane._id}`}
-              style={{
-                lineColor: laneColor,
-                lineWidth: Math.max(1, Math.min(5, laneWidth)),
-                lineCap: 'round',
-                lineJoin: 'round',
+          <>
+            {/* Render lane points as markers for debugging */}
+            {lane.location.coordinates.map((coord, index) => (
+              <MapboxGL.PointAnnotation
+                key={`lane-point-${lane.laneId}-${index}`}
+                id={`lane-point-${lane.laneId}-${index}`}
+                coordinate={coord}
+              >
+                <View style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: 6,
+                  backgroundColor: 'red',
+                  borderColor: 'white',
+                  borderWidth: 2,
+                }} />
+              </MapboxGL.PointAnnotation>
+            ))}
+            
+            {/* Render the lane as a line */}
+            <MapboxGL.ShapeSource 
+              key={`lane-${lane.laneId}`}
+              id={`lane-source-${lane.laneId}`}
+              shape={{
+                type: 'Feature',
+                geometry: {
+                  type: 'LineString',
+                  coordinates: lane.location.coordinates
+                },
+                properties: {
+                  laneId: lane.laneId
+                }
               }}
-            />
-          </MapboxGL.ShapeSource>
+            >
+              <MapboxGL.LineLayer
+                id={`lane-layer-${lane.laneId}`}
+                style={{
+                  lineColor: '#FF0000', // Bright red for visibility
+                  lineWidth: 5,         // Make it thicker
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+              />
+            </MapboxGL.ShapeSource>
+          </>
         );
       })}
     </>

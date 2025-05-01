@@ -1,34 +1,57 @@
-import { LanesResponse } from '../models/Lane';
+import { LanesResponse, Lane } from '../models/Lane';
 import { API_CONFIG } from '../../../core/api/config';
 
 export class LanesService {
-  /**
-   * Fetch lane data from the API
-   * @param limit Optional parameter to limit the number of records returned
-   * @returns Promise with lane data
-   */
-  static async fetchLanesData(limit: number = 100): Promise<LanesResponse> {
+  static async fetchLanesData(intersectionId: number = 27481): Promise<LanesResponse> {
     try {
-      console.log('Fetching map lane data from API...');
+      console.log('Fetching map lane data from Redis...');
       
-      const url = `${API_CONFIG.API_URL}/maps/all?limit=${limit}`;
+      // Build the URL with filter for MLK Central
+      let url = `${API_CONFIG.REDIS_MAP_ENDPOINT}?intersectionId=${intersectionId}`;
+      
       const response = await fetch(url);
       
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
       }
       
-      const data: LanesResponse = await response.json();
+      // Parse the response data
+      const rawData = await response.json();
       
-      // For debugging, log the first lane's coordinates if available
-      if (data.data && data.data.length > 0 && data.data[0].location) {
-        console.log('First lane coordinates:', JSON.stringify(data.data[0].location.coordinates));
+      // Handle different response formats
+      let lanesArray: any[] = [];
+      
+      if (Array.isArray(rawData)) {
+        lanesArray = rawData;
+      } else if (rawData.data && Array.isArray(rawData.data)) {
+        lanesArray = rawData.data;
+      } else if (rawData.location) {
+        // Single lane object
+        lanesArray = [rawData];
+      } else {
+        // Look for any array property
+        for (const key of Object.keys(rawData)) {
+          if (Array.isArray(rawData[key])) {
+            lanesArray = rawData[key];
+            break;
+          }
+        }
       }
       
-      return data;
+      // Simply use the data as-is without any coordinate transformation
+      // The coordinates are already in the correct format
+      
+      return {
+        success: true,
+        count: lanesArray.length,
+        totalDocuments: lanesArray.length,
+        totalPages: 1,
+        currentPage: 1,
+        data: lanesArray as Lane[]
+      };
     } catch (error) {
-      console.error('Error fetching lane data:', error);
-      // Return empty data structure on error
+      console.error('Error fetching lane data from Redis:', error);
+      
       return {
         success: false,
         count: 0,

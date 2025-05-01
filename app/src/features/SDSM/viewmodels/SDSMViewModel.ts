@@ -84,7 +84,7 @@ export class SDSMViewModel {
       return true;
     });
     
-    console.log(`Filtered ${vehicles.length} vehicles down to ${validVehicles.length} valid ones`);
+    // console.log(`Filtered ${vehicles.length} vehicles down to ${validVehicles.length} valid ones`);
     
     // Process valid vehicles
     return validVehicles.map(vehicle => {
@@ -115,11 +115,11 @@ export class SDSMViewModel {
           this.vehicles = processedVehicles;
           this.lastUpdated = new Date();
           
-          console.log(`Updated with ${processedVehicles.length} vehicles`);
+          // console.log(`Updated with ${processedVehicles.length} vehicles`);
           
           // Debug - log a sample vehicle if available
           if (processedVehicles.length > 0) {
-            console.log('Sample vehicle:', JSON.stringify(processedVehicles[0]));
+            JSON.stringify(processedVehicles[0]);
           }
         } else {
           this.error = 'Failed to fetch SDSM data';

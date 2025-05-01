@@ -29,7 +29,7 @@ export const SDSMLayer: React.FC<SDSMLayerProps> = observer(({
   
   
   useEffect(() => {
-    console.log(`Rendering ${viewModel.vehicles.length} vehicles`);
+    // console.log(`Rendering ${viewModel.vehicles.length} vehicles`);
   }, [viewModel.vehicles]);
   
   return (

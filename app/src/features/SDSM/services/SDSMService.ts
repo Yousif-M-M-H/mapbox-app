@@ -8,7 +8,7 @@ export class SDSMService {
    */
   static async fetchSDSMData(): Promise<SDSMResponse> {
     try {
-      console.log('Fetching SDSM data from Redis...');
+      // console.log('Fetching SDSM data from Redis...');
       
       // Use the Redis endpoint
       const url = 'http://10.199.1.11:9095/latest/sdsm_events';
@@ -20,10 +20,10 @@ export class SDSMService {
       
       // Parse the response data and handle different potential formats
       const rawData = await response.json();
-      console.log('Redis SDSM response type:', typeof rawData);
+      // console.log('Redis SDSM response type:', typeof rawData);
       
       // Debug the structure of the response
-      console.log('Redis SDSM response structure:', JSON.stringify(rawData).substring(0, 200) + '...');
+      JSON.stringify(rawData).substring(0, 200) + '...';
       
       // Check if the response is an array
       let vehiclesArray: any[] = [];
@@ -33,7 +33,7 @@ export class SDSMService {
         vehiclesArray = rawData;
       } else if (typeof rawData === 'object' && rawData !== null) {
         // It might be an object with an array property
-        console.log('Response is an object with keys:', Object.keys(rawData));
+       Object.keys(rawData);
         
         // Check if there's a data property that's an array
         if (rawData.data && Array.isArray(rawData.data)) {
@@ -51,7 +51,7 @@ export class SDSMService {
           
           // If no array found, convert object to array if it looks like a vehicle
           if (vehiclesArray.length === 0 && rawData.location) {
-            console.log('Converting single vehicle object to array');
+            // console.log('Converting single vehicle object to array');
             vehiclesArray = [rawData];
           }
         }
@@ -59,7 +59,7 @@ export class SDSMService {
       
       // Log the first item to debug
       if (vehiclesArray.length > 0) {
-        console.log('First SDSM item:', JSON.stringify(vehiclesArray[0]));
+        JSON.stringify(vehiclesArray[0]);
       } else {
         console.warn('No vehicles found in the response');
       }
@@ -80,7 +80,7 @@ export class SDSMService {
                 formattedCoords = [coords[1], coords[0]];
                 
                 // Log for debugging
-                console.log('Original coords:', coords, 'Transformed:', formattedCoords);
+                // console.log('Original coords:', coords, 'Transformed:', formattedCoords);
               } else {
                 console.warn('Invalid coordinate array length:', coords.length);
               }
