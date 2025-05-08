@@ -15,8 +15,7 @@ export class RouteViewModel {
   
   constructor(
     private userLocationProvider: () => [number, number],
-    private destinationProvider: () => [number, number] | null,
-    private onRouteCalculated?: (route: RouteModel) => void
+    private destinationProvider: () => [number, number] | null
   ) {
     makeAutoObservable(this);
   }
@@ -59,11 +58,6 @@ export class RouteViewModel {
           this.lastRoute = route;
           
           console.log("Route calculated successfully, coordinates:", route.coordinates.length);
-          
-          // Notify listeners that route has been calculated
-          if (this.onRouteCalculated) {
-            this.onRouteCalculated(route);
-          }
         });
       } else {
         throw new Error('Invalid route data received');
@@ -95,11 +89,6 @@ export class RouteViewModel {
         this.distance = route.distance || null;
         this.duration = route.duration || null;
         this.lastRoute = route;
-        
-        // Notify listeners that route has been calculated
-        if (this.onRouteCalculated && route) {
-          this.onRouteCalculated(route);
-        }
       });
     } catch (error) {
       console.error('Error generating simplified route:', error);

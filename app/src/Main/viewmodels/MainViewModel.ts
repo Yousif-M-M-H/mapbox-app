@@ -1,87 +1,41 @@
 // app/src/Main/viewmodels/MainViewModel.ts
-import { makeAutoObservable, reaction, runInAction } from 'mobx';
+import { makeAutoObservable } from 'mobx';
 import { Coordinate } from '../../features/Map/models/Location';
 import { MapViewModel } from '../../features/Map/viewmodels/MapViewModel';
-import { SearchViewModel } from '../../features/Search/viewmodels/SearchViewModel';
-import { RouteViewModel } from '../../features/Route/viewmodels/RouteViewModel';
-import { NavigationViewModel } from '../../features/Navigation/viewmodels/NavigationViewModel';
-import { SDSMViewModel } from '../../features/SDSM/viewmodels/SDSMViewModel';
-import { LanesViewModel } from "../../features/lanes/viewmodels/LanesViewModel";
-import { SearchResult } from '../../features/Search/models/Search';
-import { RouteModel } from '../../features/Route/models/Route';
+import { DriverViewModel } from '../../features/DriverView/models/DriverViewModel';
+import { PedestrianDetectorViewModel } from '../../features/PedestrianDetector/viewmodels/PedestrianDetectorViewModel';
 
 export class MainViewModel {
   mapViewModel: MapViewModel;
-  searchViewModel: SearchViewModel;
-  routeViewModel: RouteViewModel;
-  navigationViewModel: NavigationViewModel;
-  sdsmViewModel: SDSMViewModel;
-  lanesViewModel: LanesViewModel;
+  driverViewModel: DriverViewModel;
+  pedestrianDetectorViewModel: PedestrianDetectorViewModel;
   
   constructor() {
+    console.log('MainViewModel: Constructor initializing');
+    
     // Create the MapViewModel first
     this.mapViewModel = new MapViewModel();
     
-    // Create the SearchViewModel with a function to provide user location
-    this.searchViewModel = new SearchViewModel(
-      () => this.mapViewModel.userLocation
-    );
-    
-    // Create the RouteViewModel with necessary provider functions
-    this.routeViewModel = new RouteViewModel(
+    // Create the DriverViewModel with necessary provider functions
+    this.driverViewModel = new DriverViewModel(
       () => this.mapViewModel.userLocationCoordinate,
-      () => this.searchViewModel.destinationCoordinates,
-      (route) => this.handleRouteCalculated(route)
+      () => this.mapViewModel.getUserHeading()
     );
     
-    // Create the NavigationViewModel with necessary provider functions
-    this.navigationViewModel = new NavigationViewModel(
-      () => this.mapViewModel.userLocationCoordinate,
-      () => this.searchViewModel.destinationCoordinates,
-      () => this.routeViewModel.routeGeometry.geometry.coordinates,
-      () => this.recalculateRoute()
-    );
-    
-    // Create the SDSMViewModel
-    this.sdsmViewModel = new SDSMViewModel();
-    
-    // Create the LanesViewModel
-    this.lanesViewModel = new LanesViewModel();
+    // Create the PedestrianDetectorViewModel
+    console.log('MainViewModel: Creating PedestrianDetectorViewModel');
+    this.pedestrianDetectorViewModel = new PedestrianDetectorViewModel();
     
     makeAutoObservable(this);
     
-    // Set up critical reactions for coordination
-    this.setupReactions();
-  }
-  
-  // Set up reactions to coordinate between ViewModels
-  private setupReactions() {
-    // When destination changes, calculate a new route
-    reaction(
-      () => this.searchViewModel.selectedDestination,
-      (destination) => {
-        console.log("Destination changed, calculating route...");
-        if (destination) {
-          this.routeViewModel.calculateRoute();
-        } else {
-          this.routeViewModel.clearRoute();
-        }
-      }
-    );
-  }
-  
-  // Handle when a new route is calculated
-  private handleRouteCalculated(route: RouteModel): void {
-    console.log("Route calculated, updating navigation...");
-    if (route && route.steps) {
-      this.navigationViewModel.updateWithRoute(route);
+    // Start pedestrian detection
+    console.log('MainViewModel: Starting pedestrian monitoring');
+    try {
+      this.pedestrianDetectorViewModel.startMonitoring();
+      console.log('MainViewModel: Monitoring started successfully');
+    } catch (error) {
+      console.error('MainViewModel: Error starting monitoring:', error);
     }
-  }
-  
-  // Recalculate the route (used during navigation for rerouting)
-  private recalculateRoute() {
-    console.log("Recalculating route...");
-    this.routeViewModel.calculateRoute();
   }
   
   get isInitialized(): boolean {
@@ -89,8 +43,7 @@ export class MainViewModel {
   }
   
   get loading(): boolean {
-    return this.mapViewModel.loading || 
-           this.routeViewModel.loading;
+    return this.mapViewModel.loading;
   }
   
   get userLocation(): Coordinate {
@@ -101,59 +54,52 @@ export class MainViewModel {
     return this.mapViewModel.userLocationCoordinate;
   }
   
-  get destinationLocationCoordinate(): [number, number] | null {
-    return this.searchViewModel.destinationCoordinates;
-  }
-  
-  get isNavigating(): boolean {
-    return this.navigationViewModel.isNavigating;
-  }
-  
-  get destinationTitle(): string {
-    return this.searchViewModel.hasSelectedDestination 
-      ? `Route to ${this.searchViewModel.destinationName}`
-      : 'Enter a destination to see route';
-  }
-  
   async refreshLocation() {
     try {
       await this.mapViewModel.getCurrentLocation();
-      if (this.searchViewModel.hasSelectedDestination) {
-        this.routeViewModel.calculateRoute();
-      }
       return this.mapViewModel.userLocation;
     } catch (error) {
-      console.error('Failed to refresh location:', error);
+      console.error('MainViewModel: Failed to refresh location:', error);
       return null;
     }
   }
   
-  setSearchQuery(query: string) {
-    this.searchViewModel.setSearchQuery(query);
+  // Helper method to check if pedestrians are crossing
+  hasPedestriansCrossing(): boolean {
+    return this.pedestrianDetectorViewModel.pedestriansInCrosswalk > 0;
   }
   
-  selectDestination(result: SearchResult) {
-    console.log("Selecting destination:", result.placeName);
-    this.searchViewModel.selectDestination(result);
-    // We explicitly calculate the route here as well as in the reaction
-    // to ensure it always happens
-    this.routeViewModel.calculateRoute();
+  // Get the number of pedestrians crossing
+  getPedestriansCrossingCount(): number {
+    return this.pedestrianDetectorViewModel.pedestriansInCrosswalk;
   }
   
-  startNavigation() {
-    console.log("Starting navigation...");
-    if (!this.searchViewModel.hasSelectedDestination) return;
-    this.navigationViewModel.startNavigation();
-  }
-  
-  stopNavigation() {
-    console.log("Stopping navigation...");
-    this.navigationViewModel.stopNavigation();
+  // Force a manual check for pedestrians (for testing)
+  async checkForPedestrians(): Promise<number> {
+    console.log('MainViewModel: Manual pedestrian check requested');
+    // This will indirectly trigger a check through the PedestrianDetectorViewModel
+    // We can't call the private method directly, but we can restart monitoring
+    // which will do an immediate check
+    if (this.pedestrianDetectorViewModel.isMonitoring) {
+      this.pedestrianDetectorViewModel.stopMonitoring();
+    }
+    this.pedestrianDetectorViewModel.startMonitoring();
+    return this.pedestrianDetectorViewModel.pedestriansInCrosswalk;
   }
   
   cleanup() {
-    this.navigationViewModel.cleanup();
-    this.sdsmViewModel.cleanup();
-    this.lanesViewModel.cleanup();
+    console.log('MainViewModel: Cleanup called');
+    
+    // Clean up the pedestrian detector
+    if (this.pedestrianDetectorViewModel) {
+      this.pedestrianDetectorViewModel.cleanup();
+    }
+    
+    // Clean up the map view model
+    if (this.mapViewModel && this.mapViewModel.cleanup) {
+      this.mapViewModel.cleanup();
+    }
+    
+    console.log('MainViewModel: Cleanup complete');
   }
 }

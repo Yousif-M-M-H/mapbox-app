@@ -1,225 +1,134 @@
 // app/src/features/Map/views/components/MapView.tsx
-import React, { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, TouchableOpacity, Text } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import { observer } from 'mobx-react-lite';
 import { styles } from '../../styles';
 import { MapViewModel } from '../../viewmodels/MapViewModel';
-import { RouteViewModel } from '../../../Route/viewmodels/RouteViewModel';
-import { NavigationViewModel } from '../../../Navigation/viewmodels/NavigationViewModel';
-import { SDSMLayer } from '../../../SDSM/views/components/SDSMLayer';
-import { SDSMViewModel } from '../../../SDSM/viewmodels/SDSMViewModel';
-import { SDSMVehicle } from '../../../SDSM/models/SDSMData';
-import { LaneLayer } from '../../../lanes/views/components/LaneLayer';
-import { LanesViewModel } from '../../../lanes/viewmodels/LanesViewModel';
+import { DriverViewModel } from '../../../DriverView/models/DriverViewModel';
+import { DriverViewButton } from '../../../DriverView/views/components/DriverViewButton';
+import { CrosswalkPolygon } from '../../../Crosswalk/views/components/CrosswalkPolygon';
+import { CROSSWALK_CENTER } from '../../../Crosswalk/constants/CrosswalkCoordinates';
 
 interface MapViewProps {
   mapViewModel: MapViewModel;
-  routeViewModel: RouteViewModel;
-  navigationViewModel: NavigationViewModel;
-  sdsmViewModel: SDSMViewModel;
-  lanesViewModel: LanesViewModel;
+  driverViewModel: DriverViewModel;
   children?: React.ReactNode;
 }
 
 export const MapViewComponent: React.FC<MapViewProps> = observer(({ 
-  mapViewModel, 
-  routeViewModel, 
-  navigationViewModel,
-  sdsmViewModel,
-  lanesViewModel,
+  mapViewModel,
+  driverViewModel,
   children 
 }) => {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
   
-  
-  const [selectedVehicle, setSelectedVehicle] = useState<SDSMVehicle | null>(null);
-  
-  
+  // Update camera when heading changes in driver perspective mode
   useEffect(() => {
-    if (routeViewModel.showRoute && 
-        routeViewModel.routeGeometry.geometry.coordinates.length > 0 && 
-        !navigationViewModel.isNavigating) {
-      
-      setTimeout(() => fitToRoute(), 500);
-    }
-  }, [routeViewModel.showRoute, routeViewModel.routeGeometry, navigationViewModel.isNavigating]);
-  
-  
-  useEffect(() => {
-    if (sdsmViewModel.vehicles.length > 0 && cameraRef.current) {
-      const firstVehicle = sdsmViewModel.vehicles[0];
-       
-        JSON.stringify(firstVehicle.location.coordinates);
-      
-      // Center on the first vehicle
+    if (driverViewModel.isDriverPerspective && cameraRef.current) {
       cameraRef.current.setCamera({
-        centerCoordinate: firstVehicle.location.coordinates,
-        zoomLevel: 18,
-        animationDuration: 1000
+        centerCoordinate: mapViewModel.userLocationCoordinate,
+        heading: mapViewModel.getUserHeading(),
+        pitch: 60,
+        zoomLevel: 19,
+        animationDuration: 300
       });
     }
-  }, [sdsmViewModel.vehicles.length > 0]);
+  }, [mapViewModel.userHeading, driverViewModel.isDriverPerspective]);
   
-  // Handle vehicle selection
-  const handleVehiclePress = (vehicle: SDSMVehicle) => {
-    console.log('Vehicle selected:', vehicle.objectID);
-    setSelectedVehicle(vehicle);
+  // Handle driver view toggle
+  const handleDriverViewToggle = (isDriverView: boolean) => {
     if (cameraRef.current) {
-      cameraRef.current.setCamera({
-        centerCoordinate: vehicle.location.coordinates,
-        zoomLevel: 25,
-        animationDuration: 500
-      });
-    }
-  };
-  
-  // Function to make camera fit the entire route
-  const fitToRoute = () => {
-    if (!mapRef.current || !cameraRef.current) return;
-    
-    const coordinates = routeViewModel.routeGeometry.geometry.coordinates;
-    
-    if (!coordinates || coordinates.length < 2) return;
-    
-    try {
-      // Find the bounding box of the route
-      let minLon = coordinates[0][0];
-      let maxLon = coordinates[0][0];
-      let minLat = coordinates[0][1];
-      let maxLat = coordinates[0][1];
-      
-      coordinates.forEach(coord => {
-        if (Array.isArray(coord) && coord.length >= 2) {
-          minLon = Math.min(minLon, coord[0]);
-          maxLon = Math.max(maxLon, coord[0]);
-          minLat = Math.min(minLat, coord[1]);
-          maxLat = Math.max(maxLat, coord[1]);
-        }
-      });
-      
-      // Add some padding
-      const lonPadding = (maxLon - minLon) * 0.2;
-      const latPadding = (maxLat - minLat) * 0.2;
-      
-      // Fit the camera to the bounding box
-      cameraRef.current.fitBounds(
-        [minLon - lonPadding, minLat - latPadding],
-        [maxLon + lonPadding, maxLat + latPadding],
-        100, // Padding in pixels
-        1000 // Animation duration
-      );
-    } catch (error) {
-      console.log('Error fitting bounds:', error);
+      if (isDriverView) {
+        // Switch to driver view
+        cameraRef.current.setCamera({
+          centerCoordinate: mapViewModel.userLocationCoordinate,
+          zoomLevel: 19,
+          pitch: 60,
+          heading: mapViewModel.getUserHeading(),
+          animationDuration: 1000
+        });
+      } else {
+        // Switch back to normal view
+        cameraRef.current.setCamera({
+          centerCoordinate: mapViewModel.userLocationCoordinate,
+          zoomLevel: 18,
+          pitch: 0,
+          animationDuration: 1000
+        });
+      }
     }
   };
 
-  // Calculate camera options based on navigation state
-  const getCameraOptions = () => {
-    // If we're navigating, use a higher zoom level
-    const zoomLevel = navigationViewModel.isNavigating ? 25 : 18;
-    const pitch = navigationViewModel.isNavigating ? 45 : 0;
-    
-    // If we have a selected vehicle, center on it
-    if (selectedVehicle) {
-      return {
-        zoomLevel: 18,
-        centerCoordinate: selectedVehicle.location.coordinates,
-        pitch,
+  // Fly to crosswalk location
+  const flyToCrosswalk = () => {
+    if (cameraRef.current) {
+      cameraRef.current.setCamera({
+        centerCoordinate: CROSSWALK_CENTER,
+        zoomLevel: 19,
+        pitch: driverViewModel.isDriverPerspective ? 60 : 0,
         animationDuration: 1000
-      };
+      });
     }
-    
-    // If we have SDSM vehicles, center on the first one
-    if (sdsmViewModel.vehicles.length > 0) {
-      const firstVehicle = sdsmViewModel.vehicles[0];
-        JSON.stringify(firstVehicle.location.coordinates);
-      
-      return {
-        zoomLevel: 18,
-        centerCoordinate: firstVehicle.location.coordinates,
-        pitch,
-        animationDuration: 1000
-      };
-    }
-    
-    // Default to user location
-    return {
-      zoomLevel,
-      centerCoordinate: mapViewModel.userLocationCoordinate,
-      pitch,
-      animationDuration: 1000
-    };
   };
 
   return (
-    <MapboxGL.MapView 
-      ref={mapRef}
-      style={styles.map} 
-      styleURL="mapbox://styles/mapbox/streets-v12"
-      logoEnabled={false}
-      attributionEnabled={false}
-      compassEnabled={true}
-    >
-      {/* Use standard camera positioning instead of user tracking modes */}
-      <MapboxGL.Camera 
-        ref={cameraRef}
-        {...getCameraOptions()}
-      />
-
-      {/* Add Lane Layer */}
-      <LaneLayer viewModel={lanesViewModel} />
-
-      {/* Custom user location marker */}
-      <MapboxGL.PointAnnotation
-        id="userLocation"
-        coordinate={mapViewModel.userLocationCoordinate}
-        anchor={{x: 0.5, y: 0.5}}
+    <>
+      <MapboxGL.MapView 
+        ref={mapRef}
+        style={styles.map} 
+        styleURL="mapbox://styles/mapbox/streets-v12"
+        logoEnabled={false}
+        attributionEnabled={false}
+        compassEnabled={true}
       >
-        <View style={navigationViewModel.isNavigating ? styles.navigatingMarker : styles.userMarker}>
-          <View style={styles.markerInner} />
-          {navigationViewModel.isNavigating && (
-            <View style={styles.directionIndicator} />
-          )}
-        </View>
-      </MapboxGL.PointAnnotation>
+        <MapboxGL.Camera 
+          ref={cameraRef}
+          {...driverViewModel.getCameraParameters()}
+        />
 
-      {/* Destination marker */}
-      {routeViewModel.destination && (
+        {/* Add the CrosswalkPolygon component with debug option */}
+        <CrosswalkPolygon isHighlighted={false} />
+
+        {/* Custom user location marker */}
         <MapboxGL.PointAnnotation
-          id="destinationLocation"
-          coordinate={routeViewModel.destination}
+          id="userLocation"
+          coordinate={mapViewModel.userLocationCoordinate}
           anchor={{x: 0.5, y: 0.5}}
         >
-          <View style={styles.destinationMarker}>
+          <View style={styles.userMarker}>
             <View style={styles.markerInner} />
           </View>
         </MapboxGL.PointAnnotation>
-      )}
-
-      {/* Route line */}
-      {routeViewModel.showRoute && routeViewModel.routeGeometry.geometry.coordinates.length > 0 && (
-        <MapboxGL.ShapeSource id="routeSource" shape={routeViewModel.routeGeometry}>
-          <MapboxGL.LineLayer
-            id="routeLayer"
-            style={{
-              lineColor: '#3B82F6',
-              lineWidth: 4,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }}
-          />
-        </MapboxGL.ShapeSource>
-      )}
+        
+        {children}
+      </MapboxGL.MapView>
       
-      {/* Add SDSM Layer */}
-      <SDSMLayer 
-        viewModel={sdsmViewModel}
-        onVehiclePress={handleVehiclePress}
+      {/* Driver View Button */}
+      <DriverViewButton 
+        viewModel={driverViewModel}
+        onToggle={handleDriverViewToggle}
       />
-      
-      {children}
-    </MapboxGL.MapView>
+
+      {/* Button to fly to crosswalk */}
+      <View style={{
+        position: 'absolute', 
+        top: 20, 
+        right: 20,
+        backgroundColor: 'white',
+        padding: 10,
+        borderRadius: 5,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
+      }}>
+        <TouchableOpacity onPress={flyToCrosswalk}>
+          <Text style={{ fontWeight: 'bold' }}>Fly to Crosswalk</Text>
+        </TouchableOpacity>
+      </View>
+    </>
   );
 });
