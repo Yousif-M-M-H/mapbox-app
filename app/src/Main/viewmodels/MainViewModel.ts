@@ -8,7 +8,7 @@ import { PedestrianDetectorViewModel } from '../../features/PedestrianDetector/v
 export class MainViewModel {
   mapViewModel: MapViewModel;
   driverViewModel: DriverViewModel;
-  pedestrianDetectorViewModel: PedestrianDetectorViewModel;
+  pedestrianDetectorViewModel: PedestrianDetectorViewModel;  // Changed name from pedestrianViewModel
   
   constructor() {
     console.log('MainViewModel: Constructor initializing');
@@ -22,13 +22,13 @@ export class MainViewModel {
       () => this.mapViewModel.getUserHeading()
     );
     
-    // Create the PedestrianDetectorViewModel
+    // Create the PedestrianDetectorViewModel for pedestrian detection
     console.log('MainViewModel: Creating PedestrianDetectorViewModel');
     this.pedestrianDetectorViewModel = new PedestrianDetectorViewModel();
     
     makeAutoObservable(this);
     
-    // Start pedestrian detection
+    // Start pedestrian monitoring
     console.log('MainViewModel: Starting pedestrian monitoring');
     try {
       this.pedestrianDetectorViewModel.startMonitoring();
@@ -74,12 +74,10 @@ export class MainViewModel {
     return this.pedestrianDetectorViewModel.pedestriansInCrosswalk;
   }
   
-  // Force a manual check for pedestrians (for testing)
+  // Force a manual check for pedestrians
   async checkForPedestrians(): Promise<number> {
     console.log('MainViewModel: Manual pedestrian check requested');
-    // This will indirectly trigger a check through the PedestrianDetectorViewModel
-    // We can't call the private method directly, but we can restart monitoring
-    // which will do an immediate check
+    // This will trigger a check through the PedestrianDetectorViewModel
     if (this.pedestrianDetectorViewModel.isMonitoring) {
       this.pedestrianDetectorViewModel.stopMonitoring();
     }

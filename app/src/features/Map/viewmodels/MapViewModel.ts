@@ -49,7 +49,7 @@ export class MapViewModel {
       });
     });
     
-    console.log('Started heading tracking');
+    // console.log('Started heading tracking');
   }
   
   // Stop tracking heading
@@ -57,7 +57,7 @@ export class MapViewModel {
     if (this.headingSubscription) {
       this.headingSubscription.remove();
       this.headingSubscription = null;
-      console.log('Stopped heading tracking');
+      // console.log('Stopped heading tracking');
     }
   }
 

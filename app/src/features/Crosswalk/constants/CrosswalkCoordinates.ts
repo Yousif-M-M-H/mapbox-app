@@ -1,20 +1,19 @@
 // app/src/features/Crosswalk/constants/CrosswalkCoordinates.ts
 
-// Vertices of your KML polygon (plus repeat of first to close the ring)
-export const MLK_CENTRAL_CROSSWALK_COORDINATES: [number, number][] = [
-    [ -85.2922277761168, 35.03972096221774 ],
-    [ -85.2922264174708, 35.03970854354564 ],
-    [ -85.29212739284407, 35.0398872341007 ],
-    [ -85.29213838396562, 35.03988251214048 ],
-    [ -85.29215548477382, 35.03987781026519 ],
-    [ -85.29217050419861, 35.03987989259621 ],
-    [ -85.29224635359721, 35.03974242581815 ],
-    [ -85.2922277761168, 35.03972096221774 ], // closing point
-  ];
-  
-  // Centroid for camera centering / flyTo (average of unique vertices)
-  export const CROSSWALK_CENTER: [number, number] = [
-    -85.29218461613813,  // avg longitude
-     35.03981419724059,  // avg latitude
-  ];
-  
+// Intersection center point [latitude, longitude]
+export const INTERSECTION_CENTER: [number, number] = [35.039787, -85.292116];
+
+// Radius in meters to cover all four crosswalks at the intersection
+export const DETECTION_RADIUS: number = 25; // Adjust based on crosswalk size
+
+// For camera centering (using the format expected by the map)
+export const INTERSECTION_CENTER_LNGLAT: [number, number] = [
+  -85.292105,  // longitude
+  35.039802,   // latitude
+];
+
+
+// 35.039787, -85.292116
+
+
+

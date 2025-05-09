@@ -1,18 +1,22 @@
 // app/src/features/Crosswalk/views/components/CrosswalkPolygon.tsx
 import React from 'react';
 import MapboxGL from '@rnmapbox/maps';
-import { CROSSWALK_POLYGON } from '../../models/CrosswalkModel';
+import { CROSSWALK_CIRCLE } from '../../models/CrosswalkModel';
 import { styles } from '../../styles';
+import { observer } from 'mobx-react-lite';
 
-interface CrosswalkPolygonProps {
+interface CrosswalkCircleProps {
   isHighlighted?: boolean;
 }
 
-export const CrosswalkPolygon: React.FC<CrosswalkPolygonProps> = ({ 
+export const CrosswalkPolygon: React.FC<CrosswalkCircleProps> = observer(({ 
   isHighlighted = false 
 }) => {
   return (
-    <MapboxGL.ShapeSource id="crosswalkSource" shape={CROSSWALK_POLYGON as any}>
+    <MapboxGL.ShapeSource
+      id="crosswalkSource"
+      shape={CROSSWALK_CIRCLE}
+    >
       <MapboxGL.FillLayer
         id="crosswalkFill"
         style={{
@@ -29,4 +33,4 @@ export const CrosswalkPolygon: React.FC<CrosswalkPolygonProps> = ({
       />
     </MapboxGL.ShapeSource>
   );
-};
+});

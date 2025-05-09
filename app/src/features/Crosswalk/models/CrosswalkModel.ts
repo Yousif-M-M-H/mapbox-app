@@ -1,29 +1,24 @@
 // app/src/features/Crosswalk/models/CrosswalkModel.ts
+import type { Feature, Polygon, GeoJsonProperties } from 'geojson';
+import { INTERSECTION_CENTER_LNGLAT, DETECTION_RADIUS } from '../constants/CrosswalkCoordinates';
+import * as turf from '@turf/turf';
 
-import type { Feature, Polygon } from 'geojson';
-import { MLK_CENTRAL_CROSSWALK_COORDINATES } from '../constants/CrosswalkCoordinates';
+// Create a proper GeoJSON circle using turf.js
+const circlePolygon = turf.circle(
+  INTERSECTION_CENTER_LNGLAT, 
+  DETECTION_RADIUS / 1000, // Convert meters to kilometers for turf
+  { steps: 64, units: 'kilometers' }
+);
 
-/**
- * GeoJSON Feature<Polygon> for the MLK Central Crosswalk.
- * The explicit typing fixes the TS2345 errors in GeoUtils.ts.
- */
-export const CROSSWALK_POLYGON: Feature<Polygon, { name: string; id: string }> = {
-  type: 'Feature',                      // now a literal type
-  properties: {
-    name: 'MLK Central Crosswalk',
-    id:   'mlk_central_crosswalk',
-  },
-  geometry: {
-    type: 'Polygon',
-    coordinates: [MLK_CENTRAL_CROSSWALK_COORDINATES],
-  },
-};
+export const CROSSWALK_CIRCLE: Feature<Polygon, GeoJsonProperties> = circlePolygon;
 
 /**
  * Simple interface for pedestrian (VRU) data.
  */
 export interface Pedestrian {
-  id:        number;
-  location:  [number, number]; // [longitude, latitude]
-  timestamp: string;           // ISO‐8601 date string
+  id: number;
+  location: [number, number]; // [longitude, latitude]
+  timestamp: string;          // ISO‐8601 date string
 }
+
+
