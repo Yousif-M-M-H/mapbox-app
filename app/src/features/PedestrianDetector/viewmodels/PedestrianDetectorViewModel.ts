@@ -1,17 +1,18 @@
 // app/src/features/PedestrianDetector/viewmodels/PedestrianDetectorViewModel.ts
-import { makeAutoObservable, runInAction } from 'mobx';
+import { makeAutoObservable } from 'mobx';
 import { SDSMService } from '../../SDSM/services/SDSMService';
-import { INTERSECTION_CENTER, DETECTION_RADIUS } from '../../Crosswalk/constants/CrosswalkCoordinates';
+import { CAR_POSITION, CROSSWALK_CENTER, DETECTION_RADIUS } from '../../Crosswalk/constants/CrosswalkCoordinates';
 
 export class PedestrianDetectorViewModel {
-  pedestriansInCrosswalk: number = 0;
   isMonitoring: boolean = false;
+  pedestriansInCrosswalk: number = 0;
   
   private monitoringInterval: NodeJS.Timeout | null = null;
-  private updateFrequency: number = 1000; // Check every second
+  private updateFrequency: number = 500; // Refresh twice per second
   
   constructor() {
     makeAutoObservable(this);
+    console.log(`🚗 Car position: [${CAR_POSITION[0]}, ${CAR_POSITION[1]}]`);
   }
   
   startMonitoring(): void {
@@ -32,73 +33,99 @@ export class PedestrianDetectorViewModel {
   }
   
   /**
-   * Simple function to force specific IDs to be "crossing" for testing
+   * Simple distance calculation between two points
    */
-  private isForceDetected(id: number): boolean {
-    const forceCrossingIds = [507, 38169]; // Test IDs - you can modify this list
-    return forceCrossingIds.includes(id);
+  private distanceBetweenPoints(
+    lat1: number, lon1: number, 
+    lat2: number, lon2: number
+  ): number {
+    return Math.sqrt(
+      Math.pow(lat2 - lat1, 2) + 
+      Math.pow(lon2 - lon1, 2)
+    );
   }
   
   /**
-   * Check for pedestrians (VRUs) in the crosswalk
+   * Check if a point is near the crosswalk
+   */
+  private isPointNearCrosswalk(coordinates: [number, number]): boolean {
+    try {
+      if (!coordinates || coordinates.length !== 2) return false;
+      
+      const lat = coordinates[0];
+      const lon = coordinates[1];
+      
+      if (typeof lat !== 'number' || typeof lon !== 'number') return false;
+      
+      // Crosswalk center is [longitude, latitude]
+      const crosswalkLat = CROSSWALK_CENTER[1];
+      const crosswalkLon = CROSSWALK_CENTER[0];
+      
+      const distance = this.distanceBetweenPoints(lat, lon, crosswalkLat, crosswalkLon);
+      return distance < DETECTION_RADIUS;
+    } catch (error) {
+      console.error('Error checking if point is near crosswalk:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Check for pedestrians in the crosswalk - only logs to console
    */
   private async checkForPedestrians(): Promise<void> {
     try {
       const response = await SDSMService.fetchSDSMData();
-      let crossingPedestrians = [];
+      const pedestriansInCrosswalk: any[] = [];
       
-      if (response.success && response.data) {
-        for (const object of response.data) {
-          // Only check for VRUs (pedestrians)
-          if (object.type === 'vru') {
-            // First check if we want to force-detect this ID (for testing)
-            if (this.isForceDetected(object.objectID)) {
-              crossingPedestrians.push({ id: object.objectID });
-              continue;
-            }
+      if (response.success && response.data && Array.isArray(response.data)) {
+        // Process each object
+        for (let i = 0; i < response.data.length; i++) {
+          try {
+            const object = response.data[i];
             
-            // Otherwise check if it's in the crosswalk by coordinates
-            if (object.location?.coordinates?.length === 2) {
-              // Create a properly typed coordinate tuple
-              const coordinates: [number, number] = [
-                object.location.coordinates[0], 
-                object.location.coordinates[1]
-              ];
-              
-              // Simple distance check
-              const lon = coordinates[0];
-              const lat = coordinates[1];
-              const centerLat = INTERSECTION_CENTER[0]; 
-              const centerLon = INTERSECTION_CENTER[1];
-              
-              // Convert lat/lon degrees to meters
-              const latDiff = (lat - centerLat) * 111000;
-              const lonDiff = (lon - centerLon) * 111000 * Math.cos(centerLat * Math.PI / 180);
-              const distance = Math.sqrt(latDiff * latDiff + lonDiff * lonDiff);
-              
-              if (distance <= DETECTION_RADIUS) {
-                crossingPedestrians.push({ id: object.objectID });
-              }
+            // Skip if not a VRU
+            if (!object || !object.type || object.type !== 'vru') continue;
+            
+            // Skip if no valid coordinates
+            if (!object.location || 
+                !object.location.coordinates || 
+                !Array.isArray(object.location.coordinates) || 
+                object.location.coordinates.length !== 2) continue;
+            
+            const coordinates: [number, number] = [
+              object.location.coordinates[0],
+              object.location.coordinates[1]
+            ];
+            
+            // Check if pedestrian is in crosswalk
+            if (this.isPointNearCrosswalk(coordinates)) {
+              pedestriansInCrosswalk.push({
+                id: object.objectID || Math.floor(Math.random() * 10000),
+                coordinates: coordinates
+              });
             }
+          } catch (error) {
+            console.error('Error processing pedestrian data:', error);
           }
         }
       }
       
-      // Update count and log changes
+      // Update count
       const previousCount = this.pedestriansInCrosswalk;
-      runInAction(() => {
-        this.pedestriansInCrosswalk = crossingPedestrians.length;
-      });
+      this.pedestriansInCrosswalk = pedestriansInCrosswalk.length;
       
-      // Only log when state changes
-      if (crossingPedestrians.length > 0 && (previousCount !== crossingPedestrians.length || previousCount === 0)) {
-        console.log(` PEDESTRIAN CROSSING: ${crossingPedestrians.length} pedestrian(s) in intersection!`);
-        crossingPedestrians.forEach(ped => {
-          console.log(`  - Pedestrian ID ${ped.id} is crossing`);
-        });
-      } 
-      else if (previousCount > 0 && crossingPedestrians.length === 0) {
-        console.log('No pedestrians crossing intersection');
+      // Log warning when a pedestrian is in the crosswalk - only update console when count changes
+      if (pedestriansInCrosswalk.length > 0) {
+        if (previousCount !== pedestriansInCrosswalk.length || previousCount === 0) {
+          console.log(`\n⚠️ WARNING FOR DRIVER: ${pedestriansInCrosswalk.length} pedestrian(s) crossing the crosswalk ahead!`);
+          
+          pedestriansInCrosswalk.forEach(ped => {
+            console.log(`  - Pedestrian ID ${ped.id} is crossing at [${ped.coordinates[0]}, ${ped.coordinates[1]}]`);
+          });
+        }
+      }
+      else if (previousCount > 0 && pedestriansInCrosswalk.length === 0) {
+        console.log('\n✅ Crosswalk is now clear');
       }
     } catch (error) {
       console.error('Error checking for pedestrians:', error);
