@@ -1,36 +1,62 @@
 // app/src/features/PedestrianDetector/viewmodels/PedestrianDetectorViewModel.ts
-import { makeAutoObservable } from 'mobx';
-import { SDSMService } from '../../SDSM/services/SDSMService';
-import { CAR_POSITION, CROSSWALK_CENTER, DETECTION_RADIUS } from '../../Crosswalk/constants/CrosswalkCoordinates';
+import { makeAutoObservable, action } from 'mobx';
+import { CROSSWALK_CENTER, DETECTION_RADIUS, CAR_POSITION, CROSSWALK_POLYGON_COORDS } from '../../Crosswalk/constants/CrosswalkCoordinates';
+
+// Fixed pedestrian position for testing
+const FIXED_PEDESTRIAN: [number, number] = [35.03975520804396, -85.29202947385727]; // [lat, lon]
+
+// Distance threshold in coordinate units (approximately 10 meters)
+const PROXIMITY_WARNING_DISTANCE = 0.0001; 
+
+export interface PedestrianData {
+  id: number;
+  coordinates: [number, number]; // [latitude, longitude]
+}
 
 export class PedestrianDetectorViewModel {
   isMonitoring: boolean = false;
   pedestriansInCrosswalk: number = 0;
+  pedestrians: PedestrianData[] = [];
+  
+  // Fixed positions for testing
+  pedestrianPosition: [number, number] = FIXED_PEDESTRIAN;
+  vehiclePosition: [number, number] = CAR_POSITION;
   
   private monitoringInterval: NodeJS.Timeout | null = null;
   private updateFrequency: number = 500; // Refresh twice per second
   
   constructor() {
     makeAutoObservable(this);
-    console.log(`🚗 Car position: [${CAR_POSITION[0]}, ${CAR_POSITION[1]}]`);
+    console.log(`Fixed pedestrian position: [${FIXED_PEDESTRIAN[0]}, ${FIXED_PEDESTRIAN[1]}]`);
+    console.log(`Fixed vehicle position: [${CAR_POSITION[0]}, ${CAR_POSITION[1]}]`);
   }
   
-  startMonitoring(): void {
+  startMonitoring = action("startMonitoring", (): void => {
     if (this.isMonitoring) return;
-    this.checkForPedestrians();
+    this.checkConditions();
     this.monitoringInterval = setInterval(() => {
-      this.checkForPedestrians();
+      this.checkConditions();
     }, this.updateFrequency);
     this.isMonitoring = true;
-  }
+  });
   
-  stopMonitoring(): void {
+  stopMonitoring = action("stopMonitoring", (): void => {
     if (this.monitoringInterval) {
       clearInterval(this.monitoringInterval);
       this.monitoringInterval = null;
     }
     this.isMonitoring = false;
-  }
+  });
+  
+  /**
+   * Update the pedestrians array safely using action
+   */
+  updatePedestrians = action("updatePedestrians", 
+    (pedestrians: PedestrianData[], crosswalkCount: number): void => {
+      this.pedestrians = pedestrians;
+      this.pedestriansInCrosswalk = crosswalkCount;
+    }
+  );
   
   /**
    * Simple distance calculation between two points
@@ -46,93 +72,107 @@ export class PedestrianDetectorViewModel {
   }
   
   /**
-   * Check if a point is near the crosswalk
+   * Check if a point is inside the crosswalk polygon
    */
-  private isPointNearCrosswalk(coordinates: [number, number]): boolean {
+  private isPointInCrosswalk(coordinates: [number, number]): boolean {
     try {
-      if (!coordinates || coordinates.length !== 2) return false;
+      const point = coordinates;
+      const polygon = CROSSWALK_POLYGON_COORDS;
       
-      const lat = coordinates[0];
-      const lon = coordinates[1];
-      
-      if (typeof lat !== 'number' || typeof lon !== 'number') return false;
-      
-      // Crosswalk center is [longitude, latitude]
-      const crosswalkLat = CROSSWALK_CENTER[1];
-      const crosswalkLon = CROSSWALK_CENTER[0];
-      
-      const distance = this.distanceBetweenPoints(lat, lon, crosswalkLat, crosswalkLon);
-      return distance < DETECTION_RADIUS;
+      return this.isPointInPolygon(point, polygon);
     } catch (error) {
-      console.error('Error checking if point is near crosswalk:', error);
+      console.error('Error checking if point is in crosswalk:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Ray casting algorithm to determine if a point is inside a polygon
+   */
+  private isPointInPolygon(point: [number, number], polygon: [number, number][]): boolean {
+    // For point [lat, lon] and polygon vertices as [lon, lat]
+    const x = point[0], y = point[1];
+    let inside = false;
+    
+    // Need to remove the last point if it's the same as the first (closing point)
+    const vertices = polygon.length > 0 && polygon[0][0] === polygon[polygon.length-1][0] && 
+                    polygon[0][1] === polygon[polygon.length-1][1] ? 
+                    polygon.slice(0, -1) : polygon;
+    
+    for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+      const xi = vertices[i][1], yi = vertices[i][0]; // Note the swap: [lon, lat] to [lat, lon]
+      const xj = vertices[j][1], yj = vertices[j][0];
+      
+      const intersect = ((yi > y) !== (yj > y)) &&
+          (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    
+    return inside;
+  }
+  
+  /**
+   * Check if the fixed points are close to each other
+   */
+  private isVehicleCloseToVehicle(): boolean {
+    try {
+      const pedestrianLat = this.pedestrianPosition[0];
+      const pedestrianLon = this.pedestrianPosition[1];
+      
+      const vehicleLat = this.vehiclePosition[0];
+      const vehicleLon = this.vehiclePosition[1];
+      
+      const distance = this.distanceBetweenPoints(
+        pedestrianLat, pedestrianLon, 
+        vehicleLat, vehicleLon
+      );
+      
+      return distance < PROXIMITY_WARNING_DISTANCE;
+    } catch (error) {
+      console.error('Error checking if vehicle is close to pedestrian:', error);
       return false;
     }
   }
   
   /**
-   * Check for pedestrians in the crosswalk - only logs to console
+   * Check conditions and log warning if needed
    */
-  private async checkForPedestrians(): Promise<void> {
-    try {
-      const response = await SDSMService.fetchSDSMData();
-      const pedestriansInCrosswalk: any[] = [];
-      
-      if (response.success && response.data && Array.isArray(response.data)) {
-        // Process each object
-        for (let i = 0; i < response.data.length; i++) {
-          try {
-            const object = response.data[i];
-            
-            // Skip if not a VRU
-            if (!object || !object.type || object.type !== 'vru') continue;
-            
-            // Skip if no valid coordinates
-            if (!object.location || 
-                !object.location.coordinates || 
-                !Array.isArray(object.location.coordinates) || 
-                object.location.coordinates.length !== 2) continue;
-            
-            const coordinates: [number, number] = [
-              object.location.coordinates[0],
-              object.location.coordinates[1]
-            ];
-            
-            // Check if pedestrian is in crosswalk
-            if (this.isPointNearCrosswalk(coordinates)) {
-              pedestriansInCrosswalk.push({
-                id: object.objectID || Math.floor(Math.random() * 10000),
-                coordinates: coordinates
-              });
-            }
-          } catch (error) {
-            console.error('Error processing pedestrian data:', error);
-          }
-        }
-      }
-      
-      // Update count
-      const previousCount = this.pedestriansInCrosswalk;
-      this.pedestriansInCrosswalk = pedestriansInCrosswalk.length;
-      
-      // Log warning when a pedestrian is in the crosswalk - only update console when count changes
-      if (pedestriansInCrosswalk.length > 0) {
-        if (previousCount !== pedestriansInCrosswalk.length || previousCount === 0) {
-          console.log(`\n⚠️ WARNING FOR DRIVER: ${pedestriansInCrosswalk.length} pedestrian(s) crossing the crosswalk ahead!`);
-          
-          pedestriansInCrosswalk.forEach(ped => {
-            console.log(`  - Pedestrian ID ${ped.id} is crossing at [${ped.coordinates[0]}, ${ped.coordinates[1]}]`);
-          });
-        }
-      }
-      else if (previousCount > 0 && pedestriansInCrosswalk.length === 0) {
-        console.log('\n✅ Crosswalk is now clear');
-      }
-    } catch (error) {
-      console.error('Error checking for pedestrians:', error);
+  checkConditions(): void {
+    const isInCrosswalk = this.isPointInCrosswalk(this.pedestrianPosition);
+    const isCloseToVehicle = this.isVehicleCloseToVehicle();
+    
+    // Calculate distance in meters (rough approximation)
+    const distance = this.distanceBetweenPoints(
+      this.pedestrianPosition[0], this.pedestrianPosition[1],
+      this.vehiclePosition[0], this.vehiclePosition[1]
+    ) * 100000;
+    
+    // Create pedestrian data
+    const pedestrianData: PedestrianData = {
+      id: 9999,
+      coordinates: this.pedestrianPosition
+    };
+    
+    // Update pedestrians array and crosswalk count
+    this.updatePedestrians(
+      [pedestrianData], 
+      isInCrosswalk ? 1 : 0
+    );
+    
+    // Add specific log for crosswalk detection
+    if (isInCrosswalk) {
+      console.log(`🚶 CROSSWALK DETECTION: Pedestrian is within the crosswalk area!`);
+    } else {
+      console.log(`🚶 CROSSWALK DETECTION: Pedestrian is NOT within the crosswalk area.`);
+    }
+    
+    // Check both conditions for warning
+    if (isInCrosswalk && isCloseToVehicle) {
+      console.log(`\n🔴 WARNING: Pedestrian is crossing and vehicle is approaching (${distance.toFixed(2)} meters away)!`);
     }
   }
   
-  cleanup(): void {
+  cleanup = action("cleanup", (): void => {
     this.stopMonitoring();
-  }
+  });
 }

@@ -1,4 +1,5 @@
 // app/src/features/Map/views/components/PedestrianMarker.tsx
+
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';

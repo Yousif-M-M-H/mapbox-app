@@ -1,36 +1,19 @@
 // app/src/features/Crosswalk/constants/CrosswalkCoordinates.ts
 
 // Fixed car position near the crosswalk (latitude, longitude)
-export const CAR_POSITION: [number, number] = [35.039763, -85.291879];
+export const CAR_POSITION: [number, number] = [35.039737801369256, -85.29198081003406];
 
 // Detection radius in degrees (approximately 10 meters)
 export const DETECTION_RADIUS = 0.0001;
 
-// Calculate the center point of the crosswalk from KML
-const CROSSWALK_POLYGON_COORDS: [number, number][] = [
-  [-85.29208247618223, 35.03970460251657],
-  [-85.29204685139914, 35.03969250220254],
-  [-85.29198391854935, 35.039812725442],
-  [-85.29201539683289, 35.03983160316934],
-  [-85.29208247618223, 35.03970460251657]
+// Export the polygon coordinates
+export const CROSSWALK_POLYGON_COORDS: [number, number][] = [
+  [-85.29202787790969, 35.03977429811067],
+  [-85.29201141934844, 35.03976939792585],
+  [-85.29203386284122, 35.03973080896036],
+  [-85.29204857579744, 35.039736525845356],
+  [-85.29202787790969, 35.03977429811067]  // Closing the polygon by repeating the first point
 ];
 
-// Calculate center of the crosswalk (longitude, latitude)
-const calculateCrosswalkCenter = (): [number, number] => {
-  let lonSum = 0;
-  let latSum = 0;
-  const uniqueCoords = CROSSWALK_POLYGON_COORDS.slice(0, -1);
-  
-  for (const coord of uniqueCoords) {
-    lonSum += coord[0];
-    latSum += coord[1];
-  }
-  
-  return [
-    lonSum / uniqueCoords.length,
-    latSum / uniqueCoords.length
-  ];
-};
-
-// Crosswalk center (longitude, latitude)
-export const CROSSWALK_CENTER = calculateCrosswalkCenter();
+// Directly using the exact center point provided (longitude, latitude)
+export const CROSSWALK_CENTER: [number, number] = [-85.29202970933544, 35.03975204972481];

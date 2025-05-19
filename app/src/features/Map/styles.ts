@@ -58,4 +58,30 @@ export const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: 'white',
   },
+  pedestrianMarker: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#FF9800',  // Default orange
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  crossingPedestrian: {
+    backgroundColor: '#FF3B30',  // Bright red for pedestrians in crosswalk
+    borderColor: '#FFFF00',      // Yellow border
+    width: 20,                   // Slightly larger
+    height: 20,
+    borderRadius: 10,
+  },
+  dangerPedestrian: {
+    backgroundColor: '#FF0000',  // Bright red for pedestrians in danger
+    borderColor: '#FFFF00',      // Yellow border
+    borderWidth: 3,              // Thicker border
+    width: 24,                   // Larger size
+    height: 24,
+    borderRadius: 12,
+  },
+  
 });
