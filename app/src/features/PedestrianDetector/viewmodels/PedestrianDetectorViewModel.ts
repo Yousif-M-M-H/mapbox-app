@@ -3,7 +3,7 @@ import { makeAutoObservable, action } from 'mobx';
 import { CROSSWALK_CENTER, DETECTION_RADIUS, CAR_POSITION, CROSSWALK_POLYGON_COORDS } from '../../Crosswalk/constants/CrosswalkCoordinates';
 
 // Fixed pedestrian position for testing
-const FIXED_PEDESTRIAN: [number, number] = [35.03975520804396, -85.29202947385727]; // [lat, lon]
+const FIXED_PEDESTRIAN: [number, number] = [35.03975487886456, -85.29202903661111]; // [lat, lon]
 
 // Distance threshold in coordinate units (approximately 10 meters)
 const PROXIMITY_WARNING_DISTANCE = 0.0001; 

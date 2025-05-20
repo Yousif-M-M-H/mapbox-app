@@ -1,7 +1,7 @@
 // app/src/features/Crosswalk/constants/CrosswalkCoordinates.ts
 
 // Fixed car position near the crosswalk (latitude, longitude)
-export const CAR_POSITION: [number, number] = [35.039737801369256, -85.29198081003406];
+export const CAR_POSITION: [number, number] = [35.039731078086675, -85.29195435765939];
 
 // Detection radius in degrees (approximately 10 meters)
 export const DETECTION_RADIUS = 0.0001;
