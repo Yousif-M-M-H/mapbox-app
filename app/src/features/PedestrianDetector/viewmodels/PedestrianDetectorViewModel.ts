@@ -1,9 +1,9 @@
 // app/src/features/PedestrianDetector/viewmodels/PedestrianDetectorViewModel.ts
-import { makeAutoObservable, action } from 'mobx';
-import { CROSSWALK_CENTER, DETECTION_RADIUS, CAR_POSITION, CROSSWALK_POLYGON_COORDS } from '../../Crosswalk/constants/CrosswalkCoordinates';
+import { makeAutoObservable, action, runInAction } from 'mobx';
+import { CROSSWALK_POLYGON_COORDS } from '../../Crosswalk/constants/CrosswalkCoordinates';
 
 // Fixed pedestrian position for testing
-const FIXED_PEDESTRIAN: [number, number] = [35.03975487886456, -85.29202903661111]; // [lat, lon]
+const FIXED_PEDESTRIAN: [number, number] = [35.03976921170768, -85.29207881999284]; // [lat, lon]
 
 // Distance threshold in coordinate units (approximately 10 meters)
 const PROXIMITY_WARNING_DISTANCE = 0.0001; 
@@ -18,9 +18,11 @@ export class PedestrianDetectorViewModel {
   pedestriansInCrosswalk: number = 0;
   pedestrians: PedestrianData[] = [];
   
-  // Fixed positions for testing
+  // Fixed pedestrian position
   pedestrianPosition: [number, number] = FIXED_PEDESTRIAN;
-  vehiclePosition: [number, number] = CAR_POSITION;
+  
+  // User's position (will be used as vehicle)
+  private _vehiclePosition: [number, number] = [0, 0]; // Default value, will be updated
   
   private monitoringInterval: NodeJS.Timeout | null = null;
   private updateFrequency: number = 500; // Refresh twice per second
@@ -28,8 +30,27 @@ export class PedestrianDetectorViewModel {
   constructor() {
     makeAutoObservable(this);
     console.log(`Fixed pedestrian position: [${FIXED_PEDESTRIAN[0]}, ${FIXED_PEDESTRIAN[1]}]`);
-    console.log(`Fixed vehicle position: [${CAR_POSITION[0]}, ${CAR_POSITION[1]}]`);
   }
+  
+  // Getter for vehicle position
+  get vehiclePosition(): [number, number] {
+    return this._vehiclePosition;
+  }
+  
+  // Getter to check if vehicle is near pedestrian - used by UI
+  get isVehicleNearPedestrian(): boolean {
+    return this.isVehicleCloseToVehicle();
+  }
+  
+  // Setter for vehicle position - called when user's location updates
+  setVehiclePosition = action("setVehiclePosition", (position: [number, number]): void => {
+    this._vehiclePosition = position;
+    
+    // Check conditions immediately when position updates
+    if (this.isMonitoring) {
+      this.checkConditions();
+    }
+  });
   
   startMonitoring = action("startMonitoring", (): void => {
     if (this.isMonitoring) return;
@@ -48,9 +69,6 @@ export class PedestrianDetectorViewModel {
     this.isMonitoring = false;
   });
   
-  /**
-   * Update the pedestrians array safely using action
-   */
   updatePedestrians = action("updatePedestrians", 
     (pedestrians: PedestrianData[], crosswalkCount: number): void => {
       this.pedestrians = pedestrians;
@@ -112,15 +130,15 @@ export class PedestrianDetectorViewModel {
   }
   
   /**
-   * Check if the fixed points are close to each other
+   * Check if the vehicle is close to the pedestrian
    */
   private isVehicleCloseToVehicle(): boolean {
     try {
       const pedestrianLat = this.pedestrianPosition[0];
       const pedestrianLon = this.pedestrianPosition[1];
       
-      const vehicleLat = this.vehiclePosition[0];
-      const vehicleLon = this.vehiclePosition[1];
+      const vehicleLat = this._vehiclePosition[0];
+      const vehicleLon = this._vehiclePosition[1];
       
       const distance = this.distanceBetweenPoints(
         pedestrianLat, pedestrianLon, 
@@ -144,7 +162,7 @@ export class PedestrianDetectorViewModel {
     // Calculate distance in meters (rough approximation)
     const distance = this.distanceBetweenPoints(
       this.pedestrianPosition[0], this.pedestrianPosition[1],
-      this.vehiclePosition[0], this.vehiclePosition[1]
+      this._vehiclePosition[0], this._vehiclePosition[1]
     ) * 100000;
     
     // Create pedestrian data

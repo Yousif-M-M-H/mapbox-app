@@ -1,13 +1,16 @@
 // app/src/features/Map/views/components/MapView.tsx
-import React, { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import { observer } from 'mobx-react-lite';
 import * as Location from 'expo-location';
 import { MapViewModel } from '../../viewmodels/MapViewModel';
 import { DriverViewModel } from '../../../DriverView/models/DriverViewModel';
 import { PedestrianDetectorViewModel } from '../../../PedestrianDetector/viewmodels/PedestrianDetectorViewModel';
-import { CROSSWALK_POLYGON_COORDS } from '../../../Crosswalk/constants/CrosswalkCoordinates';
+import { 
+  CROSSWALK_CENTER, 
+  CROSSWALK_POLYGON_COORDS 
+} from '../../../Crosswalk/constants/CrosswalkCoordinates';
 
 interface MapViewProps {
   mapViewModel: MapViewModel;
@@ -24,70 +27,64 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 }) => {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
-  // State to store user's current position
-  const [userPosition, setUserPosition] = useState<[number, number] | null>(null);
   
-  // Request location permissions and start tracking location
+  // Request location permissions and start tracking
   useEffect(() => {
     let locationSubscription: Location.LocationSubscription;
     
-    const startLocationTracking = async () => {
+    const setupLocationTracking = async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        
         if (status !== 'granted') {
           console.log('Location permission denied');
           return;
         }
         
-        console.log('Location permission granted, starting tracking');
+        console.log('Starting location tracking');
         
-        // Get initial location
-        const initialLocation = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Highest
-        });
-        
-        const { longitude, latitude } = initialLocation.coords;
-        console.log(`Initial location: [${latitude}, ${longitude}]`);
-        
-        // Store position in [longitude, latitude] format for Mapbox
-        setUserPosition([longitude, latitude]);
-        
-        // Start watching for location updates
+        // Start watching position
         locationSubscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.Highest,
-            distanceInterval: 5, // Update every 5 meters
-            timeInterval: 1000  // or every 1 second
+            distanceInterval: 5,  // Update every 5 meters
+            timeInterval: 1000    // Or every 1 second
           },
           (location) => {
-            const { longitude, latitude } = location.coords;
-            console.log(`Updated location: [${latitude}, ${longitude}]`);
+            const { latitude, longitude } = location.coords;
             
-            // Update state with new position
-            setUserPosition([longitude, latitude]);
+            // Update the vehicle position in the pedestrian detector
+            pedestrianDetectorViewModel.setVehiclePosition([latitude, longitude]);
+            
+            console.log(`Location updated: [${latitude}, ${longitude}]`);
           }
         );
+        
+        // Start monitoring for pedestrians
+        pedestrianDetectorViewModel.startMonitoring();
+        
       } catch (error) {
-        console.error('Error setting up location tracking:', error);
+        console.error('Error setting up location:', error);
       }
     };
     
-    startLocationTracking();
+    setupLocationTracking();
     
     // Cleanup
     return () => {
       if (locationSubscription) {
         locationSubscription.remove();
       }
+      pedestrianDetectorViewModel.stopMonitoring();
     };
-  }, []);
+  }, [pedestrianDetectorViewModel]);
 
   // Get positions from the viewModel
   const pedestrianPosition = pedestrianDetectorViewModel.pedestrianPosition;
+  const vehiclePosition = pedestrianDetectorViewModel.vehiclePosition;
   
   // Convert for MapboxGL (which uses [lon, lat])
   const pedestrianPositionMapbox: [number, number] = [pedestrianPosition[1], pedestrianPosition[0]];
+  const vehiclePositionMapbox: [number, number] = [vehiclePosition[1], vehiclePosition[0]];
 
   // Create GeoJSON for crosswalk polygon
   const crosswalkPolygon = {
@@ -99,17 +96,6 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     }
   };
 
-  // If we have a user position, update the camera
-  useEffect(() => {
-    if (cameraRef.current && userPosition) {
-      cameraRef.current.setCamera({
-        centerCoordinate: userPosition,
-        zoomLevel: 17,
-        animationDuration: 1000,
-      });
-    }
-  }, [userPosition]);
-
   return (
     <View style={styles.container}>
       <MapboxGL.MapView 
@@ -118,39 +104,27 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         styleURL="mapbox://styles/mapbox/streets-v12"
         logoEnabled={false}
         attributionEnabled={false}
-        compassEnabled={true}
+        compassEnabled={false}
       >
         <MapboxGL.Camera 
           ref={cameraRef}
-          zoomLevel={17}
+          followUserLocation={true}
+          followZoomLevel={18}
         />
 
-        {/* Standard Mapbox user location */}
+        {/* User location from Mapbox */}
         <MapboxGL.UserLocation
           visible={true}
           showsUserHeadingIndicator={true}
-          minDisplacement={1}
         />
-        
-        {/* Custom user marker as a fallback */}
-        {userPosition && (
-          <MapboxGL.PointAnnotation
-            id="user-marker"
-            coordinate={userPosition}
-            anchor={{x: 0.5, y: 0.5}}
-          >
-            <View style={styles.userMarker}>
-              <View style={styles.userMarkerInner} />
-            </View>
-          </MapboxGL.PointAnnotation>
-        )}
 
         {/* Draw the crosswalk polygon */}
         <MapboxGL.ShapeSource id="crosswalk-polygon-source" shape={crosswalkPolygon}>
           <MapboxGL.FillLayer 
             id="crosswalk-polygon-fill" 
             style={{
-              fillColor: 'rgba(255, 255, 0, 0.4)',
+              fillColor: pedestrianDetectorViewModel.pedestriansInCrosswalk > 0 ? 
+                'rgba(255, 59, 48, 0.4)' : 'rgba(255, 255, 0, 0.4)',
               fillOutlineColor: '#FFCC00'
             }} 
           />
@@ -176,6 +150,16 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         
         {children}
       </MapboxGL.MapView>
+      
+      {/* Warning message - ONLY shows when BOTH conditions are met */}
+      {pedestrianDetectorViewModel.pedestriansInCrosswalk > 0 && 
+       pedestrianDetectorViewModel.isVehicleNearPedestrian && (
+        <View style={styles.warningContainer}>
+          <Text style={styles.warningText}>
+            Pedestrian is crossing the crosswalk!
+          </Text>
+        </View>
+      )}
     </View>
   );
 });
@@ -186,22 +170,6 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-  },
-  userMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#1E88E5', // Blue
-    borderWidth: 2,
-    borderColor: 'white',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  userMarkerInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#2196F3',
   },
   pedestrianMarker: {
     width: 18,
@@ -218,5 +186,27 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: 'white',
+  },
+  warningContainer: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(255, 59, 48, 0.9)',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  warningText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+    textAlign: 'center',
   }
 });
