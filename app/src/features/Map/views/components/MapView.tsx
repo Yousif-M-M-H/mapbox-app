@@ -117,6 +117,18 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           visible={true}
           showsUserHeadingIndicator={true}
         />
+        {/* Custom marker for user's position (vehicle) */}
+{vehiclePosition[0] !== 0 && vehiclePosition[1] !== 0 && (
+  <MapboxGL.PointAnnotation
+    id="vehicle-marker"
+    coordinate={[vehiclePosition[1], vehiclePosition[0]]} // Convert to [lon, lat]
+    anchor={{x: 0.5, y: 0.5}}
+  >
+    <View style={styles.vehicleMarker}>
+      <View style={styles.vehicleMarkerInner} />
+    </View>
+  </MapboxGL.PointAnnotation>
+)}
 
         {/* Draw the crosswalk polygon */}
         <MapboxGL.ShapeSource id="crosswalk-polygon-source" shape={crosswalkPolygon}>
@@ -171,6 +183,23 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
+  // Add to the styles object:
+vehicleMarker: {
+  width: 24,
+  height: 24,
+  borderRadius: 12,
+  backgroundColor: '#4285F4', // Blue
+  borderWidth: 2,
+  borderColor: 'white',
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+vehicleMarkerInner: {
+  width: 12,
+  height: 12,
+  borderRadius: 6,
+  backgroundColor: '#2196F3',
+},
   pedestrianMarker: {
     width: 18,
     height: 18,
