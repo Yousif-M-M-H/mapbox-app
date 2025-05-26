@@ -1,71 +1,199 @@
 // app/src/features/SDSM/services/SDSMService.ts
+import { SDSMResponse, SDSMObject, PedestrianInfo, VehicleInfo } from '../models/SDSMData';
+
 export class SDSMService {
+  private static readonly API_URL = 'http://10.199.1.11:9095/latest/sdsm_events';
+  private static readonly REQUEST_TIMEOUT = 5000; // 5 seconds
+
   /**
-   * Fetch SDSM data from Redis
-   * @returns Promise with SDSM data
+   * Fetch SDSM data from Redis endpoint
+   * @returns Promise with SDSM data including vehicles and pedestrians (VRUs)
    */
-  static async fetchSDSMData(): Promise<any> {
+  static async fetchSDSMData(): Promise<SDSMResponse | null> {
     try {
-      // Use the Redis endpoint
-      const url = 'http://10.199.1.11:9095/latest/sdsm_events';
+      console.log('Fetching SDSM data from:', this.API_URL);
       
-      const response = await fetch(url);
+      // Create abort controller for timeout (React Native compatible)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT);
+      
+      const response = await fetch(this.API_URL, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
-        console.error(`API error: ${response.status}`);
-        return { success: false, data: [] };
+        console.error(`SDSM API error: ${response.status} ${response.statusText}`);
+        return null;
       }
       
-      // Parse the response data with try/catch
-      let rawData;
-      try {
-        rawData = await response.json();
-      } catch (error) {
-        console.error('Error parsing JSON response:', error);
-        return { success: false, data: [] };
+      const rawData: SDSMResponse = await response.json();
+      console.log('Raw SDSM response:', rawData);
+      
+      if (this.isValidSDSMResponse(rawData)) {
+        this.logDataSummary(rawData);
+        return rawData;
+      } else {
+        console.warn('Invalid SDSM response structure');
+        return null;
       }
       
-      // Make sure the data is structured in a way we can use
-      let objects = [];
-      
-      try {
-        if (rawData && typeof rawData === 'object') {
-          if (rawData.objects && Array.isArray(rawData.objects)) {
-            objects = rawData.objects;
-          } else if (Array.isArray(rawData)) {
-            objects = rawData;
-          } else {
-            // Look for any array property
-            for (const key of Object.keys(rawData)) {
-              if (rawData[key] && Array.isArray(rawData[key])) {
-                objects = rawData[key];
-                break;
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error processing data structure:', error);
-      }
-      
-      // Ensure objects is always an array
-      if (!Array.isArray(objects)) {
-        objects = [];
-      }
-      
-      return {
-        success: true,
-        count: objects.length,
-        data: objects
-      };
     } catch (error) {
-      console.error('Error fetching SDSM data:', error);
-      // Return empty data structure on error
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('SDSM API request timed out');
+      } else {
+        console.error('Error fetching SDSM data:', error);
+      }
+      return null;
+    }
+  }
+  
+  /**
+   * Validate that the API response has the expected structure
+   */
+  private static isValidSDSMResponse(data: any): data is SDSMResponse {
+    return (
+      data &&
+      typeof data === 'object' &&
+      typeof data.intersectionID === 'string' &&
+      typeof data.intersection === 'string' &&
+      typeof data.timestamp === 'string' &&
+      Array.isArray(data.objects)
+    );
+  }
+  
+  /**
+   * Log summary of the fetched data
+   */
+  private static logDataSummary(data: SDSMResponse): void {
+    const vehicles = this.filterVehicles(data);
+    const pedestrians = this.filterPedestrians(data);
+    
+    console.log(`📊 SDSM Data Summary:`);
+    console.log(`- Intersection: ${data.intersection} (ID: ${data.intersectionID})`);
+    console.log(`- Timestamp: ${data.timestamp}`);
+    console.log(`- Total Objects: ${data.objects.length}`);
+    console.log(`- Vehicles: ${vehicles.length}`);
+    console.log(`- Pedestrians (VRUs): ${pedestrians.length}`);
+    
+    // Log each pedestrian position
+    pedestrians.forEach(ped => {
+      console.log(`  🚶 Pedestrian ${ped.objectID}: [${ped.location.coordinates[0]}, ${ped.location.coordinates[1]}]`);
+    });
+  }
+  
+  /**
+   * Filter SDSM data to get only pedestrians (VRUs)
+   * @param sdsmData Complete SDSM response
+   * @returns Array of pedestrian objects only
+   */
+  static filterPedestrians(sdsmData: SDSMResponse): SDSMObject[] {
+    if (!sdsmData?.objects) {
+      return [];
+    }
+    
+    return sdsmData.objects.filter(obj => obj.type === 'vru');
+  }
+  
+  /**
+   * Filter SDSM data to get only vehicles
+   * @param sdsmData Complete SDSM response  
+   * @returns Array of vehicle objects only
+   */
+  static filterVehicles(sdsmData: SDSMResponse): SDSMObject[] {
+    if (!sdsmData?.objects) {
+      return [];
+    }
+    
+    return sdsmData.objects.filter(obj => obj.type === 'vehicle');
+  }
+  
+  /**
+   * Convert SDSM pedestrian objects to simplified pedestrian info
+   * @param sdsmData Complete SDSM response
+   * @returns Array of simplified pedestrian data
+   */
+  static getPedestrianInfo(sdsmData: SDSMResponse): PedestrianInfo[] {
+    const pedestrians = this.filterPedestrians(sdsmData);
+    
+    return pedestrians.map(ped => ({
+      id: ped.objectID,
+      coordinates: ped.location.coordinates,
+      timestamp: ped.timestamp,
+      heading: ped.heading,
+      speed: ped.speed
+    }));
+  }
+  
+  /**
+   * Convert SDSM vehicle objects to simplified vehicle info
+   * @param sdsmData Complete SDSM response
+   * @returns Array of simplified vehicle data
+   */
+  static getVehicleInfo(sdsmData: SDSMResponse): VehicleInfo[] {
+    const vehicles = this.filterVehicles(sdsmData);
+    
+    return vehicles.map(vehicle => ({
+      id: vehicle.objectID,
+      coordinates: vehicle.location.coordinates,
+      timestamp: vehicle.timestamp,
+      heading: vehicle.heading,
+      speed: vehicle.speed,
+      size: vehicle.size
+    }));
+  }
+  
+  /**
+   * Get summary statistics from SDSM data
+   * @param sdsmData Complete SDSM response
+   * @returns Object with counts and statistics
+   */
+  static getDataSummary(sdsmData: SDSMResponse): {
+    totalObjects: number;
+    vehicleCount: number;
+    pedestrianCount: number;
+    intersectionName: string;
+    lastUpdate: string;
+  } {
+    if (!sdsmData?.objects) {
       return {
-        success: false,
-        count: 0,
-        data: []
+        totalObjects: 0,
+        vehicleCount: 0,
+        pedestrianCount: 0,
+        intersectionName: 'Unknown',
+        lastUpdate: 'Never'
       };
+    }
+    
+    const vehicles = this.filterVehicles(sdsmData);
+    const pedestrians = this.filterPedestrians(sdsmData);
+    
+    return {
+      totalObjects: sdsmData.objects.length,
+      vehicleCount: vehicles.length,
+      pedestrianCount: pedestrians.length,
+      intersectionName: sdsmData.intersection,
+      lastUpdate: sdsmData.timestamp
+    };
+  }
+  
+  /**
+   * Test the SDSM API connection
+   * @returns Promise<boolean> true if API is reachable and returns valid data
+   */
+  static async testConnection(): Promise<boolean> {
+    try {
+      const data = await this.fetchSDSMData();
+      return data !== null;
+    } catch (error) {
+      console.error('SDSM API connection test failed:', error);
+      return false;
     }
   }
 }

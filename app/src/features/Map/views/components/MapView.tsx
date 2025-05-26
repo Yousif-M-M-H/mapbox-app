@@ -47,7 +47,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           {
             accuracy: Location.Accuracy.Highest,
             distanceInterval: 5,  // Update every 5 meters
-            timeInterval: 1000    // Or every 1 second
+            timeInterval: 2000    // Or every 2 seconds (increased to reduce conflicts)
           },
           (location) => {
             const { latitude, longitude } = location.coords;
@@ -55,7 +55,14 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
             // Update the vehicle position in the pedestrian detector
             pedestrianDetectorViewModel.setVehiclePosition([latitude, longitude]);
             
-            console.log(`Location updated: [${latitude}, ${longitude}]`);
+            // Also update the map view model
+            mapViewModel.setUserLocation({
+              latitude,
+              longitude,
+              heading: location.coords.heading || undefined
+            });
+            
+            console.log(`Vehicle location updated: [${latitude}, ${longitude}]`);
           }
         );
         
@@ -76,15 +83,12 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       }
       pedestrianDetectorViewModel.stopMonitoring();
     };
-  }, [pedestrianDetectorViewModel]);
+  }, [pedestrianDetectorViewModel, mapViewModel]);
 
-  // Get positions from the viewModel
-  const pedestrianPosition = pedestrianDetectorViewModel.pedestrianPosition;
+  // Get real pedestrian data from the viewModel
+  const pedestrians = pedestrianDetectorViewModel.pedestrians;
   const vehiclePosition = pedestrianDetectorViewModel.vehiclePosition;
-  
-  // Convert for MapboxGL (which uses [lon, lat])
-  const pedestrianPositionMapbox: [number, number] = [pedestrianPosition[1], pedestrianPosition[0]];
-  const vehiclePositionMapbox: [number, number] = [vehiclePosition[1], vehiclePosition[0]];
+  const userLocationCoordinate = mapViewModel.userLocationCoordinate;
 
   // Create GeoJSON for crosswalk polygon
   const crosswalkPolygon = {
@@ -108,27 +112,23 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       >
         <MapboxGL.Camera 
           ref={cameraRef}
-          followUserLocation={true}
-          followZoomLevel={18}
+          centerCoordinate={userLocationCoordinate}
+          zoomLevel={18}
+          animationDuration={1000}
         />
 
-        {/* User location from Mapbox */}
-        <MapboxGL.UserLocation
-          visible={true}
-          showsUserHeadingIndicator={true}
-        />
-        {/* Custom marker for user's position (vehicle) */}
-{vehiclePosition[0] !== 0 && vehiclePosition[1] !== 0 && (
-  <MapboxGL.PointAnnotation
-    id="vehicle-marker"
-    coordinate={[vehiclePosition[1], vehiclePosition[0]]} // Convert to [lon, lat]
-    anchor={{x: 0.5, y: 0.5}}
-  >
-    <View style={styles.vehicleMarker}>
-      <View style={styles.vehicleMarkerInner} />
-    </View>
-  </MapboxGL.PointAnnotation>
-)}
+        {/* Manual user location marker instead of automatic UserLocation */}
+        {userLocationCoordinate[0] !== 0 && userLocationCoordinate[1] !== 0 && (
+          <MapboxGL.PointAnnotation
+            id="user-location"
+            coordinate={userLocationCoordinate}
+            anchor={{x: 0.5, y: 0.5}}
+          >
+            <View style={styles.userLocationMarker}>
+              <View style={styles.userLocationInner} />
+            </View>
+          </MapboxGL.PointAnnotation>
+        )}
 
         {/* Draw the crosswalk polygon */}
         <MapboxGL.ShapeSource id="crosswalk-polygon-source" shape={crosswalkPolygon}>
@@ -149,16 +149,19 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           />
         </MapboxGL.ShapeSource>
         
-        {/* Display fixed pedestrian */}
-        <MapboxGL.PointAnnotation
-          id="pedestrian-fixed"
-          coordinate={pedestrianPositionMapbox}
-          anchor={{x: 0.5, y: 0.5}}
-        >
-          <View style={styles.pedestrianMarker}>
-            <View style={styles.markerInner} />
-          </View>
-        </MapboxGL.PointAnnotation>
+        {/* Display all real pedestrians from SDSM data */}
+        {pedestrians.map((pedestrian) => (
+          <MapboxGL.PointAnnotation
+            key={`pedestrian-${pedestrian.id}`}
+            id={`pedestrian-${pedestrian.id}`}
+            coordinate={[pedestrian.coordinates[1], pedestrian.coordinates[0]]} // Convert [lat, lon] to [lon, lat]
+            anchor={{x: 0.5, y: 0.5}}
+          >
+            <View style={styles.pedestrianMarker}>
+              <View style={styles.markerInner} />
+            </View>
+          </MapboxGL.PointAnnotation>
+        ))}
         
         {children}
       </MapboxGL.MapView>
@@ -183,23 +186,38 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  // Add to the styles object:
-vehicleMarker: {
-  width: 24,
-  height: 24,
-  borderRadius: 12,
-  backgroundColor: '#4285F4', // Blue
-  borderWidth: 2,
-  borderColor: 'white',
-  justifyContent: 'center',
-  alignItems: 'center',
-},
-vehicleMarkerInner: {
-  width: 12,
-  height: 12,
-  borderRadius: 6,
-  backgroundColor: '#2196F3',
-},
+  userLocationMarker: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#4285F4', // Blue
+    borderWidth: 3,
+    borderColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userLocationInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'white',
+  },
+  vehicleMarker: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#4285F4', // Blue
+    borderWidth: 2,
+    borderColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  vehicleMarkerInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#2196F3',
+  },
   pedestrianMarker: {
     width: 18,
     height: 18,

@@ -119,3 +119,5 @@ export class MapViewModel {
     this.stopHeadingTracking();
   }
 }
+
+//when im in the street driving the blue marker is position is not accurate like for example it's shifted to the right while am in the street but it appears am in the crosswalk...is this issue fixable?

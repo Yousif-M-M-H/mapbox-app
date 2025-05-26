@@ -2,15 +2,37 @@
 import { makeAutoObservable, action, runInAction } from 'mobx';
 import { CROSSWALK_POLYGON_COORDS } from '../../Crosswalk/constants/CrosswalkCoordinates';
 
-// Fixed pedestrian position for testing
-const FIXED_PEDESTRIAN: [number, number] = [35.03976921170768, -85.29207881999284]; // [lat, lon]
-
-// Distance threshold in coordinate units (approximately 10 meters)
+// Distance threshold in coordinate units (approximately 10 meters or less)
 const PROXIMITY_WARNING_DISTANCE = 0.0001; 
 
 export interface PedestrianData {
   id: number;
   coordinates: [number, number]; // [latitude, longitude]
+  timestamp: string;
+  heading?: number;
+  speed?: number;
+}
+
+// Define the expected API response structure
+interface SDSMApiResponse {
+  intersectionID: string;
+  intersection: string;
+  timestamp: string;
+  objects: Array<{
+    objectID: number;
+    type: 'vehicle' | 'vru';
+    timestamp: string;
+    location: {
+      type: string;
+      coordinates: [number, number];
+    };
+    heading?: number;
+    speed?: number;
+    size?: {
+      width: number | null;
+      length: number | null;
+    };
+  }>;
 }
 
 export class PedestrianDetectorViewModel {
@@ -18,18 +40,15 @@ export class PedestrianDetectorViewModel {
   pedestriansInCrosswalk: number = 0;
   pedestrians: PedestrianData[] = [];
   
-  // Fixed pedestrian position
-  pedestrianPosition: [number, number] = FIXED_PEDESTRIAN;
-  
   // User's position (will be used as vehicle)
-  private _vehiclePosition: [number, number] = [0, 0]; // Default value, will be updated
+  private _vehiclePosition: [number, number] = [0, 0];
   
   private monitoringInterval: NodeJS.Timeout | null = null;
-  private updateFrequency: number = 500; // Refresh twice per second
+  private updateFrequency: number = 2000; // Check every 2 seconds for real data
   
   constructor() {
     makeAutoObservable(this);
-    console.log(`Fixed pedestrian position: [${FIXED_PEDESTRIAN[0]}, ${FIXED_PEDESTRIAN[1]}]`);
+    console.log('PedestrianDetectorViewModel: Initialized with real SDSM data');
   }
   
   // Getter for vehicle position
@@ -37,9 +56,11 @@ export class PedestrianDetectorViewModel {
     return this._vehiclePosition;
   }
   
-  // Getter to check if vehicle is near pedestrian - used by UI
+  // Getter to check if vehicle is near any pedestrian (10 meters or less)
   get isVehicleNearPedestrian(): boolean {
-    return this.isVehicleCloseToVehicle();
+    return this.pedestrians.some(pedestrian => 
+      this.isVehicleCloseToPosition(pedestrian.coordinates)
+    );
   }
   
   // Setter for vehicle position - called when user's location updates
@@ -54,11 +75,17 @@ export class PedestrianDetectorViewModel {
   
   startMonitoring = action("startMonitoring", (): void => {
     if (this.isMonitoring) return;
-    this.checkConditions();
-    this.monitoringInterval = setInterval(() => {
-      this.checkConditions();
-    }, this.updateFrequency);
+    
+    console.log('Starting real-time pedestrian monitoring...');
     this.isMonitoring = true;
+    
+    // Fetch data immediately
+    this.fetchAndUpdatePedestrianData();
+    
+    // Set up periodic updates
+    this.monitoringInterval = setInterval(() => {
+      this.fetchAndUpdatePedestrianData();
+    }, this.updateFrequency);
   });
   
   stopMonitoring = action("stopMonitoring", (): void => {
@@ -67,14 +94,76 @@ export class PedestrianDetectorViewModel {
       this.monitoringInterval = null;
     }
     this.isMonitoring = false;
+    console.log('Stopped pedestrian monitoring');
   });
   
-  updatePedestrians = action("updatePedestrians", 
-    (pedestrians: PedestrianData[], crosswalkCount: number): void => {
-      this.pedestrians = pedestrians;
-      this.pedestriansInCrosswalk = crosswalkCount;
+  /**
+   * Fetch real pedestrian data from SDSM API
+   */
+  private async fetchAndUpdatePedestrianData(): Promise<void> {
+    try {
+      const url = 'http://10.199.1.11:9095/latest/sdsm_events';
+      
+      // Create abort controller for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        console.error(`SDSM API error: ${response.status}`);
+        return;
+      }
+      
+      const rawData: SDSMApiResponse = await response.json();
+      
+      if (rawData && rawData.objects && Array.isArray(rawData.objects)) {
+        // Filter for VRU (pedestrian) objects only
+        const pedestrianObjects = rawData.objects.filter(obj => obj.type === 'vru');
+        
+        console.log(`Found ${pedestrianObjects.length} pedestrians in SDSM data`);
+        
+        // Convert to our pedestrian data format
+        const pedestrianData: PedestrianData[] = pedestrianObjects.map(obj => ({
+          id: obj.objectID,
+          coordinates: obj.location.coordinates, // [lat, lon]
+          timestamp: obj.timestamp,
+          heading: obj.heading,
+          speed: obj.speed
+        }));
+        
+        // Update pedestrian data
+        runInAction(() => {
+          this.pedestrians = pedestrianData;
+        });
+        
+        // Check conditions with new data
+        this.checkConditions();
+      } else {
+        console.warn('No valid objects array in SDSM data');
+        runInAction(() => {
+          this.pedestrians = [];
+          this.pedestriansInCrosswalk = 0;
+        });
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('SDSM API request timed out');
+      } else {
+        console.error('Error fetching SDSM data:', error);
+      }
+      // Don't clear existing data on error, just log it
     }
-  );
+  }
   
   /**
    * Simple distance calculation between two points
@@ -108,11 +197,9 @@ export class PedestrianDetectorViewModel {
    * Ray casting algorithm to determine if a point is inside a polygon
    */
   private isPointInPolygon(point: [number, number], polygon: [number, number][]): boolean {
-    // For point [lat, lon] and polygon vertices as [lon, lat]
     const x = point[0], y = point[1];
     let inside = false;
     
-    // Need to remove the last point if it's the same as the first (closing point)
     const vertices = polygon.length > 0 && polygon[0][0] === polygon[polygon.length-1][0] && 
                     polygon[0][1] === polygon[polygon.length-1][1] ? 
                     polygon.slice(0, -1) : polygon;
@@ -130,12 +217,12 @@ export class PedestrianDetectorViewModel {
   }
   
   /**
-   * Check if the vehicle is close to the pedestrian
+   * Check if the vehicle is close to a specific position (10 meters or less)
    */
-  private isVehicleCloseToVehicle(): boolean {
+  private isVehicleCloseToPosition(pedestrianPosition: [number, number]): boolean {
     try {
-      const pedestrianLat = this.pedestrianPosition[0];
-      const pedestrianLon = this.pedestrianPosition[1];
+      const pedestrianLat = pedestrianPosition[0];
+      const pedestrianLon = pedestrianPosition[1];
       
       const vehicleLat = this._vehiclePosition[0];
       const vehicleLon = this._vehiclePosition[1];
@@ -145,7 +232,7 @@ export class PedestrianDetectorViewModel {
         vehicleLat, vehicleLon
       );
       
-      return distance < PROXIMITY_WARNING_DISTANCE;
+      return distance <= PROXIMITY_WARNING_DISTANCE;
     } catch (error) {
       console.error('Error checking if vehicle is close to pedestrian:', error);
       return false;
@@ -153,44 +240,53 @@ export class PedestrianDetectorViewModel {
   }
   
   /**
-   * Check conditions and log warning if needed
+   * Check conditions and update crosswalk count
    */
   checkConditions(): void {
-    const isInCrosswalk = this.isPointInCrosswalk(this.pedestrianPosition);
-    const isCloseToVehicle = this.isVehicleCloseToVehicle();
+    let pedestriansInCrosswalkCount = 0;
+    let hasCloseVehicle = false;
     
-    // Calculate distance in meters (rough approximation)
-    const distance = this.distanceBetweenPoints(
-      this.pedestrianPosition[0], this.pedestrianPosition[1],
-      this._vehiclePosition[0], this._vehiclePosition[1]
-    ) * 100000;
+    // Check each pedestrian
+    this.pedestrians.forEach(pedestrian => {
+      const isInCrosswalk = this.isPointInCrosswalk(pedestrian.coordinates);
+      const isCloseToVehicle = this.isVehicleCloseToPosition(pedestrian.coordinates);
+      
+      if (isInCrosswalk) {
+        pedestriansInCrosswalkCount++;
+        console.log(`🚶 Pedestrian ${pedestrian.id} is in crosswalk at [${pedestrian.coordinates[0]}, ${pedestrian.coordinates[1]}]`);
+      }
+      
+      if (isCloseToVehicle) {
+        hasCloseVehicle = true;
+        const distance = this.distanceBetweenPoints(
+          pedestrian.coordinates[0], pedestrian.coordinates[1],
+          this._vehiclePosition[0], this._vehiclePosition[1]
+        ) * 100000; // Convert to approximate meters
+        
+        console.log(`🚗 Vehicle is ${distance.toFixed(2)}m from pedestrian ${pedestrian.id}`);
+      }
+      
+      // Log warning if both conditions are met
+      if (isInCrosswalk && isCloseToVehicle) {
+        const distance = this.distanceBetweenPoints(
+          pedestrian.coordinates[0], pedestrian.coordinates[1],
+          this._vehiclePosition[0], this._vehiclePosition[1]
+        ) * 100000;
+        
+        console.log(`\n🔴 WARNING: Pedestrian ${pedestrian.id} is crossing and vehicle is approaching (${distance.toFixed(2)} meters away)!`);
+      }
+    });
     
-    // Create pedestrian data
-    const pedestrianData: PedestrianData = {
-      id: 9999,
-      coordinates: this.pedestrianPosition
-    };
+    // Update the observable state
+    runInAction(() => {
+      this.pedestriansInCrosswalk = pedestriansInCrosswalkCount;
+    });
     
-    // Update pedestrians array and crosswalk count
-    this.updatePedestrians(
-      [pedestrianData], 
-      isInCrosswalk ? 1 : 0
-    );
-    
-    // Add specific log for crosswalk detection
-    if (isInCrosswalk) {
-      console.log(`🚶 CROSSWALK DETECTION: Pedestrian is within the crosswalk area!`);
-    } else {
-      console.log(`🚶 CROSSWALK DETECTION: Pedestrian is NOT within the crosswalk area.`);
-    }
-    
-    // Check both conditions for warning
-    if (isInCrosswalk && isCloseToVehicle) {
-      console.log(`\n🔴 WARNING: Pedestrian is crossing and vehicle is approaching (${distance.toFixed(2)} meters away)!`);
-    }
+    console.log(`📊 Status: ${pedestriansInCrosswalkCount} pedestrians in crosswalk, vehicle proximity: ${hasCloseVehicle}`);
   }
   
   cleanup = action("cleanup", (): void => {
     this.stopMonitoring();
+    console.log('PedestrianDetectorViewModel: Cleaned up');
   });
 }
