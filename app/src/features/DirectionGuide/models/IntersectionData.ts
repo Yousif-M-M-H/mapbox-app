@@ -1,8 +1,8 @@
+// app/src/features/DirectionGuide/models/IntersectionData.ts
 import { AllowedTurn, ApproachDirection } from './DirectionTypes';
 
 /**
- * Interface representing raw map data from the API
- * Based on the sample data structure from http://10.199.1.11:9095/latest/map_events
+ * Interface representing raw map data from the API for a single lane
  */
 export interface MapEventData {
   intersectionId: number;
@@ -23,13 +23,24 @@ export interface MapEventData {
 }
 
 /**
+ * Interface representing multiple lanes data from the API
+ */
+export interface MultiLaneMapData {
+  intersectionId: number;
+  intersectionName: string;
+  timestamp: string;
+  lanes: MapEventData[];
+}
+
+/**
  * Interface representing processed intersection data for the view model
  */
 export interface ProcessedIntersectionData {
   intersectionId: number;
   intersectionName: string;
   approachDirection: ApproachDirection;
-  allowedTurns: AllowedTurn[];
+  allAllowedTurns: AllowedTurn[]; // Combined from all lanes
+  totalLanes: number;
   coordinates: [number, number][];
   timestamp: string;
 }

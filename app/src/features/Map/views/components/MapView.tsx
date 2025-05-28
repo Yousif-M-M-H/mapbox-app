@@ -7,6 +7,9 @@ import * as Location from 'expo-location';
 import { MapViewModel } from '../../viewmodels/MapViewModel';
 import { DriverViewModel } from '../../../DriverView/models/DriverViewModel';
 import { PedestrianDetectorViewModel } from '../../../PedestrianDetector/viewmodels/PedestrianDetectorViewModel';
+import { TestingPedestrianDetectorViewModel } from '../../../../testingFeatures/testingPedestrianDetectorFeatureTest/viewmodels/TestingPedestrianDetectorViewModel';
+import { DirectionGuideViewModel } from '../../../DirectionGuide/viewModels/DirectionGuideViewModel';
+import { TurnGuideDisplay } from '../../../DirectionGuide/views/components/TurnGuideDisplay';
 import { 
   CROSSWALK_CENTER, 
   CROSSWALK_POLYGON_COORDS 
@@ -15,7 +18,10 @@ import {
 interface MapViewProps {
   mapViewModel: MapViewModel;
   driverViewModel: DriverViewModel;
-  pedestrianDetectorViewModel: PedestrianDetectorViewModel;
+  pedestrianDetectorViewModel?: PedestrianDetectorViewModel | null;
+  testingPedestrianDetectorViewModel?: TestingPedestrianDetectorViewModel | null;
+  directionGuideViewModel: DirectionGuideViewModel;
+  isTestingMode: boolean;
   children?: React.ReactNode;
 }
 
@@ -23,10 +29,16 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   mapViewModel,
   driverViewModel,
   pedestrianDetectorViewModel,
+  testingPedestrianDetectorViewModel,
+  directionGuideViewModel,
+  isTestingMode,
   children 
 }) => {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
+  
+  // Get the active detector based on mode
+  const activeDetector = isTestingMode ? testingPedestrianDetectorViewModel : pedestrianDetectorViewModel;
   
   // Request location permissions and start tracking
   useEffect(() => {
@@ -40,20 +52,25 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           return;
         }
         
-        console.log('Starting location tracking');
+        console.log(`Starting location tracking (${isTestingMode ? 'TESTING' : 'PRODUCTION'} mode)`);
         
         // Start watching position
         locationSubscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.Highest,
             distanceInterval: 5,  // Update every 5 meters
-            timeInterval: 2000    // Or every 2 seconds (increased to reduce conflicts)
+            timeInterval: 2000    // Or every 2 seconds
           },
           (location) => {
             const { latitude, longitude } = location.coords;
             
-            // Update the vehicle position in the pedestrian detector
-            pedestrianDetectorViewModel.setVehiclePosition([latitude, longitude]);
+            // Update the vehicle position in the active pedestrian detector
+            if (activeDetector && 'setVehiclePosition' in activeDetector) {
+              activeDetector.setVehiclePosition([latitude, longitude]);
+            }
+            
+            // Update the vehicle position in the direction guide
+            directionGuideViewModel.setVehiclePosition([latitude, longitude]);
             
             // Also update the map view model
             mapViewModel.setUserLocation({
@@ -62,12 +79,14 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
               heading: location.coords.heading || undefined
             });
             
-            console.log(`Vehicle location updated: [${latitude}, ${longitude}]`);
+            console.log(`${isTestingMode ? '🧪 TESTING' : '🏭 PRODUCTION'}: Vehicle location updated: [${latitude}, ${longitude}]`);
           }
         );
         
         // Start monitoring for pedestrians
-        pedestrianDetectorViewModel.startMonitoring();
+        if (activeDetector && 'startMonitoring' in activeDetector) {
+          activeDetector.startMonitoring();
+        }
         
       } catch (error) {
         console.error('Error setting up location:', error);
@@ -81,13 +100,17 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       if (locationSubscription) {
         locationSubscription.remove();
       }
-      pedestrianDetectorViewModel.stopMonitoring();
+      if (activeDetector && 'stopMonitoring' in activeDetector) {
+        activeDetector.stopMonitoring();
+      }
     };
-  }, [pedestrianDetectorViewModel, mapViewModel]);
+  }, [activeDetector, directionGuideViewModel, mapViewModel, isTestingMode]);
 
-  // Get real pedestrian data from the viewModel
-  const pedestrians = pedestrianDetectorViewModel.pedestrians;
-  const vehiclePosition = pedestrianDetectorViewModel.vehiclePosition;
+  // Get data from the active detector
+  const pedestrians = activeDetector?.pedestrians || [];
+  const vehiclePosition = activeDetector?.vehiclePosition || [0, 0];
+  const pedestriansInCrosswalk = activeDetector?.pedestriansInCrosswalk || 0;
+  const isVehicleNearPedestrian = activeDetector?.isVehicleNearPedestrian || false;
   const userLocationCoordinate = mapViewModel.userLocationCoordinate;
 
   // Create GeoJSON for crosswalk polygon
@@ -117,14 +140,14 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           animationDuration={1000}
         />
 
-        {/* Manual user location marker instead of automatic UserLocation */}
+        {/* Manual user location marker */}
         {userLocationCoordinate[0] !== 0 && userLocationCoordinate[1] !== 0 && (
           <MapboxGL.PointAnnotation
             id="user-location"
             coordinate={userLocationCoordinate}
             anchor={{x: 0.5, y: 0.5}}
           >
-            <View style={styles.userLocationMarker}>
+            <View style={[styles.userLocationMarker, isTestingMode ? styles.testingMarker : {}]}>
               <View style={styles.userLocationInner} />
             </View>
           </MapboxGL.PointAnnotation>
@@ -135,7 +158,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           <MapboxGL.FillLayer 
             id="crosswalk-polygon-fill" 
             style={{
-              fillColor: pedestrianDetectorViewModel.pedestriansInCrosswalk > 0 ? 
+              fillColor: pedestriansInCrosswalk > 0 ? 
                 'rgba(255, 59, 48, 0.4)' : 'rgba(255, 255, 0, 0.4)',
               fillOutlineColor: '#FFCC00'
             }} 
@@ -166,13 +189,27 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         {children}
       </MapboxGL.MapView>
       
+      {/* Mode indicator */}
+      {isTestingMode && (
+        <View style={styles.testingIndicator}>
+          <Text style={styles.testingText}>🧪 TESTING MODE (30m)</Text>
+        </View>
+      )}
+      
+      {/* Turn Guide Display - Shows when within 40 meters of intersection */}
+      <TurnGuideDisplay directionGuideViewModel={directionGuideViewModel} />
+      
       {/* Warning message - ONLY shows when BOTH conditions are met */}
-      {pedestrianDetectorViewModel.pedestriansInCrosswalk > 0 && 
-       pedestrianDetectorViewModel.isVehicleNearPedestrian && (
-        <View style={styles.warningContainer}>
+      {pedestriansInCrosswalk > 0 && isVehicleNearPedestrian && (
+        <View style={[styles.warningContainer, isTestingMode ? styles.testingWarning : {}]}>
           <Text style={styles.warningText}>
-            Pedestrian is crossing the crosswalk!
+            {isTestingMode ? '🧪 TESTING: ' : ''}Pedestrian is crossing the crosswalk!
           </Text>
+          {isTestingMode && (
+            <Text style={styles.testingSubtext}>
+              (30-meter threshold active)
+            </Text>
+          )}
         </View>
       )}
     </View>
@@ -196,27 +233,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  testingMarker: {
+    borderColor: '#FF9800', // Orange border for testing mode
+    borderWidth: 4,
+  },
   userLocationInner: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: 'white',
-  },
-  vehicleMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#4285F4', // Blue
-    borderWidth: 2,
-    borderColor: 'white',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  vehicleMarkerInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#2196F3',
   },
   pedestrianMarker: {
     width: 18,
@@ -234,6 +259,21 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: 'white',
   },
+  testingIndicator: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: 'rgba(255, 152, 0, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    elevation: 3,
+  },
+  testingText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
   warningContainer: {
     position: 'absolute',
     top: 50,
@@ -250,10 +290,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
   },
+  testingWarning: {
+    borderWidth: 2,
+    borderColor: '#FF9800',
+  },
   warningText: {
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
     textAlign: 'center',
-  }
+  },
+  testingSubtext: {
+    color: '#FFDD44',
+    fontWeight: 'bold',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
+  },
 });
