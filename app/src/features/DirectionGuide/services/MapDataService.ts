@@ -2,6 +2,7 @@
 import { MapEventData, MultiLaneMapData, ProcessedIntersectionData } from '../models/IntersectionData';
 import { AllowedTurn, ApproachDirection, TurnType } from '../models/DirectionTypes';
 import { MAP_DATA_API_URL, MLK_INTERSECTION_ID } from '../constants/TestConstants';
+import { ApproachPolygon } from '../constants/ApproachPolygonConfig';
 
 // Define the actual API response structure
 interface ActualAPIResponse {
@@ -25,14 +26,6 @@ interface ActualAPIResponse {
     }>;
   }>;
 }
-
-// --- FIX: allow indexing by any ApproachDirection, but guard undefined ---
-const APPROACH_LANE_GROUPS: Partial<Record<ApproachDirection, number[]>> = {
-  [ApproachDirection.NORTH]: [1, 2],    // Lanes 1 & 2 are northbound
-  [ApproachDirection.SOUTH]: [12, 13],  // Lanes 12 & 13 are southbound  
-  [ApproachDirection.EAST]:  [8, 9],    // Lanes 8 & 9 are eastbound
-  [ApproachDirection.WEST]:  [5, 6],    // Lanes 5 & 6 are westbound
-};
 
 export class MapDataService {
   /**
@@ -72,23 +65,23 @@ export class MapDataService {
       
       // Convert to our format
       const lanes: MapEventData[] = intersection.lanes.map(lane => ({
-        intersectionId:   intersection.intersectionId,
+        intersectionId: intersection.intersectionId,
         intersectionName: intersection.intersectionName,
-        laneId:           lane.laneId,
-        laneAttributes:   lane.laneAttributes,
-        maneuvers:        lane.maneuvers,
-        connectsTo:       lane.connectsTo,
-        timestamp:        data.timestamp,
-        location:         lane.location
+        laneId: lane.laneId,
+        laneAttributes: lane.laneAttributes,
+        maneuvers: lane.maneuvers,
+        connectsTo: lane.connectsTo,
+        timestamp: data.timestamp,
+        location: lane.location
       }));
       
       console.log(`Found ${lanes.length} lanes for intersection`);
       
       return {
-        intersectionId:   intersection.intersectionId,
+        intersectionId: intersection.intersectionId,
         intersectionName: intersection.intersectionName,
-        timestamp:        data.timestamp,
-        lanes
+        timestamp: data.timestamp,
+        lanes: lanes
       };
     } catch (error) {
       console.error('Error fetching lanes data:', error);
@@ -97,44 +90,32 @@ export class MapDataService {
   }
 
   /**
-   * Get lanes for a specific approach direction (simple grouping)
+   * Get lanes for a specific approach polygon
    */
-  public static getLanesForApproach(
-    allLanesData: MultiLaneMapData,
-    approachDirection: ApproachDirection
-  ): MapEventData[] {
-    // may be undefined if no group defined
-    const laneIds = APPROACH_LANE_GROUPS[approachDirection];
+  public static getLanesForApproachPolygon(allLanesData: MultiLaneMapData, approachPolygon: ApproachPolygon): MapEventData[] {
+    const laneIds = approachPolygon.lanes;
     
-    if (!laneIds) {
-      console.warn(`No lane group defined for approach: ${approachDirection}`);
+    if (!laneIds || laneIds.length === 0) {
+      console.warn(`No lanes defined for approach polygon: ${approachPolygon.name}`);
       return [];
     }
     
-    const approachLanes = allLanesData.lanes.filter(lane =>
-      laneIds.includes(lane.laneId)
-    );
+    const approachLanes = allLanesData.lanes.filter(lane => laneIds.includes(lane.laneId));
     
-    console.log(
-      `Approach ${approachDirection}: Found lanes [${approachLanes
-        .map(l => l.laneId)
-        .join(', ')}]`
-    );
+    console.log(`${approachPolygon.name}: Found lanes [${approachLanes.map(l => l.laneId).join(', ')}]`);
     
     return approachLanes;
   }
 
   /**
-   * Combine maneuvers for lanes on the same approach (simple OR operation)
+   * Combine maneuvers for lanes associated with an approach polygon
    */
-  public static combineApproachLaneManeuvers(
-    approachLanes: MapEventData[]
-  ): AllowedTurn[] {
+  public static combinePolygonLaneManeuvers(approachLanes: MapEventData[]): AllowedTurn[] {
     if (approachLanes.length === 0) {
       return [];
     }
     
-    console.log(`\n🔄 Combining ${approachLanes.length} lanes for this approach...`);
+    console.log(`\n🔄 Combining ${approachLanes.length} lanes for this approach polygon...`);
     
     // OR all the bitmasks together
     let combinedBitmask = 0;
@@ -142,35 +123,27 @@ export class MapDataService {
     approachLanes.forEach(lane => {
       if (lane.maneuvers && lane.maneuvers.length >= 2) {
         const bitmask = lane.maneuvers[1];
-        combinedBitmask |= bitmask;
-        console.log(
-          `Lane ${lane.laneId}: bitmask ${bitmask} (binary: ${bitmask
-            .toString(2)
-            .padStart(8, '0')})`
-        );
+        combinedBitmask |= bitmask;  // Simple OR operation!
+        console.log(`Lane ${lane.laneId}: bitmask ${bitmask} (binary: ${bitmask.toString(2).padStart(8, '0')})`);
       }
     });
     
-    console.log(
-      `Combined bitmask: ${combinedBitmask} (binary: ${combinedBitmask
-        .toString(2)
-        .padStart(8, '0')})`
-    );
+    console.log(`Combined bitmask: ${combinedBitmask} (binary: ${combinedBitmask.toString(2).padStart(8, '0')})`);
     
     // Decode the combined bitmask (SAE J2735 standard)
-    const isUTurnAllowed    = (combinedBitmask & 1) === 1;  // Bit 0
-    const isRightAllowed    = (combinedBitmask & 2) === 2;  // Bit 1
-    const isLeftAllowed     = (combinedBitmask & 4) === 4;  // Bit 2
-    const isStraightAllowed = (combinedBitmask & 8) === 8;  // Bit 3
+    const isUTurnAllowed = (combinedBitmask & 1) === 1;      // Bit 0: U-turn
+    const isRightAllowed = (combinedBitmask & 2) === 2;      // Bit 1: Right
+    const isLeftAllowed = (combinedBitmask & 4) === 4;       // Bit 2: Left  
+    const isStraightAllowed = (combinedBitmask & 8) === 8;   // Bit 3: Straight
     
     const result: AllowedTurn[] = [
-      { type: TurnType.LEFT,    allowed: isLeftAllowed    },
-      { type: TurnType.RIGHT,   allowed: isRightAllowed   },
-      { type: TurnType.STRAIGHT,allowed: isStraightAllowed},
-      { type: TurnType.U_TURN,  allowed: isUTurnAllowed   },
+      { type: TurnType.LEFT, allowed: isLeftAllowed },
+      { type: TurnType.RIGHT, allowed: isRightAllowed },
+      { type: TurnType.STRAIGHT, allowed: isStraightAllowed },
+      { type: TurnType.U_TURN, allowed: isUTurnAllowed },
     ];
     
-    console.log('🎯 Combined turns for this approach:');
+    console.log('🎯 Combined turns for this approach polygon:');
     result.forEach(turn => {
       console.log(`  ${turn.type}: ${turn.allowed ? '✅' : '❌'}`);
     });
@@ -179,33 +152,74 @@ export class MapDataService {
   }
 
   /**
-   * Process data for a specific approach (simple version)
+   * Process data for a specific approach polygon (new polygon-based version)
+   */
+  public static processPolygonApproachData(
+    allLanesData: MultiLaneMapData,
+    approachPolygon: ApproachPolygon
+  ): ProcessedIntersectionData {
+    // Get only the lanes associated with this polygon
+    const approachLanes = this.getLanesForApproachPolygon(allLanesData, approachPolygon);
+    
+    // Combine maneuvers for these lanes
+    const allAllowedTurns = this.combinePolygonLaneManeuvers(approachLanes);
+    
+    // Use coordinates from the first lane (if any)
+    const coordinates: [number, number][] = approachLanes[0]?.location.coordinates
+      .map(([lng, lat]) => [lat, lng] as [number, number])
+      || [];
+    
+    return {
+      intersectionId: allLanesData.intersectionId,
+      intersectionName: allLanesData.intersectionName,
+      approachDirection: ApproachDirection.UNKNOWN, // Not using direction-based detection anymore
+      allAllowedTurns,
+      totalLanes: approachLanes.length,
+      coordinates,
+      timestamp: allLanesData.timestamp,
+    };
+  }
+
+  /**
+   * Process data for a specific approach (legacy direction-based version)
    */
   public static processApproachData(
     allLanesData: MultiLaneMapData,
     approachDirection: ApproachDirection
   ): ProcessedIntersectionData {
-    const approachLanes = this.getLanesForApproach(allLanesData, approachDirection);
-    const allAllowedTurns = this.combineApproachLaneManeuvers(approachLanes);
+    // Legacy method - kept for backwards compatibility
+    // Note: This method is deprecated in favor of processPolygonApproachData
+    console.warn('processApproachData is deprecated, use processPolygonApproachData instead');
+    
+    const legacyLaneGroups: Record<ApproachDirection, number[]> = {
+      [ApproachDirection.NORTH]: [1, 2],
+      [ApproachDirection.SOUTH]: [12, 13],  
+      [ApproachDirection.EAST]: [8, 9],
+      [ApproachDirection.WEST]: [5, 6],
+      [ApproachDirection.UNKNOWN]: [], // Handle UNKNOWN case
+    };
+    
+    const laneIds = legacyLaneGroups[approachDirection] || [];
+    const approachLanes = allLanesData.lanes.filter(lane => laneIds.includes(lane.laneId));
+    const allAllowedTurns = this.combinePolygonLaneManeuvers(approachLanes);
 
-    // Safely grab coordinates from the first lane (if any)
     const coordinates: [number, number][] = approachLanes[0]?.location.coordinates
       .map(([lng, lat]) => [lat, lng] as [number, number])
       || [];
 
     return {
-      intersectionId:   allLanesData.intersectionId,
+      intersectionId: allLanesData.intersectionId,
       intersectionName: allLanesData.intersectionName,
       approachDirection,
       allAllowedTurns,
-      totalLanes:      approachLanes.length,
+      totalLanes: approachLanes.length,
       coordinates,
-      timestamp:       allLanesData.timestamp,
+      timestamp: allLanesData.timestamp,
     };
   }
 
   /**
-   * Legacy alias
+   * Legacy method
    */
   public static async fetchIntersectionData(): Promise<MultiLaneMapData> {
     return this.fetchAllLanesData();

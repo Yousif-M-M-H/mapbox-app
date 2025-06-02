@@ -52,25 +52,25 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           return;
         }
         
-        console.log(`Starting location tracking (${isTestingMode ? 'TESTING' : 'PRODUCTION'} mode)`);
+        console.log(`🌍 Starting live GPS tracking (${isTestingMode ? 'TESTING' : 'PRODUCTION'} mode)`);
         
-        // Start watching position
+        // Start watching position with real GPS
         locationSubscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.Highest,
-            distanceInterval: 5,  // Update every 5 meters
-            timeInterval: 2000    // Or every 2 seconds
+            distanceInterval: 3,  // Update every 3 meters for responsive polygon detection
+            timeInterval: 1000    // Or every 1 second
           },
           (location) => {
             const { latitude, longitude } = location.coords;
+            
+            // 🎯 UPDATE DIRECTION GUIDE WITH REAL GPS POSITION
+            directionGuideViewModel.setVehiclePosition([latitude, longitude]);
             
             // Update the vehicle position in the active pedestrian detector
             if (activeDetector && 'setVehiclePosition' in activeDetector) {
               activeDetector.setVehiclePosition([latitude, longitude]);
             }
-            
-            // Update the vehicle position in the direction guide
-            directionGuideViewModel.setVehiclePosition([latitude, longitude]);
             
             // Also update the map view model
             mapViewModel.setUserLocation({
@@ -79,7 +79,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
               heading: location.coords.heading || undefined
             });
             
-            console.log(`${isTestingMode ? '🧪 TESTING' : '🏭 PRODUCTION'}: Vehicle location updated: [${latitude}, ${longitude}]`);
+            console.log(`📍 GPS Update: [${latitude.toFixed(6)}, ${longitude.toFixed(6)}] - Turn Guide: ${directionGuideViewModel.showTurnGuide ? 'ON' : 'OFF'}`);
           }
         );
         
@@ -140,7 +140,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           animationDuration={1000}
         />
 
-        {/* Manual user location marker */}
+        {/* 🚗 Real GPS User Location Marker (Blue Marker) */}
         {userLocationCoordinate[0] !== 0 && userLocationCoordinate[1] !== 0 && (
           <MapboxGL.PointAnnotation
             id="user-location"
@@ -196,7 +196,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         </View>
       )}
       
-      {/* Turn Guide Display - Shows when within 40 meters of intersection */}
+      {/* 🎯 REAL GPS TURN GUIDE DISPLAY - Shows when vehicle enters polygon */}
       <TurnGuideDisplay directionGuideViewModel={directionGuideViewModel} />
       
       {/* Warning message - ONLY shows when BOTH conditions are met */}
