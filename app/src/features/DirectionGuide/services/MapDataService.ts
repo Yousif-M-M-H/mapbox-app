@@ -3,30 +3,52 @@ import { MapEventData, MultiLaneMapData, ProcessedIntersectionData } from '../mo
 import { AllowedTurn, ApproachDirection, TurnType } from '../models/DirectionTypes';
 import { MAP_DATA_API_URL, MLK_INTERSECTION_ID } from '../constants/TestConstants';
 
-/**
- * Service to handle map data fetching and processing
- */
+// Define the actual API response structure
+interface ActualAPIResponse {
+  intersection: string;
+  intersectionId: number | null;
+  timestamp: string;
+  intersections: Array<{
+    intersectionId: number;
+    intersectionName: string;
+    refPoint: { lat: number; lon: number; };
+    lanes: Array<{
+      laneId: number;
+      laneAttributes: {
+        directionalUse: number[];
+        sharedWith: number[];
+        laneType: [string, number[]];
+      };
+      maneuvers: number[];
+      connectsTo: any[];
+      location: { type: string; coordinates: [number, number][]; };
+    }>;
+  }>;
+}
+
+// --- FIX: allow indexing by any ApproachDirection, but guard undefined ---
+const APPROACH_LANE_GROUPS: Partial<Record<ApproachDirection, number[]>> = {
+  [ApproachDirection.NORTH]: [1, 2],    // Lanes 1 & 2 are northbound
+  [ApproachDirection.SOUTH]: [12, 13],  // Lanes 12 & 13 are southbound  
+  [ApproachDirection.EAST]:  [8, 9],    // Lanes 8 & 9 are eastbound
+  [ApproachDirection.WEST]:  [5, 6],    // Lanes 5 & 6 are westbound
+};
+
 export class MapDataService {
   /**
    * Fetches ALL lanes data for MLK intersection
-   * @returns Promise with all lanes data
    */
   public static async fetchAllLanesData(): Promise<MultiLaneMapData> {
     try {
-      // Fetch without laneId filter to get all lanes
       const endpoint = `${MAP_DATA_API_URL}?intersectionId=${MLK_INTERSECTION_ID}`;
-      console.log('Fetching all lanes data from:', endpoint);
+      console.log('Fetching lanes data from:', endpoint);
       
-      // Create abort controller for timeout (React Native compatible)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds for multiple lanes
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
       
       const response = await fetch(endpoint, {
         method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
         signal: controller.signal,
       });
       
@@ -36,151 +58,154 @@ export class MapDataService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      const data = await response.json();
-      console.log('Raw API response:', data);
+      const data: ActualAPIResponse = await response.json();
       
-      // Handle different response formats
-      let lanes: MapEventData[] = [];
-      
-      if (Array.isArray(data)) {
-        // If API returns array of lane objects
-        lanes = data;
-      } else if (data.lanes && Array.isArray(data.lanes)) {
-        // If API returns {lanes: [...]}
-        lanes = data.lanes;
-      } else if (data.intersectionId) {
-        // If API returns single lane object, wrap in array
-        lanes = [data as MapEventData];
-      } else {
-        throw new Error('Unexpected API response format');
+      if (!data.intersections || data.intersections.length === 0) {
+        throw new Error('No intersections found in API response');
       }
       
-      // Create MultiLaneMapData structure
-      const multiLaneData: MultiLaneMapData = {
-        intersectionId: lanes[0]?.intersectionId || MLK_INTERSECTION_ID,
-        intersectionName: lanes[0]?.intersectionName || 'MLK - Central Ave.',
-        timestamp: lanes[0]?.timestamp || new Date().toISOString(),
-        lanes: lanes
+      const intersection = data.intersections[0];
+      
+      if (!intersection.lanes || !Array.isArray(intersection.lanes)) {
+        throw new Error('No lanes found in intersection data');
+      }
+      
+      // Convert to our format
+      const lanes: MapEventData[] = intersection.lanes.map(lane => ({
+        intersectionId:   intersection.intersectionId,
+        intersectionName: intersection.intersectionName,
+        laneId:           lane.laneId,
+        laneAttributes:   lane.laneAttributes,
+        maneuvers:        lane.maneuvers,
+        connectsTo:       lane.connectsTo,
+        timestamp:        data.timestamp,
+        location:         lane.location
+      }));
+      
+      console.log(`Found ${lanes.length} lanes for intersection`);
+      
+      return {
+        intersectionId:   intersection.intersectionId,
+        intersectionName: intersection.intersectionName,
+        timestamp:        data.timestamp,
+        lanes
       };
-      
-      console.log(`Found ${lanes.length} lanes for intersection ${multiLaneData.intersectionId}`);
-      lanes.forEach((lane, index) => {
-        console.log(`Lane ${index + 1} (ID: ${lane.laneId}): maneuvers [${lane.maneuvers.join(', ')}]`);
-      });
-      
-      return multiLaneData;
     } catch (error) {
-      console.error('Error fetching all lanes data:', error);
+      console.error('Error fetching lanes data:', error);
       throw error;
     }
   }
 
   /**
-   * Interprets the maneuvers bitfield to determine allowed turns
-   * @param maneuvers The maneuvers array from API data
-   * @returns Array of AllowedTurn objects
+   * Get lanes for a specific approach direction (simple grouping)
    */
-  public static interpretManeuvers(maneuvers: number[]): AllowedTurn[] {
-    if (!maneuvers || maneuvers.length !== 2) {
-      console.warn('Invalid or missing maneuvers data:', maneuvers);
+  public static getLanesForApproach(
+    allLanesData: MultiLaneMapData,
+    approachDirection: ApproachDirection
+  ): MapEventData[] {
+    // may be undefined if no group defined
+    const laneIds = APPROACH_LANE_GROUPS[approachDirection];
+    
+    if (!laneIds) {
+      console.warn(`No lane group defined for approach: ${approachDirection}`);
       return [];
     }
     
-    const bitfieldValue = maneuvers[1];
+    const approachLanes = allLanesData.lanes.filter(lane =>
+      laneIds.includes(lane.laneId)
+    );
     
-    // Check which bits are set
-    const isLeftAllowed = ((bitfieldValue >> 1) & 1) === 1;
-    const isRightAllowed = ((bitfieldValue >> 2) & 1) === 1;
-    const isUTurnAllowed = ((bitfieldValue >> 3) & 1) === 1;
-    const isStraightAllowed = ((bitfieldValue >> 4) & 1) === 1;
+    console.log(
+      `Approach ${approachDirection}: Found lanes [${approachLanes
+        .map(l => l.laneId)
+        .join(', ')}]`
+    );
     
-    return [
-      { type: TurnType.LEFT, allowed: isLeftAllowed },
-      { type: TurnType.RIGHT, allowed: isRightAllowed },
-      { type: TurnType.U_TURN, allowed: isUTurnAllowed },
-      { type: TurnType.STRAIGHT, allowed: isStraightAllowed },
-    ];
+    return approachLanes;
   }
 
   /**
-   * Combine maneuvers from all lanes to create union of all allowed turns
-   * @param allLanesData Data from all lanes
-   * @returns Combined AllowedTurn array with union of all possibilities
+   * Combine maneuvers for lanes on the same approach (simple OR operation)
    */
-  public static combineAllLaneManeuvers(allLanesData: MultiLaneMapData): AllowedTurn[] {
-    console.log('\n🔄 Combining maneuvers from all lanes...');
+  public static combineApproachLaneManeuvers(
+    approachLanes: MapEventData[]
+  ): AllowedTurn[] {
+    if (approachLanes.length === 0) {
+      return [];
+    }
     
-    // Initialize all turns as not allowed
-    const combinedTurns = {
-      [TurnType.LEFT]: false,
-      [TurnType.RIGHT]: false,
-      [TurnType.STRAIGHT]: false,
-      [TurnType.U_TURN]: false,
-    };
+    console.log(`\n🔄 Combining ${approachLanes.length} lanes for this approach...`);
     
-    // Process each lane
-    allLanesData.lanes.forEach((lane, index) => {
-      console.log(`Processing Lane ${index + 1} (ID: ${lane.laneId}):`);
-      const laneAllowedTurns = this.interpretManeuvers(lane.maneuvers);
-      
-      // Union: if ANY lane allows a turn, it's available
-      laneAllowedTurns.forEach(turn => {
-        if (turn.allowed) {
-          combinedTurns[turn.type] = true;
-          console.log(`  ✅ ${turn.type} allowed in lane ${lane.laneId}`);
-        }
-      });
+    // OR all the bitmasks together
+    let combinedBitmask = 0;
+    
+    approachLanes.forEach(lane => {
+      if (lane.maneuvers && lane.maneuvers.length >= 2) {
+        const bitmask = lane.maneuvers[1];
+        combinedBitmask |= bitmask;
+        console.log(
+          `Lane ${lane.laneId}: bitmask ${bitmask} (binary: ${bitmask
+            .toString(2)
+            .padStart(8, '0')})`
+        );
+      }
     });
     
-    // Convert back to AllowedTurn array
+    console.log(
+      `Combined bitmask: ${combinedBitmask} (binary: ${combinedBitmask
+        .toString(2)
+        .padStart(8, '0')})`
+    );
+    
+    // Decode the combined bitmask (SAE J2735 standard)
+    const isUTurnAllowed    = (combinedBitmask & 1) === 1;  // Bit 0
+    const isRightAllowed    = (combinedBitmask & 2) === 2;  // Bit 1
+    const isLeftAllowed     = (combinedBitmask & 4) === 4;  // Bit 2
+    const isStraightAllowed = (combinedBitmask & 8) === 8;  // Bit 3
+    
     const result: AllowedTurn[] = [
-      { type: TurnType.LEFT, allowed: combinedTurns[TurnType.LEFT] },
-      { type: TurnType.RIGHT, allowed: combinedTurns[TurnType.RIGHT] },
-      { type: TurnType.STRAIGHT, allowed: combinedTurns[TurnType.STRAIGHT] },
-      { type: TurnType.U_TURN, allowed: combinedTurns[TurnType.U_TURN] },
+      { type: TurnType.LEFT,    allowed: isLeftAllowed    },
+      { type: TurnType.RIGHT,   allowed: isRightAllowed   },
+      { type: TurnType.STRAIGHT,allowed: isStraightAllowed},
+      { type: TurnType.U_TURN,  allowed: isUTurnAllowed   },
     ];
     
-    // Log final result
-    console.log('\n🎯 Final combined allowed turns:');
+    console.log('🎯 Combined turns for this approach:');
     result.forEach(turn => {
-      console.log(`  ${turn.type}: ${turn.allowed ? '✅ ALLOWED' : '❌ NOT ALLOWED'}`);
+      console.log(`  ${turn.type}: ${turn.allowed ? '✅' : '❌'}`);
     });
     
     return result;
   }
 
   /**
-   * Processes all lanes data into a format usable by the view model
-   * @param allLanesData Raw data from all lanes
-   * @param approachDirection Calculated approach direction
-   * @returns Processed intersection data with combined turns
+   * Process data for a specific approach (simple version)
    */
-  public static processAllLanesData(
+  public static processApproachData(
     allLanesData: MultiLaneMapData,
     approachDirection: ApproachDirection
   ): ProcessedIntersectionData {
-    // Get combined allowed turns from all lanes
-    const allAllowedTurns = this.combineAllLaneManeuvers(allLanesData);
-    
-    // Use coordinates from the first lane (they should be similar for the same intersection)
-    const coordinates: [number, number][] = allLanesData.lanes[0]?.location.coordinates.map(
-      coord => [coord[1], coord[0]] as [number, number]
-    ) || [];
-    
+    const approachLanes = this.getLanesForApproach(allLanesData, approachDirection);
+    const allAllowedTurns = this.combineApproachLaneManeuvers(approachLanes);
+
+    // Safely grab coordinates from the first lane (if any)
+    const coordinates: [number, number][] = approachLanes[0]?.location.coordinates
+      .map(([lng, lat]) => [lat, lng] as [number, number])
+      || [];
+
     return {
-      intersectionId: allLanesData.intersectionId,
+      intersectionId:   allLanesData.intersectionId,
       intersectionName: allLanesData.intersectionName,
       approachDirection,
       allAllowedTurns,
-      totalLanes: allLanesData.lanes.length,
+      totalLanes:      approachLanes.length,
       coordinates,
-      timestamp: allLanesData.timestamp,
+      timestamp:       allLanesData.timestamp,
     };
   }
 
   /**
-   * Legacy method - now uses the new all-lanes approach
-   * @deprecated Use fetchAllLanesData instead
+   * Legacy alias
    */
   public static async fetchIntersectionData(): Promise<MultiLaneMapData> {
     return this.fetchAllLanesData();

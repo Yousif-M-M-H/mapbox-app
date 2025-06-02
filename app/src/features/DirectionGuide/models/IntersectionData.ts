@@ -44,3 +44,10 @@ export interface ProcessedIntersectionData {
   coordinates: [number, number][];
   timestamp: string;
 }
+
+//i also wanna add folder called testingFeature
+//inside it should have folder testingPedstrianDetectorFeatureTest
+
+//in this i should have the same logic for detecting pedestrain within the crosswalk (and display the message when vehcile is 30 meters away)
+//im doing this so i dont always change the main folder for pedestrianDetector Feature
+//SO I ONLY CALL the test folder instead of the feature folder you get it?

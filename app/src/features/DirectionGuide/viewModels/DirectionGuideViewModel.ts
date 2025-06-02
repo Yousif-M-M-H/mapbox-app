@@ -10,8 +10,8 @@ import { determineApproachDirection, logDirectionDetails } from '../utils/Direct
 const INTERSECTION_PROXIMITY_DISTANCE = 0.0004; // ~40 meters
 
 /**
- * ViewModel for the Direction Guide feature
- * Handles the business logic and state management for ALL lanes
+ * ViewModel for the Direction Guide feature (SIMPLE VERSION)
+ * Shows combined turns for the 2 lanes on the vehicle's approach direction
  */
 export class DirectionGuideViewModel {
   // Observable state
@@ -60,60 +60,51 @@ export class DirectionGuideViewModel {
       });
       
       if (isWithin40Meters) {
-        console.log(`🚗 Vehicle within 40m of intersection - showing ALL LANES turn guide`);
+        console.log(`🚗 Vehicle within 40m - showing turns for ${this.approachDirection} approach`);
         if (this.intersectionData) {
-          console.log(`📊 Showing turns from ${this.intersectionData.totalLanes} lanes combined`);
+          console.log(`📊 Showing combined turns from ${this.intersectionData.totalLanes} lanes`);
         }
       } else {
-        console.log(`🚗 Vehicle moved away from intersection - hiding turn guide`);
+        console.log(`🚗 Vehicle moved away from intersection`);
       }
     }
   }
   
   /**
-   * Calculate distance between two points (same as pedestrian detector)
+   * Calculate distance between two points
    */
-  private calculateDistance(
-    lat1: number, lon1: number, 
-    lat2: number, lon2: number
-  ): number {
-    return Math.sqrt(
-      Math.pow(lat2 - lat1, 2) + 
-      Math.pow(lon2 - lon1, 2)
-    );
+  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    return Math.sqrt(Math.pow(lat2 - lat1, 2) + Math.pow(lon2 - lon1, 2));
   }
   
   /**
-   * Initialize the view model with ALL lanes intersection data
+   * Initialize with approach-specific data (SIMPLE VERSION)
    */
   async initialize(): Promise<void> {
     try {
       this.setLoading(true);
       this.setError(null);
       
-      console.log('🚀 Initializing DirectionGuide with ALL lanes data...');
+      console.log('🚀 Initializing DirectionGuide (SIMPLE approach-based)...');
       
-      // Calculate approach direction using fixed position for now
-      const approachDirection = determineApproachDirection(
-        CAR_POSITION, 
-        MLK_INTERSECTION_POSITION
-      );
+      // 1. Determine approach direction from vehicle position
+      const approachDirection = determineApproachDirection(CAR_POSITION, MLK_INTERSECTION_POSITION);
+      console.log(`📍 Vehicle approaching from: ${approachDirection}`);
       
-      // Fetch ALL lanes data and process
+      // 2. Fetch ALL lanes data
       const allLanesData = await MapDataService.fetchAllLanesData();
-      const processedData = MapDataService.processAllLanesData(
-        allLanesData,
-        approachDirection
-      );
+      
+      // 3. Process ONLY the lanes for this approach direction
+      const processedData = MapDataService.processApproachData(allLanesData, approachDirection);
       
       runInAction(() => {
         this.intersectionData = processedData;
         this.loading = false;
       });
       
-      console.log('✅ Direction Guide initialized with ALL lanes turn data');
-      console.log(`📋 Total lanes processed: ${processedData.totalLanes}`);
-      console.log(`🎯 Combined allowed turns: ${processedData.allAllowedTurns.filter(t => t.allowed).map(t => t.type).join(', ')}`);
+      console.log('✅ Direction Guide initialized');
+      console.log(`📋 Approach: ${approachDirection} (${processedData.totalLanes} lanes)`);
+      console.log(`🎯 Combined turns: ${processedData.allAllowedTurns.filter(t => t.allowed).map(t => t.type).join(', ')}`);
       
     } catch (error) {
       runInAction(() => {
@@ -125,6 +116,57 @@ export class DirectionGuideViewModel {
   }
   
   /**
+   * Static test method
+   */
+  static async runTest(): Promise<void> {
+    console.log('\n🧪 === SIMPLE DIRECTION GUIDE TEST ===');
+    
+    try {
+      // Show direction calculation
+      logDirectionDetails(CAR_POSITION, MLK_INTERSECTION_POSITION);
+      
+      // Test the simple approach
+      const testViewModel = new DirectionGuideViewModel();
+      
+      // Wait for initialization
+      await new Promise<void>((resolve, reject) => {
+        const check = () => {
+          if (!testViewModel.loading && (testViewModel.intersectionData || testViewModel.error)) {
+            testViewModel.error ? reject(new Error(testViewModel.error)) : resolve();
+          } else {
+            setTimeout(check, 100);
+          }
+        };
+        check();
+      });
+      
+      // Show results
+      if (testViewModel.intersectionData) {
+        console.log('📊 Simple Test Results:');
+        console.log(`- Intersection: ${testViewModel.intersectionData.intersectionName}`);
+        console.log(`- Approach: ${testViewModel.intersectionData.approachDirection}`);
+        console.log(`- Lanes Combined: ${testViewModel.intersectionData.totalLanes}`);
+        console.log('- Available Turns:');
+        testViewModel.allowedTurns.forEach(turn => {
+          console.log(`  ${turn.type}: ${turn.allowed ? '✅' : '❌'}`);
+        });
+        
+        // Test proximity
+        testViewModel.setVehiclePosition(CAR_POSITION);
+        console.log(`- Turn Guide Visible: ${testViewModel.showTurnGuide ? '✅' : '❌'}`);
+      }
+      
+      console.log('✅ Simple test completed');
+      
+    } catch (error) {
+      console.error('❌ Simple test failed:', error);
+      throw error;
+    }
+    
+    console.log('🧪 === END SIMPLE TEST ===\n');
+  }
+  
+  /**
    * Get the current approach direction
    */
   get approachDirection(): ApproachDirection {
@@ -132,21 +174,21 @@ export class DirectionGuideViewModel {
   }
   
   /**
-   * Get ALL allowed turns (combined from all lanes)
+   * Get combined allowed turns for this approach
    */
   get allowedTurns(): AllowedTurn[] {
     return this.intersectionData?.allAllowedTurns || [];
   }
   
   /**
-   * Get the number of lanes processed
+   * Get number of lanes for this approach
    */
   get totalLanes(): number {
     return this.intersectionData?.totalLanes || 0;
   }
   
   /**
-   * Check if a turn type is allowed (from ANY lane)
+   * Check if a turn type is allowed
    */
   isTurnAllowed(turnType: string): boolean {
     const turn = this.allowedTurns.find(t => t.type === turnType);
@@ -154,14 +196,14 @@ export class DirectionGuideViewModel {
   }
   
   /**
-   * Set the loading state
+   * Set loading state
    */
   setLoading(loading: boolean): void {
     this.loading = loading;
   }
   
   /**
-   * Set the error state
+   * Set error state
    */
   setError(error: string | null): void {
     this.error = error;
