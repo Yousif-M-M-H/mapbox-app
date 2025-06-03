@@ -40,9 +40,10 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   // Get the active detector based on mode
   const activeDetector = isTestingMode ? testingPedestrianDetectorViewModel : pedestrianDetectorViewModel;
   
-  // Request location permissions and start tracking
+  // GPS tracking setup
   useEffect(() => {
     let locationSubscription: Location.LocationSubscription;
+    let updateCount = 0;
     
     const setupLocationTracking = async () => {
       try {
@@ -52,50 +53,54 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           return;
         }
         
-        console.log(`🌍 Starting live GPS tracking (${isTestingMode ? 'TESTING' : 'PRODUCTION'} mode)`);
+        console.log('Starting GPS tracking for turn guidance');
         
-        // Start watching position with real GPS
         locationSubscription = await Location.watchPositionAsync(
           {
-            accuracy: Location.Accuracy.Highest,
-            distanceInterval: 3,  // Update every 3 meters for responsive polygon detection
-            timeInterval: 1000    // Or every 1 second
+            accuracy: Location.Accuracy.High,
+            distanceInterval: 1,
+            timeInterval: 500
           },
           (location) => {
+            updateCount++;
             const { latitude, longitude } = location.coords;
             
-            // 🎯 UPDATE DIRECTION GUIDE WITH REAL GPS POSITION
+            // Log every 10th update to avoid spam
+            if (updateCount % 10 === 1) {
+              console.log(`GPS: [${latitude.toFixed(6)}, ${longitude.toFixed(6)}] (Update #${updateCount})`);
+            }
+            
+            // Update DirectionGuide with live GPS
             directionGuideViewModel.setVehiclePosition([latitude, longitude]);
             
-            // Update the vehicle position in the active pedestrian detector
+            // Update other components
             if (activeDetector && 'setVehiclePosition' in activeDetector) {
               activeDetector.setVehiclePosition([latitude, longitude]);
             }
             
-            // Also update the map view model
+            // Update map for blue marker
             mapViewModel.setUserLocation({
               latitude,
               longitude,
               heading: location.coords.heading || undefined
             });
-            
-            console.log(`📍 GPS Update: [${latitude.toFixed(6)}, ${longitude.toFixed(6)}] - Turn Guide: ${directionGuideViewModel.showTurnGuide ? 'ON' : 'OFF'}`);
           }
         );
         
-        // Start monitoring for pedestrians
+        // Start pedestrian monitoring
         if (activeDetector && 'startMonitoring' in activeDetector) {
           activeDetector.startMonitoring();
         }
         
+        console.log('GPS tracking started successfully');
+        
       } catch (error) {
-        console.error('Error setting up location:', error);
+        console.error('GPS setup error:', error);
       }
     };
     
     setupLocationTracking();
     
-    // Cleanup
     return () => {
       if (locationSubscription) {
         locationSubscription.remove();
@@ -104,16 +109,16 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         activeDetector.stopMonitoring();
       }
     };
-  }, [activeDetector, directionGuideViewModel, mapViewModel, isTestingMode]);
+  }, [directionGuideViewModel, activeDetector, mapViewModel, isTestingMode]);
 
-  // Get data from the active detector
+  // Get detector data
   const pedestrians = activeDetector?.pedestrians || [];
   const vehiclePosition = activeDetector?.vehiclePosition || [0, 0];
   const pedestriansInCrosswalk = activeDetector?.pedestriansInCrosswalk || 0;
   const isVehicleNearPedestrian = activeDetector?.isVehicleNearPedestrian || false;
   const userLocationCoordinate = mapViewModel.userLocationCoordinate;
 
-  // Create GeoJSON for crosswalk polygon
+  // Crosswalk polygon
   const crosswalkPolygon = {
     type: "Feature" as const,
     properties: {},
@@ -140,20 +145,23 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           animationDuration={1000}
         />
 
-        {/* 🚗 Real GPS User Location Marker (Blue Marker) */}
+        {/* Vehicle position marker */}
         {userLocationCoordinate[0] !== 0 && userLocationCoordinate[1] !== 0 && (
           <MapboxGL.PointAnnotation
-            id="user-location"
+            id="vehicle-position"
             coordinate={userLocationCoordinate}
             anchor={{x: 0.5, y: 0.5}}
           >
-            <View style={[styles.userLocationMarker, isTestingMode ? styles.testingMarker : {}]}>
+            <View style={[
+              styles.userLocationMarker, 
+              isTestingMode ? styles.testingMarker : {}
+            ]}>
               <View style={styles.userLocationInner} />
             </View>
           </MapboxGL.PointAnnotation>
         )}
 
-        {/* Draw the crosswalk polygon */}
+        {/* Crosswalk polygon */}
         <MapboxGL.ShapeSource id="crosswalk-polygon-source" shape={crosswalkPolygon}>
           <MapboxGL.FillLayer 
             id="crosswalk-polygon-fill" 
@@ -172,12 +180,12 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           />
         </MapboxGL.ShapeSource>
         
-        {/* Display all real pedestrians from SDSM data */}
+        {/* Pedestrian markers */}
         {pedestrians.map((pedestrian) => (
           <MapboxGL.PointAnnotation
             key={`pedestrian-${pedestrian.id}`}
             id={`pedestrian-${pedestrian.id}`}
-            coordinate={[pedestrian.coordinates[1], pedestrian.coordinates[0]]} // Convert [lat, lon] to [lon, lat]
+            coordinate={[pedestrian.coordinates[1], pedestrian.coordinates[0]]}
             anchor={{x: 0.5, y: 0.5}}
           >
             <View style={styles.pedestrianMarker}>
@@ -189,27 +197,22 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         {children}
       </MapboxGL.MapView>
       
-      {/* Mode indicator */}
+      {/* Testing mode indicator */}
       {isTestingMode && (
         <View style={styles.testingIndicator}>
-          <Text style={styles.testingText}>🧪 TESTING MODE (30m)</Text>
+          <Text style={styles.testingText}>🧪 TESTING MODE</Text>
         </View>
       )}
       
-      {/* 🎯 REAL GPS TURN GUIDE DISPLAY - Shows when vehicle enters polygon */}
+      {/* Turn guidance UI */}
       <TurnGuideDisplay directionGuideViewModel={directionGuideViewModel} />
       
-      {/* Warning message - ONLY shows when BOTH conditions are met */}
+      {/* Pedestrian warning */}
       {pedestriansInCrosswalk > 0 && isVehicleNearPedestrian && (
         <View style={[styles.warningContainer, isTestingMode ? styles.testingWarning : {}]}>
           <Text style={styles.warningText}>
-            {isTestingMode ? '🧪 TESTING: ' : ''}Pedestrian is crossing the crosswalk!
+            {isTestingMode ? '🧪 TESTING: ' : ''}Pedestrian crossing detected!
           </Text>
-          {isTestingMode && (
-            <Text style={styles.testingSubtext}>
-              (30-meter threshold active)
-            </Text>
-          )}
         </View>
       )}
     </View>
@@ -227,14 +230,14 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#4285F4', // Blue
+    backgroundColor: '#4285F4',
     borderWidth: 3,
     borderColor: 'white',
     justifyContent: 'center',
     alignItems: 'center',
   },
   testingMarker: {
-    borderColor: '#FF9800', // Orange border for testing mode
+    borderColor: '#FF9800',
     borderWidth: 4,
   },
   userLocationInner: {
@@ -247,7 +250,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#FF9800', // Orange
+    backgroundColor: '#FF9800',
     borderWidth: 2,
     borderColor: '#FFFFFF',
     justifyContent: 'center',
@@ -285,10 +288,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
   },
   testingWarning: {
     borderWidth: 2,
@@ -299,12 +298,5 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
     textAlign: 'center',
-  },
-  testingSubtext: {
-    color: '#FFDD44',
-    fontWeight: 'bold',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 4,
   },
 });

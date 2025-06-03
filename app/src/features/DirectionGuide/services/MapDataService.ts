@@ -4,8 +4,8 @@ import { AllowedTurn, ApproachDirection, TurnType } from '../models/DirectionTyp
 import { MAP_DATA_API_URL, MLK_INTERSECTION_ID } from '../constants/TestConstants';
 import { ApproachPolygon } from '../constants/ApproachPolygonConfig';
 
-// Define the actual API response structure
-interface ActualAPIResponse {
+// API response structure from your data
+interface APIResponse {
   intersection: string;
   intersectionId: number | null;
   timestamp: string;
@@ -21,7 +21,10 @@ interface ActualAPIResponse {
         laneType: [string, number[]];
       };
       maneuvers: number[];
-      connectsTo: any[];
+      connectsTo: Array<{
+        connectingLane: { lane: number };
+        signalGroup: number;
+      }>;
       location: { type: string; coordinates: [number, number][]; };
     }>;
   }>;
@@ -29,39 +32,37 @@ interface ActualAPIResponse {
 
 export class MapDataService {
   /**
-   * Fetches ALL lanes data for MLK intersection
+   * Fetch lanes data from your API
    */
   public static async fetchAllLanesData(): Promise<MultiLaneMapData> {
     try {
-      const endpoint = `${MAP_DATA_API_URL}?intersectionId=${MLK_INTERSECTION_ID}`;
-      console.log('Fetching lanes data from:', endpoint);
+      console.log('Fetching from:', MAP_DATA_API_URL);
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-      
-      const response = await fetch(endpoint, {
+      const response = await fetch(MAP_DATA_API_URL, {
         method: 'GET',
-        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-        signal: controller.signal,
+        headers: { 'Accept': 'application/json' },
       });
       
-      clearTimeout(timeoutId);
-      
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
-      const data: ActualAPIResponse = await response.json();
+      const data: APIResponse = await response.json();
+      console.log('API Response received');
       
       if (!data.intersections || data.intersections.length === 0) {
-        throw new Error('No intersections found in API response');
+        throw new Error('No intersections in response');
       }
       
-      const intersection = data.intersections[0];
-      
-      if (!intersection.lanes || !Array.isArray(intersection.lanes)) {
-        throw new Error('No lanes found in intersection data');
+      // Find our specific intersection
+      const intersection = data.intersections.find(i => i.intersectionId === MLK_INTERSECTION_ID);
+      if (!intersection) {
+        console.log('Available intersections:', data.intersections.map(i => `${i.intersectionId}: ${i.intersectionName}`));
+        throw new Error(`Intersection ${MLK_INTERSECTION_ID} not found`);
       }
+      
+      console.log(`Found intersection: ${intersection.intersectionName}`);
+      console.log(`Total lanes: ${intersection.lanes.length}`);
       
       // Convert to our format
       const lanes: MapEventData[] = intersection.lanes.map(lane => ({
@@ -75,8 +76,6 @@ export class MapDataService {
         location: lane.location
       }));
       
-      console.log(`Found ${lanes.length} lanes for intersection`);
-      
       return {
         intersectionId: intersection.intersectionId,
         intersectionName: intersection.intersectionName,
@@ -84,144 +83,118 @@ export class MapDataService {
         lanes: lanes
       };
     } catch (error) {
-      console.error('Error fetching lanes data:', error);
+      console.error('API Error:', error);
       throw error;
     }
   }
 
   /**
-   * Get lanes for a specific approach polygon
+   * Get lanes for approach polygon
    */
   public static getLanesForApproachPolygon(allLanesData: MultiLaneMapData, approachPolygon: ApproachPolygon): MapEventData[] {
-    const laneIds = approachPolygon.lanes;
+    const targetLaneIds = approachPolygon.lanes;
+    const foundLanes = allLanesData.lanes.filter(lane => targetLaneIds.includes(lane.laneId));
     
-    if (!laneIds || laneIds.length === 0) {
-      console.warn(`No lanes defined for approach polygon: ${approachPolygon.name}`);
-      return [];
+    console.log(`Looking for lanes [${targetLaneIds.join(', ')}]`);
+    console.log(`Found lanes [${foundLanes.map(l => l.laneId).join(', ')}]`);
+    
+    if (foundLanes.length === 0) {
+      const availableLanes = allLanesData.lanes.map(l => l.laneId);
+      console.log(`Available lanes: [${availableLanes.join(', ')}]`);
     }
     
-    const approachLanes = allLanesData.lanes.filter(lane => laneIds.includes(lane.laneId));
-    
-    console.log(`${approachPolygon.name}: Found lanes [${approachLanes.map(l => l.laneId).join(', ')}]`);
-    
-    return approachLanes;
+    return foundLanes;
   }
 
   /**
-   * Combine maneuvers for lanes associated with an approach polygon
+   * Decode maneuvers from lanes
    */
   public static combinePolygonLaneManeuvers(approachLanes: MapEventData[]): AllowedTurn[] {
     if (approachLanes.length === 0) {
-      return [];
+      console.log('No lanes found, using defaults');
+      return [
+        { type: TurnType.LEFT, allowed: true },
+        { type: TurnType.STRAIGHT, allowed: true },
+        { type: TurnType.RIGHT, allowed: false },
+        { type: TurnType.U_TURN, allowed: false },
+      ];
     }
     
-    console.log(`\n🔄 Combining ${approachLanes.length} lanes for this approach polygon...`);
+    console.log(`Decoding maneuvers for ${approachLanes.length} lanes`);
     
-    // OR all the bitmasks together
     let combinedBitmask = 0;
     
     approachLanes.forEach(lane => {
       if (lane.maneuvers && lane.maneuvers.length >= 2) {
-        const bitmask = lane.maneuvers[1];
-        combinedBitmask |= bitmask;  // Simple OR operation!
-        console.log(`Lane ${lane.laneId}: bitmask ${bitmask} (binary: ${bitmask.toString(2).padStart(8, '0')})`);
+        const bitmask = lane.maneuvers[1]; // Your data has [0, 12] - use index 1
+        combinedBitmask |= bitmask;
+        console.log(`Lane ${lane.laneId}: maneuvers=${JSON.stringify(lane.maneuvers)}, bitmask=${bitmask}`);
       }
     });
     
     console.log(`Combined bitmask: ${combinedBitmask} (binary: ${combinedBitmask.toString(2).padStart(8, '0')})`);
     
-    // Decode the combined bitmask (SAE J2735 standard)
-    const isUTurnAllowed = (combinedBitmask & 1) === 1;      // Bit 0: U-turn
-    const isRightAllowed = (combinedBitmask & 2) === 2;      // Bit 1: Right
-    const isLeftAllowed = (combinedBitmask & 4) === 4;       // Bit 2: Left  
-    const isStraightAllowed = (combinedBitmask & 8) === 8;   // Bit 3: Straight
-    
-    const result: AllowedTurn[] = [
-      { type: TurnType.LEFT, allowed: isLeftAllowed },
-      { type: TurnType.RIGHT, allowed: isRightAllowed },
-      { type: TurnType.STRAIGHT, allowed: isStraightAllowed },
-      { type: TurnType.U_TURN, allowed: isUTurnAllowed },
+    // Decode using SAE J2735 standard
+    const turns: AllowedTurn[] = [
+      { type: TurnType.U_TURN, allowed: (combinedBitmask & 1) === 1 },     // Bit 0
+      { type: TurnType.RIGHT, allowed: (combinedBitmask & 2) === 2 },      // Bit 1  
+      { type: TurnType.LEFT, allowed: (combinedBitmask & 4) === 4 },       // Bit 2
+      { type: TurnType.STRAIGHT, allowed: (combinedBitmask & 8) === 8 },   // Bit 3
     ];
     
-    console.log('🎯 Combined turns for this approach polygon:');
-    result.forEach(turn => {
-      console.log(`  ${turn.type}: ${turn.allowed ? '✅' : '❌'}`);
-    });
+    const allowedTurns = turns.filter(t => t.allowed).map(t => t.type);
+    console.log(`Allowed turns: ${allowedTurns.join(', ')}`);
     
-    return result;
+    return turns;
   }
 
   /**
-   * Process data for a specific approach polygon (new polygon-based version)
+   * Process data for polygon approach
    */
   public static processPolygonApproachData(
     allLanesData: MultiLaneMapData,
     approachPolygon: ApproachPolygon
   ): ProcessedIntersectionData {
-    // Get only the lanes associated with this polygon
-    const approachLanes = this.getLanesForApproachPolygon(allLanesData, approachPolygon);
+    console.log(`Processing ${approachPolygon.name}`);
     
-    // Combine maneuvers for these lanes
+    const approachLanes = this.getLanesForApproachPolygon(allLanesData, approachPolygon);
     const allAllowedTurns = this.combinePolygonLaneManeuvers(approachLanes);
     
-    // Use coordinates from the first lane (if any)
+    // Get coordinates from first lane
     const coordinates: [number, number][] = approachLanes[0]?.location.coordinates
-      .map(([lng, lat]) => [lat, lng] as [number, number])
-      || [];
+      .map(([lng, lat]) => [lat, lng] as [number, number]) || [];
     
-    return {
+    const result: ProcessedIntersectionData = {
       intersectionId: allLanesData.intersectionId,
       intersectionName: allLanesData.intersectionName,
-      approachDirection: ApproachDirection.UNKNOWN, // Not using direction-based detection anymore
+      approachDirection: ApproachDirection.UNKNOWN,
       allAllowedTurns,
       totalLanes: approachLanes.length,
       coordinates,
       timestamp: allLanesData.timestamp,
     };
+    
+    console.log(`Result: ${result.totalLanes} lanes, ${allAllowedTurns.filter(t => t.allowed).length} allowed turns`);
+    return result;
   }
 
-  /**
-   * Process data for a specific approach (legacy direction-based version)
-   */
+  // Legacy methods for compatibility
+  public static async fetchIntersectionData(): Promise<MultiLaneMapData> {
+    return this.fetchAllLanesData();
+  }
+
   public static processApproachData(
     allLanesData: MultiLaneMapData,
     approachDirection: ApproachDirection
   ): ProcessedIntersectionData {
-    // Legacy method - kept for backwards compatibility
-    // Note: This method is deprecated in favor of processPolygonApproachData
-    console.warn('processApproachData is deprecated, use processPolygonApproachData instead');
-    
-    const legacyLaneGroups: Record<ApproachDirection, number[]> = {
-      [ApproachDirection.NORTH]: [1, 2],
-      [ApproachDirection.SOUTH]: [12, 13],  
-      [ApproachDirection.EAST]: [8, 9],
-      [ApproachDirection.WEST]: [5, 6],
-      [ApproachDirection.UNKNOWN]: [], // Handle UNKNOWN case
+    // Legacy - redirect to polygon-based approach
+    const defaultPolygon: ApproachPolygon = {
+      id: 'legacy',
+      name: 'Legacy Approach',
+      lanes: [1, 2],
+      signalGroups: [3, 4],
+      detectionZone: []
     };
-    
-    const laneIds = legacyLaneGroups[approachDirection] || [];
-    const approachLanes = allLanesData.lanes.filter(lane => laneIds.includes(lane.laneId));
-    const allAllowedTurns = this.combinePolygonLaneManeuvers(approachLanes);
-
-    const coordinates: [number, number][] = approachLanes[0]?.location.coordinates
-      .map(([lng, lat]) => [lat, lng] as [number, number])
-      || [];
-
-    return {
-      intersectionId: allLanesData.intersectionId,
-      intersectionName: allLanesData.intersectionName,
-      approachDirection,
-      allAllowedTurns,
-      totalLanes: approachLanes.length,
-      coordinates,
-      timestamp: allLanesData.timestamp,
-    };
-  }
-
-  /**
-   * Legacy method
-   */
-  public static async fetchIntersectionData(): Promise<MultiLaneMapData> {
-    return this.fetchAllLanesData();
+    return this.processPolygonApproachData(allLanesData, defaultPolygon);
   }
 }

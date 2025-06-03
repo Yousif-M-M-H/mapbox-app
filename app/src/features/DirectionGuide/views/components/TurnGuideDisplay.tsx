@@ -12,15 +12,24 @@ interface TurnGuideDisplayProps {
 export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({ 
   directionGuideViewModel 
 }) => {
-  // Only show when vehicle is in polygon and we have data
-  if (!directionGuideViewModel.showTurnGuide || !directionGuideViewModel.intersectionData) {
+  // Check display conditions
+  const shouldShow = directionGuideViewModel.showTurnGuide && 
+                     directionGuideViewModel.intersectionData !== null;
+  
+  if (!shouldShow) {
     return null;
   }
 
   const allowedTurns = directionGuideViewModel.allowedTurns;
+  const allowedTurnsList = allowedTurns.filter(turn => turn.allowed);
+  
+  if (allowedTurnsList.length === 0) {
+    return null;
+  }
+
   const currentApproachName = directionGuideViewModel.currentApproachName;
 
-  // Get turn icons
+  // Turn icon mapping
   const getTurnIcon = (turnType: TurnType): string => {
     switch (turnType) {
       case TurnType.LEFT: return '←';
@@ -31,8 +40,8 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
     }
   };
 
-  // Get turn words
-  const getTurnWord = (turnType: TurnType): string => {
+  // Turn label mapping
+  const getTurnLabel = (turnType: TurnType): string => {
     switch (turnType) {
       case TurnType.LEFT: return 'LEFT';
       case TurnType.RIGHT: return 'RIGHT';
@@ -42,12 +51,7 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
     }
   };
 
-  // Filter only allowed turns
-  const allowedTurnsList = allowedTurns.filter(turn => turn.allowed);
-
-  if (allowedTurnsList.length === 0) {
-    return null;
-  }
+  console.log(`Showing ${allowedTurnsList.length} turns: ${allowedTurnsList.map(t => t.type).join(', ')}`);
 
   return (
     <View style={styles.container}>
@@ -57,19 +61,19 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
         <Text style={styles.approachText}>{currentApproachName}</Text>
       </View>
 
-      {/* Turn Icons Row */}
+      {/* Turn Icons */}
       <View style={styles.turnsContainer}>
         {allowedTurnsList.map((turn) => (
           <View key={turn.type} style={styles.turnItem}>
             <View style={styles.turnIconContainer}>
               <Text style={styles.turnIcon}>{getTurnIcon(turn.type)}</Text>
             </View>
-            <Text style={styles.turnLabel}>{getTurnWord(turn.type)}</Text>
+            <Text style={styles.turnLabel}>{getTurnLabel(turn.type)}</Text>
           </View>
         ))}
       </View>
 
-      {/* Footer info */}
+      {/* Footer */}
       <View style={styles.footer}>
         <Text style={styles.footerText}>
           {allowedTurnsList.length} turn{allowedTurnsList.length !== 1 ? 's' : ''} available • 
@@ -86,77 +90,79 @@ const styles = StyleSheet.create({
     bottom: 30,
     left: 20,
     right: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    backgroundColor: 'rgba(255, 255, 255, 0.98)',
     borderRadius: 16,
-    padding: 16,
-    elevation: 8,
+    padding: 18,
+    elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    borderWidth: 2,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    borderWidth: 3,
     borderColor: '#4285F4',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   headerText: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#4285F4',
     fontWeight: 'bold',
-    letterSpacing: 1,
+    letterSpacing: 1.2,
   },
   approachText: {
     fontSize: 12,
     color: '#666',
-    marginTop: 2,
+    marginTop: 4,
+    fontWeight: '500',
   },
   turnsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    marginVertical: 8,
+    marginVertical: 12,
   },
   turnItem: {
     alignItems: 'center',
     flex: 1,
   },
   turnIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: '#4285F4',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
-    elevation: 2,
+    marginBottom: 10,
+    elevation: 3,
     shadowColor: '#4285F4',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
   },
   turnIcon: {
-    fontSize: 24,
+    fontSize: 26,
     color: 'white',
     fontWeight: 'bold',
   },
   turnLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#4285F4',
     fontWeight: 'bold',
     textAlign: 'center',
   },
   footer: {
     alignItems: 'center',
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: 10,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
   },
   footerText: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#888',
     textAlign: 'center',
+    fontWeight: '500',
   },
 });
