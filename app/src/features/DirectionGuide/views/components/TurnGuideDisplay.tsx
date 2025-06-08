@@ -27,58 +27,51 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
     return null;
   }
 
-  const currentApproachName = directionGuideViewModel.currentApproachName;
-
-  // Turn icon mapping
+  // Better, more visually appealing turn icons
   const getTurnIcon = (turnType: TurnType): string => {
     switch (turnType) {
-      case TurnType.LEFT: return '←';
-      case TurnType.RIGHT: return '→';
-      case TurnType.STRAIGHT: return '↑';
-      case TurnType.U_TURN: return '↺';
+      case TurnType.LEFT: return '⬅';
+      case TurnType.RIGHT: return '➡';
+      case TurnType.STRAIGHT: return '⬆';
+      case TurnType.U_TURN: return '🔄';
       default: return '?';
     }
   };
 
-  // Turn label mapping
-  const getTurnLabel = (turnType: TurnType): string => {
+  // Get enhanced colors with better visual appeal
+  const getTurnColor = (turnType: TurnType): string => {
     switch (turnType) {
-      case TurnType.LEFT: return 'LEFT';
-      case TurnType.RIGHT: return 'RIGHT';
-      case TurnType.STRAIGHT: return 'STRAIGHT';
-      case TurnType.U_TURN: return 'U-TURN';
-      default: return 'UNKNOWN';
+      case TurnType.LEFT: return '#1a73e8';      // Deeper Blue
+      case TurnType.RIGHT: return '#137333';     // Deeper Green  
+      case TurnType.STRAIGHT: return '#d93025';  // Deeper Red
+      case TurnType.U_TURN: return '#f9ab00';    // Deeper Yellow
+      default: return '#5f6368';
     }
   };
 
-  console.log(`Showing ${allowedTurnsList.length} turns: ${allowedTurnsList.map(t => t.type).join(', ')}`);
-
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerText}>ALLOWED TURNS</Text>
-        <Text style={styles.approachText}>{currentApproachName}</Text>
-      </View>
-
-      {/* Turn Icons */}
-      <View style={styles.turnsContainer}>
-        {allowedTurnsList.map((turn) => (
-          <View key={turn.type} style={styles.turnItem}>
-            <View style={styles.turnIconContainer}>
-              <Text style={styles.turnIcon}>{getTurnIcon(turn.type)}</Text>
+      {/* Compact floating indicator */}
+      <View style={styles.indicator}>
+        <View style={styles.iconsContainer}>
+          {allowedTurnsList.map((turn, index) => (
+            <View 
+              key={turn.type} 
+              style={[
+                styles.turnCircle,
+                { backgroundColor: getTurnColor(turn.type) },
+                index > 0 && styles.turnCircleSpacing
+              ]}
+            >
+              <View style={styles.innerCircle}>
+                <Text style={styles.turnIcon}>{getTurnIcon(turn.type)}</Text>
+              </View>
             </View>
-            <Text style={styles.turnLabel}>{getTurnLabel(turn.type)}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          {allowedTurnsList.length} turn{allowedTurnsList.length !== 1 ? 's' : ''} available • 
-          Lanes {directionGuideViewModel.currentApproachPolygon?.lanes.join(' & ')}
-        </Text>
+          ))}
+        </View>
+        
+        {/* Optional: Small status dot */}
+        <View style={styles.statusDot} />
       </View>
     </View>
   );
@@ -88,81 +81,70 @@ const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     bottom: 30,
-    left: 20,
-    right: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.98)',
-    borderRadius: 16,
-    padding: 18,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    borderWidth: 3,
-    borderColor: '#4285F4',
+    right: 16,
+    zIndex: 1000,
   },
-  header: {
+  indicator: {
     alignItems: 'center',
-    marginBottom: 14,
   },
-  headerText: {
-    fontSize: 16,
-    color: '#4285F4',
-    fontWeight: 'bold',
-    letterSpacing: 1.2,
-  },
-  approachText: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-    fontWeight: '500',
-  },
-  turnsContainer: {
+  iconsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    marginVertical: 12,
-  },
-  turnItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  turnIconContainer: {
-    width: 52,
-    height: 52,
+    backgroundColor: 'rgba(255, 255, 255, 0.98)',
     borderRadius: 26,
-    backgroundColor: '#4285F4',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    elevation: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0, 0, 0, 0.06)',
+  },
+  turnCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
-    elevation: 3,
-    shadowColor: '#4285F4',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
     shadowRadius: 6,
   },
+  innerCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  turnCircleSpacing: {
+    marginLeft: 8,
+  },
   turnIcon: {
-    fontSize: 26,
+    fontSize: 20,
     color: 'white',
     fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
-  turnLabel: {
-    fontSize: 11,
-    color: '#4285F4',
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  footer: {
-    alignItems: 'center',
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-  },
-  footerText: {
-    fontSize: 11,
-    color: '#888',
-    textAlign: 'center',
-    fontWeight: '500',
+  statusDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#1a73e8',
+    marginTop: 6,
+    opacity: 0.8,
+    elevation: 2,
+    shadowColor: '#1a73e8',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.4,
+    shadowRadius: 2,
   },
 });
