@@ -5,6 +5,7 @@ import { ProcessedIntersectionData } from '../models/IntersectionData';
 import { AllowedTurn } from '../models/DirectionTypes';
 import { ApproachPolygon, MLK_APPROACH_POLYGONS } from '../constants/ApproachPolygonConfig';
 import { detectApproachPolygon } from '../utils/PolygonDetectionUtils';
+import { SpatIntegration, SignalState } from '../../SpatService/SpatIntegration';
 
 export class DirectionGuideViewModel {
   loading: boolean = false;
@@ -57,7 +58,7 @@ export class DirectionGuideViewModel {
   }
   
   /**
-   * Handle approach changes - keep it simple
+   * Handle approach changes with SPaT integration
    */
   private handleApproachChange(newPolygon: ApproachPolygon | null): void {
     const previousName = this._currentApproachPolygon?.name || 'None';
@@ -71,6 +72,7 @@ export class DirectionGuideViewModel {
       
       if (!newPolygon) {
         this.intersectionData = null;
+        SpatIntegration.stopMonitoring();
       }
     });
     
@@ -83,7 +85,7 @@ export class DirectionGuideViewModel {
   }
   
   /**
-   * Load turn data - just what we need for display
+   * Load turn data with SPaT integration
    */
   private async loadTurnDataForApproach(polygon: ApproachPolygon): Promise<void> {
     try {
@@ -100,12 +102,21 @@ export class DirectionGuideViewModel {
       // Process turn data for this approach
       const processedData = MapDataService.processPolygonApproachData(lanesData, polygon);
       
+      // Start SPaT monitoring for this approach
+      await SpatIntegration.startApproachMonitoring(
+        polygon.id,
+        polygon.name,
+        polygon.lanes,
+        lanesData.lanes
+      );
+      
       runInAction(() => {
         this.intersectionData = processedData;
         this.error = null;
       });
       
       console.log(`✅ Turn data loaded: ${this.allowedTurns.filter(t => t.allowed).map(t => t.type).join(', ')}`);
+      console.log(`🚦 SPaT monitoring started for ${polygon.name}`);
       
     } catch (error) {
       console.error(`❌ Failed to load turn data:`, error);
@@ -138,7 +149,7 @@ export class DirectionGuideViewModel {
         this.loading = false;
       });
       
-      console.log(`✅ DirectionGuide initialized`);
+      console.log(`✅ DirectionGuide initialized with SPaT integration`);
       
     } catch (error) {
       console.error('❌ Initialization failed:', error);
@@ -166,6 +177,27 @@ export class DirectionGuideViewModel {
   get turnsAvailable(): number {
     return this.allowedTurns.filter(t => t.allowed).length;
   }
+
+  // SPaT-related getters (using SPaT integration)
+  get hasSignalData(): boolean {
+    return SpatIntegration.hasSignalData();
+  }
+
+  get approachSignalState(): SignalState {
+    return SpatIntegration.getCurrentSignalState();
+  }
+
+  get signalStatusText(): string {
+    return SpatIntegration.getSignalStatusText();
+  }
+
+  get signalColorClass(): string {
+    return SpatIntegration.getSignalColorClass();
+  }
+
+  get laneSignalStatuses() {
+    return SpatIntegration.getLaneSignalStatuses();
+  }
   
   /**
    * Check if specific turn is allowed
@@ -186,10 +218,11 @@ export class DirectionGuideViewModel {
   }
   
   /**
-   * Cleanup
+   * Cleanup with SPaT integration
    */
   cleanup(): void {
     console.log('🧹 DirectionGuide cleanup');
+    SpatIntegration.cleanup();
     this._lanesDataCache = null;
     runInAction(() => {
       this.showTurnGuide = false;

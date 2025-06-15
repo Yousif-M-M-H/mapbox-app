@@ -8,8 +8,11 @@ import { MapViewModel } from '../../viewmodels/MapViewModel';
 import { DriverViewModel } from '../../../DriverView/models/DriverViewModel';
 import { PedestrianDetectorViewModel } from '../../../PedestrianDetector/viewmodels/PedestrianDetectorViewModel';
 import { TestingPedestrianDetectorViewModel } from '../../../../testingFeatures/testingPedestrianDetectorFeatureTest/viewmodels/TestingPedestrianDetectorViewModel';
+import { TestingVehicleDisplayViewModel } from '../../../../testingFeatures/testingVehicleDisplay/viewmodels/TestingVehicleDisplayViewModel';
 import { DirectionGuideViewModel } from '../../../DirectionGuide/viewModels/DirectionGuideViewModel';
 import { TurnGuideDisplay } from '../../../DirectionGuide/views/components/TurnGuideDisplay';
+import { SimpleLine } from '../../../PedestrianDetector/views/components/SimpleLine';
+import { VehicleMarkers } from '../../../../testingFeatures/testingVehicleDisplay/views/components/VehicleMarker';
 import { 
   CROSSWALK_CENTER, 
   CROSSWALK_POLYGON_COORDS 
@@ -20,6 +23,7 @@ interface MapViewProps {
   driverViewModel: DriverViewModel;
   pedestrianDetectorViewModel?: PedestrianDetectorViewModel | null;
   testingPedestrianDetectorViewModel?: TestingPedestrianDetectorViewModel | null;
+  testingVehicleDisplayViewModel: TestingVehicleDisplayViewModel | null;
   directionGuideViewModel: DirectionGuideViewModel;
   isTestingMode: boolean;
   children?: React.ReactNode;
@@ -30,6 +34,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   driverViewModel,
   pedestrianDetectorViewModel,
   testingPedestrianDetectorViewModel,
+  testingVehicleDisplayViewModel,
   directionGuideViewModel,
   isTestingMode,
   children 
@@ -39,6 +44,12 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   
   // Get the active detector based on mode
   const activeDetector = isTestingMode ? testingPedestrianDetectorViewModel : pedestrianDetectorViewModel;
+  
+  // Your line coordinates
+  const lineCoordinates: [number, number][] = [
+    [-85.2921893, 35.0398856], 
+    [-85.2921375, 35.0398718]
+  ];
   
   // GPS tracking setup
   useEffect(() => {
@@ -179,6 +190,18 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
             }} 
           />
         </MapboxGL.ShapeSource>
+
+        {/* Simple Blue Line */}
+        <SimpleLine 
+          coordinates={lineCoordinates} 
+          lineColor="#0066FF" 
+          lineWidth={3} 
+        />
+
+        {/* Live Vehicle Markers from SDSM (conditionally rendered) */}
+        {testingVehicleDisplayViewModel && (
+          <VehicleMarkers viewModel={testingVehicleDisplayViewModel} />
+        )}
         
         {/* Pedestrian markers */}
         {pedestrians.map((pedestrian) => (
@@ -201,6 +224,15 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       {isTestingMode && (
         <View style={styles.testingIndicator}>
           <Text style={styles.testingText}>🧪 TESTING MODE</Text>
+        </View>
+      )}
+
+      {/* Vehicle count indicator (conditionally rendered) */}
+      {testingVehicleDisplayViewModel && testingVehicleDisplayViewModel.isActive && (
+        <View style={styles.vehicleIndicator}>
+          <Text style={styles.vehicleText}>
+            🚗 {testingVehicleDisplayViewModel.vehicleCount} vehicles
+          </Text>
         </View>
       )}
       
@@ -273,6 +305,21 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   testingText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  vehicleIndicator: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0, 255, 0, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    elevation: 3,
+  },
+  vehicleText: {
     color: 'white',
     fontWeight: 'bold',
     fontSize: 12,
