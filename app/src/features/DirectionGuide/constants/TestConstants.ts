@@ -1,16 +1,16 @@
+// app/src/features/DirectionGuide/constants/TestConstants.ts
 import { CAR_POSITION } from '../../Crosswalk/constants/CrosswalkCoordinates';
 
 /**
- * Constants for the Direction Guide feature testing
+ * Constants for the Direction Guide feature
  */
 
 // MLK Intersection details
-export const MLK_INTERSECTION_ID = 27481;
-export const MLK_INTERSECTION_NAME = "MLK - Central Ave.";
+export const MLK_INTERSECTION_ID = 27482;
+export const MLK_INTERSECTION_NAME = "MLK - Central Ave";
 
-// MLK Intersection coordinates from the API data
-// The coordinates are flipped from the API as [lat, lng] instead of [lng, lat]
-export const MLK_INTERSECTION_POSITION: [number, number] = [35.0396973, -85.2920456];
+// MLK Intersection center (for reference if needed)
+export const MLK_INTERSECTION_CENTER: [number, number] = [35.039778261477665, -85.29210877725966];
 
 // Re-export CAR_POSITION for convenience
 export { CAR_POSITION };

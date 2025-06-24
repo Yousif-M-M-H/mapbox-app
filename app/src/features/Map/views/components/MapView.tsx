@@ -47,9 +47,16 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   
   // Your line coordinates
   const lineCoordinates: [number, number][] = [
-    [-85.2921893, 35.0398856], 
-    [-85.2921375, 35.0398718]
+[-85.2922264, 35.0397893],
+[-85.2941284, 35.0404962]
   ];
+
+ 
+
+ 
+
+   
+ 
   
   // GPS tracking setup
   useEffect(() => {

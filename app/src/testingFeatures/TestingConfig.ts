@@ -10,7 +10,7 @@ export const TESTING_CONFIG = {
   USE_TESTING_MODE: false,
   
   // Live vehicle display from SDSM data
-  USE_VEHICLE_TESTING_FEATURE: true,
+  USE_VEHICLE_TESTING_FEATURE: false,
   
   // Future testing features can be added here
   // USE_TRAFFIC_LIGHT_TESTING: false,
