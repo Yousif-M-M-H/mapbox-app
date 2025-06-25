@@ -12,22 +12,19 @@ interface TurnGuideDisplayProps {
 export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({ 
   directionGuideViewModel 
 }) => {
-  // Check display conditions
-  const shouldShow = directionGuideViewModel.showTurnGuide && 
-                     directionGuideViewModel.intersectionData !== null;
+  // VERY precise conditions: only show when car is actually inside a lane with available turns
+  const isInLane = directionGuideViewModel.detectedLaneIds.length > 0;
+  const hasTurnData = directionGuideViewModel.intersectionData !== null;
+  const hasAllowedTurns = directionGuideViewModel.turnsAvailable > 0;
+  
+  const shouldShow = isInLane && hasTurnData && hasAllowedTurns;
   
   if (!shouldShow) {
     return null;
   }
 
-  const allowedTurns = directionGuideViewModel.allowedTurns;
-  const allowedTurnsList = allowedTurns.filter(turn => turn.allowed);
-  
-  if (allowedTurnsList.length === 0) {
-    return null;
-  }
+  const allowedTurns = directionGuideViewModel.allowedTurns.filter(turn => turn.allowed);
 
-  // Better, more visually appealing turn icons
   const getTurnIcon = (turnType: TurnType): string => {
     switch (turnType) {
       case TurnType.LEFT: return '⬅';
@@ -38,23 +35,25 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
     }
   };
 
-  // Get enhanced colors with better visual appeal
   const getTurnColor = (turnType: TurnType): string => {
     switch (turnType) {
-      case TurnType.LEFT: return '#1a73e8';      // Deeper Blue
-      case TurnType.RIGHT: return '#137333';     // Deeper Green  
-      case TurnType.STRAIGHT: return '#d93025';  // Deeper Red
-      case TurnType.U_TURN: return '#f9ab00';    // Deeper Yellow
+      case TurnType.LEFT: return '#1a73e8';      // Blue
+      case TurnType.RIGHT: return '#137333';     // Green
+      case TurnType.STRAIGHT: return '#d93025';  // Red
+      case TurnType.U_TURN: return '#f9ab00';    // Yellow
       default: return '#5f6368';
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* Compact floating indicator */}
       <View style={styles.indicator}>
+        {/* Lane indicator */}
+  
+        
+        {/* Turn icons */}
         <View style={styles.iconsContainer}>
-          {allowedTurnsList.map((turn, index) => (
+          {allowedTurns.map((turn, index) => (
             <View 
               key={turn.type} 
               style={[
@@ -70,7 +69,6 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
           ))}
         </View>
         
-        {/* Optional: Small status dot */}
         <View style={styles.statusDot} />
       </View>
     </View>
@@ -86,6 +84,18 @@ const styles = StyleSheet.create({
   },
   indicator: {
     alignItems: 'center',
+  },
+  laneIndicator: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginBottom: 8,
+  },
+  laneText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   iconsContainer: {
     flexDirection: 'row',

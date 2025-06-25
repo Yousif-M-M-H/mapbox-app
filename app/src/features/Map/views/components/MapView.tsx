@@ -51,7 +51,14 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 [-85.2941284, 35.0404962]
   ];
 
- 
+    //Lane 7 from the new data
+    // [-85.2922136, 35.039848],
+    // [-85.2922941, 35.0398777]
+    //Lane 8 from the new data 
+    //[-85.2922264, 35.0398195],
+    // [-85.2925483, 35.039943]
+    //Lane 9 from the new data 
+    
 
  
 

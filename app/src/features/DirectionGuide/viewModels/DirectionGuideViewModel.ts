@@ -3,9 +3,6 @@ import { makeAutoObservable, runInAction } from 'mobx';
 import { MapDataService } from '../services/MapDataService';
 import { ProcessedIntersectionData } from '../models/IntersectionData';
 import { AllowedTurn } from '../models/DirectionTypes';
-import { ApproachPolygon, MLK_APPROACH_POLYGONS } from '../constants/ApproachPolygonConfig';
-import { detectApproachPolygon } from '../utils/PolygonDetectionUtils';
-import { SpatIntegration, SignalState } from '../../SpatService/SpatIntegration';
 
 export class DirectionGuideViewModel {
   loading: boolean = false;
@@ -14,9 +11,9 @@ export class DirectionGuideViewModel {
   
   private _vehiclePosition: [number, number] = [0, 0];
   showTurnGuide: boolean = false;
-  private _currentApproachPolygon: ApproachPolygon | null = null;
   private _lanesDataCache: any = null;
   private _lastDetectionTime: number = 0;
+  private _currentLaneIds: number[] = [];
   
   constructor() {
     makeAutoObservable(this);
@@ -28,98 +25,88 @@ export class DirectionGuideViewModel {
   }
   
   /**
-   * Update vehicle position and check for approach changes
+   * Update vehicle position and check for dynamic lane detection
    */
   setVehiclePosition(position: [number, number]): void {
     this._vehiclePosition = position;
     
     // Throttle detection to avoid excessive processing
     const now = Date.now();
-    if (now - this._lastDetectionTime < 500) return;
+    if (now - this._lastDetectionTime < 500) return; // Check every 500ms
     this._lastDetectionTime = now;
     
-    this.checkApproachDetection();
+    this.checkDynamicLaneDetection();
   }
   
   /**
-   * Simple approach detection - just check which polygon we're in
+   * Dynamic lane detection - works for any intersection without hardcoding
    */
-  private checkApproachDetection(): void {
+  private async checkDynamicLaneDetection(): Promise<void> {
     if (this._vehiclePosition[0] === 0 && this._vehiclePosition[1] === 0) return;
     
-    const detectedPolygon = detectApproachPolygon(this._vehiclePosition);
-    const currentId = this._currentApproachPolygon?.id;
-    const newId = detectedPolygon?.id;
-    
-    // Only process if approach changed
-    if (currentId !== newId) {
-      this.handleApproachChange(detectedPolygon);
-    }
-  }
-  
-  /**
-   * Handle approach changes with SPaT integration
-   */
-  private handleApproachChange(newPolygon: ApproachPolygon | null): void {
-    const previousName = this._currentApproachPolygon?.name || 'None';
-    const newName = newPolygon?.name || 'None';
-    
-    console.log(`🔄 Approach: "${previousName}" → "${newName}"`);
-    
-    runInAction(() => {
-      this._currentApproachPolygon = newPolygon;
-      this.showTurnGuide = newPolygon !== null;
-      
-      if (!newPolygon) {
-        this.intersectionData = null;
-        SpatIntegration.stopMonitoring();
-      }
-    });
-    
-    if (newPolygon) {
-      console.log(`📍 Entered: ${newPolygon.name} (Lanes ${newPolygon.lanes.join(' & ')})`);
-      this.loadTurnDataForApproach(newPolygon);
-    } else {
-      console.log(`📍 Left all approach zones`);
-    }
-  }
-  
-  /**
-   * Load turn data with SPaT integration
-   */
-  private async loadTurnDataForApproach(polygon: ApproachPolygon): Promise<void> {
     try {
-      console.log(`🔄 Loading turn data for ${polygon.name}...`);
-      
-      // Use cached data if available
+      // Get intersection data (cached or fresh)
       let lanesData = this._lanesDataCache;
       if (!lanesData) {
-        console.log(`📡 Fetching intersection data...`);
         lanesData = await MapDataService.fetchAllLanesData();
         this._lanesDataCache = lanesData;
       }
       
-      // Process turn data for this approach
-      const processedData = MapDataService.processPolygonApproachData(lanesData, polygon);
+      // Detect which lanes the car is actually inside (dynamic for any intersection)
+      const detectedLanes = MapDataService.detectCarInLanes(this._vehiclePosition, lanesData);
+      const hasChangedLanes = !this.arraysEqual(detectedLanes, this._currentLaneIds);
       
-      // Start SPaT monitoring for this approach
-      await SpatIntegration.startApproachMonitoring(
-        polygon.id,
-        polygon.name,
-        polygon.lanes,
-        lanesData.lanes
-      );
+      if (hasChangedLanes) {
+        this._currentLaneIds = detectedLanes;
+        const isInAnyLane = detectedLanes.length > 0;
+        
+        runInAction(() => {
+          this.showTurnGuide = isInAnyLane;
+        });
+        
+        if (isInAnyLane) {
+          this.loadTurnDataForDetectedLanes();
+        } else {
+          runInAction(() => {
+            this.intersectionData = null;
+          });
+        }
+      }
+      
+    } catch (error) {
+      console.error('❌ Dynamic lane detection failed:', error);
+    }
+  }
+  
+  /**
+   * Helper to compare arrays
+   */
+  private arraysEqual(a: number[], b: number[]): boolean {
+    return a.length === b.length && a.every((val, i) => val === b[i]);
+  }
+  
+  /**
+   * Load turn data for currently detected lanes
+   */
+  private async loadTurnDataForDetectedLanes(): Promise<void> {
+    try {
+      // Use cached data
+      let lanesData = this._lanesDataCache;
+      if (!lanesData) {
+        lanesData = await MapDataService.fetchAllLanesData();
+        this._lanesDataCache = lanesData;
+      }
+      
+      // Get turn data for detected lanes
+      const processedData = MapDataService.processCarPositionData(lanesData, this._vehiclePosition);
       
       runInAction(() => {
         this.intersectionData = processedData;
         this.error = null;
       });
       
-      console.log(`✅ Turn data loaded: ${this.allowedTurns.filter(t => t.allowed).map(t => t.type).join(', ')}`);
-      console.log(`🚦 SPaT monitoring started for ${polygon.name}`);
-      
     } catch (error) {
-      console.error(`❌ Failed to load turn data:`, error);
+      console.error('❌ Failed to load turn data:', error);
       runInAction(() => {
         this.error = error instanceof Error ? error.message : 'Load failed';
         this.intersectionData = null;
@@ -128,7 +115,7 @@ export class DirectionGuideViewModel {
   }
   
   /**
-   * Initialize with approach polygons
+   * Initialize with dynamic data loading
    */
   async initialize(): Promise<void> {
     try {
@@ -137,19 +124,14 @@ export class DirectionGuideViewModel {
         this.error = null;
       });
       
-      console.log(`🚀 DirectionGuide ready with ${MLK_APPROACH_POLYGONS.length} approaches:`);
-      MLK_APPROACH_POLYGONS.forEach(polygon => {
-        console.log(`   - ${polygon.name} (Lanes ${polygon.lanes.join('&')})`);
-      });
-      
-      // Pre-cache intersection data
+      // Pre-cache intersection data (will work for any intersection from API)
       this._lanesDataCache = await MapDataService.fetchAllLanesData();
       
       runInAction(() => {
         this.loading = false;
       });
       
-      console.log(`✅ DirectionGuide initialized with SPaT integration`);
+      console.log('✅ DirectionGuide initialized with dynamic lane detection');
       
     } catch (error) {
       console.error('❌ Initialization failed:', error);
@@ -160,9 +142,17 @@ export class DirectionGuideViewModel {
     }
   }
   
-  // Simple getters for UI - what the driver actually needs
+  // Getters for UI (dynamic - shows lane group information)
   get currentApproachName(): string {
-    return this._currentApproachPolygon?.name || 'No approach detected';
+    if (this._currentLaneIds.length === 0) return 'Not in any lane';
+    
+    // Since we now show combined turns for the road, describe it appropriately
+    if (this._currentLaneIds.includes(7) || this._currentLaneIds.includes(9)) {
+      return 'MLK Jr Blvd approach';
+    }
+    
+    // For future intersections, this would be determined dynamically
+    return `Lane group containing ${this._currentLaneIds.join(' & ')}`;
   }
   
   get allowedTurns(): AllowedTurn[] {
@@ -170,33 +160,39 @@ export class DirectionGuideViewModel {
   }
   
   get currentLanes(): string {
-    const lanes = this._currentApproachPolygon?.lanes || [];
-    return lanes.length > 0 ? `Lanes ${lanes.join(' & ')}` : '';
+    if (this._currentLaneIds.length === 0) return '';
+    
+    // Show the detected lane(s), but user sees combined turns for the road
+    if (this._currentLaneIds.length === 1) {
+      return `${this._currentLaneIds[0]}`;
+    } else {
+      return this._currentLaneIds.join(' & ');
+    }
   }
   
   get turnsAvailable(): number {
     return this.allowedTurns.filter(t => t.allowed).length;
   }
-
-  // SPaT-related getters (using SPaT integration)
-  get hasSignalData(): boolean {
-    return SpatIntegration.hasSignalData();
+  
+  /**
+   * Get current detected lane IDs
+   */
+  get detectedLaneIds(): number[] {
+    return [...this._currentLaneIds];
   }
-
-  get approachSignalState(): SignalState {
-    return SpatIntegration.getCurrentSignalState();
+  
+  /**
+   * Get current intersection name (dynamic)
+   */
+  get currentIntersectionName(): string {
+    return this.intersectionData?.intersectionName || 'Unknown';
   }
-
-  get signalStatusText(): string {
-    return SpatIntegration.getSignalStatusText();
-  }
-
-  get signalColorClass(): string {
-    return SpatIntegration.getSignalColorClass();
-  }
-
-  get laneSignalStatuses() {
-    return SpatIntegration.getLaneSignalStatuses();
+  
+  /**
+   * Check if car is currently in a specific lane
+   */
+  isInLane(laneId: number): boolean {
+    return this._currentLaneIds.includes(laneId);
   }
   
   /**
@@ -208,26 +204,67 @@ export class DirectionGuideViewModel {
   }
   
   /**
-   * Force refresh if needed
+   * Force refresh turn data (works for any intersection)
    */
   async refreshTurnData(): Promise<void> {
     this._lanesDataCache = null;
-    if (this._currentApproachPolygon) {
-      await this.loadTurnDataForApproach(this._currentApproachPolygon);
+    await this.initialize();
+    if (this.showTurnGuide) {
+      await this.loadTurnDataForDetectedLanes();
     }
   }
   
   /**
-   * Cleanup with SPaT integration
+   * Debug method - test dynamic lane group detection at any position
    */
-  cleanup(): void {
-    console.log('🧹 DirectionGuide cleanup');
-    SpatIntegration.cleanup();
-    this._lanesDataCache = null;
+  public async debugLaneDetection(testPosition?: [number, number]): Promise<void> {
+    const position = testPosition || this._vehiclePosition;
+    
+    try {
+      // Get current intersection data
+      const lanesData = this._lanesDataCache || await MapDataService.fetchAllLanesData();
+      
+      console.log(`🐛 === LANE GROUP DEBUG ===`);
+      console.log(`🐛 Testing at position: [${position[0].toFixed(6)}, ${position[1].toFixed(6)}]`);
+      
+      // Test dynamic lane group detection
+      MapDataService.debugLaneDetection(position, lanesData);
+      
+      console.log(`🐛 === CURRENT STATE ===`);
+      console.log(`🐛 Detected lanes: ${this._currentLaneIds.join(', ') || 'NONE'}`);
+      console.log(`🐛 Show turn guide: ${this.showTurnGuide ? 'YES' : 'NO'}`);
+      console.log(`🐛 Available turns: ${this.allowedTurns.filter(t => t.allowed).map(t => t.type).join(', ') || 'NONE'}`);
+      
+    } catch (error) {
+      console.error('🐛 Debug test failed:', error);
+    }
+  }
+  
+  /**
+   * Set new intersection data (for when switching intersections)
+   */
+  async setIntersectionData(newIntersectionData: any): Promise<void> {
+    this._lanesDataCache = newIntersectionData;
+    this._currentLaneIds = [];
+    
     runInAction(() => {
       this.showTurnGuide = false;
       this.intersectionData = null;
-      this._currentApproachPolygon = null;
+    });
+    
+    // Immediately check for lane detection with new intersection
+    await this.checkDynamicLaneDetection();
+  }
+  
+  /**
+   * Cleanup
+   */
+  cleanup(): void {
+    this._lanesDataCache = null;
+    this._currentLaneIds = [];
+    runInAction(() => {
+      this.showTurnGuide = false;
+      this.intersectionData = null;
     });
   }
 }
