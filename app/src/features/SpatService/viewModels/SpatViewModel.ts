@@ -1,5 +1,4 @@
 // app/src/features/SpatService/viewModels/SpatViewModel.ts
-
 import { makeAutoObservable, runInAction } from 'mobx';
 import { SpatDataService } from '../services/SpatDataService';
 import { SpatBusinessService } from '../services/SpatBusinessService';
@@ -14,13 +13,10 @@ export class SpatViewModel {
   // Approach-specific data
   currentApproachSignalStatus: ApproachSignalStatus | null = null;
   
-  // Update management - 2x per second = 500ms
-  private static readonly UPDATE_INTERVAL_MS = 500; // 500ms = 2 updates per second
+  // Update management
   private _updateInterval: NodeJS.Timeout | null = null;
   private _lastUpdateTime: number = 0;
   private _isActive: boolean = false;
-  private _updateCount: number = 0;
-  private _errorCount: number = 0;
   
   constructor() {
     makeAutoObservable(this);
@@ -29,6 +25,25 @@ export class SpatViewModel {
   // ========================================
   // Public Methods
   // ========================================
+  
+  /**
+   * Fetch current SPaT data without starting monitoring
+   */
+  public async fetchCurrentSpatData(): Promise<void> {
+    try {
+      const spatData = await SpatDataService.fetchSpatData();
+      runInAction(() => {
+        this.currentSpatData = spatData;
+        this._lastUpdateTime = Date.now();
+        this.error = null;
+      });
+    } catch (error) {
+      console.error('Failed to fetch SPaT data:', error);
+      runInAction(() => {
+        this.error = error instanceof Error ? error.message : 'SPaT fetch failed';
+      });
+    }
+  }
   
   /**
    * Start monitoring signal status for an approach
@@ -40,35 +55,29 @@ export class SpatViewModel {
     lanesData: any[]
   ): Promise<void> {
     try {
-      console.log(`🚦 Starting SPaT monitoring: ${approachName} (${SpatViewModel.UPDATE_INTERVAL_MS}ms intervals)`);
-      
       this.stopMonitoring();
       
       runInAction(() => {
         this.loading = true;
         this.error = null;
         this._isActive = true;
-        this._updateCount = 0;
-        this._errorCount = 0;
       });
       
       // Initial load
       await this.loadSignalStatusForApproach(approachId, approachName, laneIds, lanesData);
       
-      // Start rapid updates (2x per second)
+      // Start periodic updates
       this.startPeriodicUpdates(approachId, approachName, laneIds, lanesData);
       
       runInAction(() => {
         this.loading = false;
       });
       
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'SPaT start failed';
-      console.error('❌ SPaT monitoring start failed:', errorMessage);
+    } catch (error) {
+      console.error('SPaT monitoring start failed:', error);
       runInAction(() => {
-        this.error = errorMessage;
+        this.error = error instanceof Error ? error.message : 'SPaT start failed';
         this.loading = false;
-        this._isActive = false;
       });
     }
   }
@@ -86,8 +95,6 @@ export class SpatViewModel {
       this._isActive = false;
       this.currentApproachSignalStatus = null;
     });
-    
-    console.log(`🚦 SPaT monitoring stopped (${this._updateCount} updates, ${this._errorCount} errors)`);
   }
   
   /**
@@ -100,9 +107,8 @@ export class SpatViewModel {
     try {
       const spatData = await SpatDataService.fetchSpatData();
       return SpatBusinessService.getLaneSignalStatuses(lanesData, laneIds, spatData);
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'One-time signal check failed';
-      console.error('❌ One-time signal check failed:', errorMessage);
+    } catch (error) {
+      console.error('One-time signal check failed:', error);
       return [];
     }
   }
@@ -133,19 +139,11 @@ export class SpatViewModel {
       this.currentSpatData = spatData;
       this.currentApproachSignalStatus = approachStatus;
       this._lastUpdateTime = Date.now();
-      this._updateCount++;
-      this.error = null; // Clear error on successful update
     });
-    
-    // Log signal changes
-    const prevSignal = this.currentApproachSignalStatus?.overallSignalState;
-    if (prevSignal !== approachStatus.overallSignalState) {
-      console.log(`🚦 Signal changed: ${prevSignal || 'UNKNOWN'} → ${approachStatus.overallSignalState}`);
-    }
   }
   
   /**
-   * Start periodic updates (2x per second)
+   * Start periodic updates
    */
   private startPeriodicUpdates(
     approachId: string,
@@ -153,23 +151,15 @@ export class SpatViewModel {
     laneIds: number[],
     lanesData: any[]
   ): void {
-    console.log(`🔄 Starting rapid SPaT updates every ${SpatViewModel.UPDATE_INTERVAL_MS}ms`);
-    
     this._updateInterval = setInterval(async () => {
       if (!this._isActive) return;
       
       try {
         await this.loadSignalStatusForApproach(approachId, approachName, laneIds, lanesData);
-      } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'SPaT periodic update failed';
-        console.error('❌ SPaT periodic update failed:', errorMessage);
-        runInAction(() => {
-          this._errorCount++;
-          // Don't set error state for individual failed updates to avoid UI flicker
-          // Only log the error and continue trying
-        });
+      } catch (error) {
+        console.error('SPaT periodic update failed:', error);
       }
-    }, SpatViewModel.UPDATE_INTERVAL_MS);
+    }, 3000); // Update every 3 seconds
   }
   
   // ========================================
@@ -222,24 +212,6 @@ export class SpatViewModel {
     return this.currentApproachSignalStatus?.approachName || '';
   }
   
-  get updateCount(): number {
-    return this._updateCount;
-  }
-  
-  get errorCount(): number {
-    return this._errorCount;
-  }
-  
-  get updateRate(): number {
-    return 1000 / SpatViewModel.UPDATE_INTERVAL_MS; // Updates per second
-  }
-  
-  get isDataFresh(): boolean {
-    if (!this._lastUpdateTime) return false;
-    // Consider data fresh if updated within last 2 seconds
-    return (Date.now() - this._lastUpdateTime) < 2000;
-  }
-  
   // ========================================
   // Utility Methods
   // ========================================
@@ -248,51 +220,13 @@ export class SpatViewModel {
    * Force refresh signal data
    */
   public async refreshSignalData(): Promise<void> {
-    if (!this.currentApproachSignalStatus) return;
-    
-    const { approachId, approachName, laneIds } = this.currentApproachSignalStatus;
-    console.log('🚦 Force refresh requested');
-    
-    try {
-      // Get fresh data from cache or API call for lane data
-      // For now, we'll use empty array as we don't have the original lanesData stored
-      await this.loadSignalStatusForApproach(approachId, approachName, laneIds, []);
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Force refresh failed';
-      console.error('❌ Force refresh failed:', errorMessage);
-    }
-  }
-  
-  /**
-   * Get debug info
-   */
-  public getDebugInfo(): object {
-    return {
-      isMonitoring: this._isActive,
-      updateInterval: SpatViewModel.UPDATE_INTERVAL_MS,
-      updateCount: this._updateCount,
-      errorCount: this._errorCount,
-      lastUpdate: this._lastUpdateTime,
-      timeSinceLastUpdate: this.timeSinceLastUpdate,
-      hasData: this.hasSignalData,
-      signalState: this.approachSignalState,
-      intersection: this.currentSpatData?.intersection,
-      spatTimestamp: this.currentSpatData?.timestamp
-    };
-  }
-  
-  /**
-   * Test API connection
-   */
-  public async testConnection(): Promise<boolean> {
-    return await SpatDataService.testConnection();
+    await this.fetchCurrentSpatData();
   }
   
   /**
    * Cleanup resources
    */
   public cleanup(): void {
-    console.log('🧹 SPaT ViewModel cleanup');
     this.stopMonitoring();
     
     runInAction(() => {
@@ -300,8 +234,6 @@ export class SpatViewModel {
       this.currentApproachSignalStatus = null;
       this.error = null;
       this._lastUpdateTime = 0;
-      this._updateCount = 0;
-      this._errorCount = 0;
     });
   }
 }

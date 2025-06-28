@@ -11,6 +11,7 @@ import { TestingPedestrianDetectorViewModel } from '../../../../testingFeatures/
 import { TestingVehicleDisplayViewModel } from '../../../../testingFeatures/testingVehicleDisplay/viewmodels/TestingVehicleDisplayViewModel';
 import { DirectionGuideViewModel } from '../../../DirectionGuide/viewModels/DirectionGuideViewModel';
 import { TurnGuideDisplay } from '../../../DirectionGuide/views/components/TurnGuideDisplay';
+import { SpatStatusDisplay } from '../../../SpatService/views/SpatStatusDisplay';
 import { SimpleLine } from '../../../PedestrianDetector/views/components/SimpleLine';
 import { VehicleMarkers } from '../../../../testingFeatures/testingVehicleDisplay/views/components/VehicleMarker';
 import { 
@@ -45,25 +46,11 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   // Get the active detector based on mode
   const activeDetector = isTestingMode ? testingPedestrianDetectorViewModel : pedestrianDetectorViewModel;
   
-  // Your line coordinates
+  // Line coordinates for lane visualization
   const lineCoordinates: [number, number][] = [
-[-85.2922264, 35.0397893],
-[-85.2941284, 35.0404962]
+    [-85.2922264, 35.0397893],
+    [-85.2941284, 35.0404962]
   ];
-
-    //Lane 7 from the new data
-    // [-85.2922136, 35.039848],
-    // [-85.2922941, 35.0398777]
-    //Lane 8 from the new data 
-    //[-85.2922264, 35.0398195],
-    // [-85.2925483, 35.039943]
-    //Lane 9 from the new data 
-    
-
- 
-
-   
- 
   
   // GPS tracking setup
   useEffect(() => {
@@ -74,11 +61,8 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          console.log('Location permission denied');
           return;
         }
-        
-        console.log('Starting GPS tracking for turn guidance');
         
         locationSubscription = await Location.watchPositionAsync(
           {
@@ -116,8 +100,6 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         if (activeDetector && 'startMonitoring' in activeDetector) {
           activeDetector.startMonitoring();
         }
-        
-        console.log('GPS tracking started successfully');
         
       } catch (error) {
         console.error('GPS setup error:', error);
@@ -249,6 +231,9 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           </Text>
         </View>
       )}
+      
+      {/* SPaT status display */}
+      <SpatStatusDisplay directionGuideViewModel={directionGuideViewModel} />
       
       {/* Turn guidance UI */}
       <TurnGuideDisplay directionGuideViewModel={directionGuideViewModel} />

@@ -14,7 +14,13 @@ export interface MapEventData {
     laneType: [string, number[]];
   };
   maneuvers: number[];
-  connectsTo: any[];
+  connectsTo?: Array<{
+    signalGroup?: number;
+    connectingLane?: {
+      lane: number;
+      maneuver: string[];
+    };
+  }>;
   timestamp: string;
   location: {
     type: string;
@@ -39,15 +45,9 @@ export interface ProcessedIntersectionData {
   intersectionId: number;
   intersectionName: string;
   approachDirection: ApproachDirection;
-  allAllowedTurns: AllowedTurn[]; // Combined from all lanes
+  allAllowedTurns: AllowedTurn[];
   totalLanes: number;
   coordinates: [number, number][];
   timestamp: string;
+  signalGroups?: number[]; // SPaT-related signal groups for this intersection
 }
-
-//i also wanna add folder called testingFeature
-//inside it should have folder testingPedstrianDetectorFeatureTest
-
-//in this i should have the same logic for detecting pedestrain within the crosswalk (and display the message when vehcile is 30 meters away)
-//im doing this so i dont always change the main folder for pedestrianDetector Feature
-//SO I ONLY CALL the test folder instead of the feature folder you get it?

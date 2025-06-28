@@ -111,6 +111,5 @@ export class SpatIntegration {
   }
 }
 
-// Export types for other features to use
-export { SignalState, LaneSignalStatus } from './models/SpatModels';
-export { SpatIcon, SpatStatusBadge, SpatStatusDisplay } from './views/SpatComponents';
+// Re-export types for convenience, but import them from models
+export type { SignalState, LaneSignalStatus } from './models/SpatModels';

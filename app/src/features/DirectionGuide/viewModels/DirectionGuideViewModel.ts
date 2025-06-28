@@ -3,17 +3,26 @@ import { makeAutoObservable, runInAction } from 'mobx';
 import { MapDataService } from '../services/MapDataService';
 import { ProcessedIntersectionData } from '../models/IntersectionData';
 import { AllowedTurn } from '../models/DirectionTypes';
+import { SpatIntegration } from '../../SpatService/SpatIntegration';
+import { SignalState } from '../../SpatService/models/SpatModels';
 
 export class DirectionGuideViewModel {
   loading: boolean = false;
   error: string | null = null;
   intersectionData: ProcessedIntersectionData | null = null;
   
+  // SPaT status for current lanes
+  spatSignalState: SignalState = SignalState.UNKNOWN;
+  spatSignalGroups: number[] = [];
+  spatLastUpdate: number = 0;
+  spatUpdateError: string | null = null;
+  
   private _vehiclePosition: [number, number] = [0, 0];
   showTurnGuide: boolean = false;
   private _lanesDataCache: any = null;
   private _lastDetectionTime: number = 0;
   private _currentLaneIds: number[] = [];
+  private _spatUpdateInterval: NodeJS.Timeout | null = null;
   
   constructor() {
     makeAutoObservable(this);
@@ -39,7 +48,7 @@ export class DirectionGuideViewModel {
   }
   
   /**
-   * Dynamic lane detection - works for any intersection without hardcoding
+   * Dynamic lane detection with SPaT integration
    */
   private async checkDynamicLaneDetection(): Promise<void> {
     if (this._vehiclePosition[0] === 0 && this._vehiclePosition[1] === 0) return;
@@ -52,7 +61,7 @@ export class DirectionGuideViewModel {
         this._lanesDataCache = lanesData;
       }
       
-      // Detect which lanes the car is actually inside (dynamic for any intersection)
+      // Detect which lanes the car is actually inside
       const detectedLanes = MapDataService.detectCarInLanes(this._vehiclePosition, lanesData);
       const hasChangedLanes = !this.arraysEqual(detectedLanes, this._currentLaneIds);
       
@@ -65,10 +74,14 @@ export class DirectionGuideViewModel {
         });
         
         if (isInAnyLane) {
-          this.loadTurnDataForDetectedLanes();
+          await this.loadTurnDataForDetectedLanes();
+          await this.startSpatMonitoring(); // Start continuous monitoring
         } else {
+          this.stopSpatMonitoring(); // Stop monitoring when leaving lanes
           runInAction(() => {
             this.intersectionData = null;
+            this.spatSignalState = SignalState.UNKNOWN;
+            this.spatSignalGroups = [];
           });
         }
       }
@@ -76,6 +89,178 @@ export class DirectionGuideViewModel {
     } catch (error) {
       console.error('❌ Dynamic lane detection failed:', error);
     }
+  }
+  
+  /**
+   * Start continuous SPaT monitoring while in lane
+   */
+  private async startSpatMonitoring(): Promise<void> {
+    // Stop any existing monitoring
+    this.stopSpatMonitoring();
+    
+    // Initial load
+    await this.loadSpatDataForDetectedLanes();
+    
+    // Start continuous updates every 500ms (twice per second)
+    this._spatUpdateInterval = setInterval(async () => {
+      try {
+        await this.loadSpatDataForDetectedLanes();
+      } catch (error) {
+        console.error('🚨 CRITICAL: SPaT update failed:', error);
+        runInAction(() => {
+          this.spatUpdateError = error instanceof Error ? error.message : 'SPaT update failed';
+        });
+      }
+    }, 500); // Update every 500ms for real-time accuracy
+    
+    console.log('🚦 Started continuous SPaT monitoring for lanes:', this._currentLaneIds);
+  }
+  
+  /**
+   * Stop SPaT monitoring
+   */
+  private stopSpatMonitoring(): void {
+    if (this._spatUpdateInterval) {
+      clearInterval(this._spatUpdateInterval);
+      this._spatUpdateInterval = null;
+      console.log('🛑 Stopped SPaT monitoring');
+    }
+    
+    runInAction(() => {
+      this.spatSignalState = SignalState.UNKNOWN;
+      this.spatSignalGroups = [];
+      this.spatUpdateError = null;
+    });
+  }
+  
+  /**
+   * Load SPaT data for currently detected lanes with enhanced error handling
+   */
+  private async loadSpatDataForDetectedLanes(): Promise<void> {
+    const loadStartTime = Date.now();
+    
+    try {
+      if (!this._lanesDataCache) return;
+      
+      // Get signal groups for detected lanes
+      const signalGroups = MapDataService.getSignalGroupsForDetectedLanes(
+        this._lanesDataCache, 
+        this._vehiclePosition
+      );
+      
+      if (signalGroups.length > 0) {
+        // Use SPaT service to get signal state for these signal groups
+        const spatViewModel = SpatIntegration.getSpatViewModel();
+        
+        // Get current SPaT data with timeout protection
+        const fetchStartTime = Date.now();
+        await spatViewModel.fetchCurrentSpatData();
+        const fetchDuration = Date.now() - fetchStartTime;
+        
+        // Log slow API calls (potential safety issue)
+        if (fetchDuration > 1000) {
+          console.warn(`🚨 SLOW SPaT API: ${fetchDuration}ms - Could impact safety!`);
+        }
+        
+        // Validate SPaT data freshness
+        if (!spatViewModel.currentSpatData) {
+          throw new Error('No SPaT data received from API');
+        }
+        
+        const spatTimestamp = spatViewModel.currentSpatData.timestamp;
+        const currentTime = Date.now();
+        const dataAge = currentTime - spatTimestamp;
+        
+        // Warn if data is older than 2 seconds (safety concern)
+        if (dataAge > 2000) {
+          console.warn(`🚨 STALE SPaT DATA: ${dataAge}ms old - Safety risk!`);
+        }
+        
+        // Determine signal state for our signal groups
+        let signalState = SignalState.UNKNOWN;
+        if (spatViewModel.currentSpatData) {
+          // Check each signal group and get the most restrictive state
+          const signalStates: SignalState[] = [];
+          
+          for (const signalGroup of signalGroups) {
+            const groupSignalState = this.determineSignalStateForGroup(
+              signalGroup, 
+              spatViewModel.currentSpatData
+            );
+            signalStates.push(groupSignalState);
+            
+            // Log signal group status for debugging
+            console.log(`🚦 Signal Group ${signalGroup}: ${groupSignalState}`);
+          }
+          
+          // Determine final state based on priority: Red > Yellow > Green > Unknown
+          if (signalStates.includes(SignalState.RED)) {
+            signalState = SignalState.RED;
+          } else if (signalStates.includes(SignalState.YELLOW)) {
+            signalState = SignalState.YELLOW;
+          } else if (signalStates.includes(SignalState.GREEN)) {
+            signalState = SignalState.GREEN;
+          } else {
+            signalState = SignalState.UNKNOWN;
+          }
+          
+          // Log final state for safety verification
+          const loadDuration = Date.now() - loadStartTime;
+          console.log(`🚦 Final SPaT State: ${signalState} (${loadDuration}ms load time)`);
+        }
+        
+        runInAction(() => {
+          this.spatSignalGroups = signalGroups;
+          this.spatSignalState = signalState;
+          this.spatLastUpdate = Date.now();
+          this.spatUpdateError = null;
+        });
+      } else {
+        runInAction(() => {
+          this.spatSignalGroups = [];
+          this.spatSignalState = SignalState.UNKNOWN;
+          this.spatUpdateError = null;
+        });
+      }
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'SPaT load failed';
+      console.error('🚨 CRITICAL SPaT ERROR:', {
+        error: errorMessage,
+        lanes: this._currentLaneIds,
+        position: this._vehiclePosition,
+        timestamp: new Date().toISOString()
+      });
+      
+      runInAction(() => {
+        this.spatSignalState = SignalState.UNKNOWN;
+        this.spatSignalGroups = [];
+        this.spatUpdateError = errorMessage;
+      });
+    }
+  }
+  
+  /**
+   * Determine signal state for a specific signal group
+   */
+  private determineSignalStateForGroup(signalGroup: number, spatData: any): SignalState {
+    // Check in priority order: Green > Yellow > Red > Unknown
+    if (spatData.phaseStatusGroupGreens && Array.isArray(spatData.phaseStatusGroupGreens) && 
+        spatData.phaseStatusGroupGreens.includes(signalGroup)) {
+      return SignalState.GREEN;
+    }
+    
+    if (spatData.phaseStatusGroupYellows && Array.isArray(spatData.phaseStatusGroupYellows) && 
+        spatData.phaseStatusGroupYellows.includes(signalGroup)) {
+      return SignalState.YELLOW;
+    }
+    
+    if (spatData.phaseStatusGroupReds && Array.isArray(spatData.phaseStatusGroupReds) && 
+        spatData.phaseStatusGroupReds.includes(signalGroup)) {
+      return SignalState.RED;
+    }
+    
+    return SignalState.UNKNOWN;
   }
   
   /**
@@ -124,14 +309,12 @@ export class DirectionGuideViewModel {
         this.error = null;
       });
       
-      // Pre-cache intersection data (will work for any intersection from API)
+      // Pre-cache intersection data
       this._lanesDataCache = await MapDataService.fetchAllLanesData();
       
       runInAction(() => {
         this.loading = false;
       });
-      
-      console.log('✅ DirectionGuide initialized with dynamic lane detection');
       
     } catch (error) {
       console.error('❌ Initialization failed:', error);
@@ -142,16 +325,14 @@ export class DirectionGuideViewModel {
     }
   }
   
-  // Getters for UI (dynamic - shows lane group information)
+  // Getters for UI
   get currentApproachName(): string {
     if (this._currentLaneIds.length === 0) return 'Not in any lane';
     
-    // Since we now show combined turns for the road, describe it appropriately
     if (this._currentLaneIds.includes(7) || this._currentLaneIds.includes(9)) {
       return 'MLK Jr Blvd approach';
     }
     
-    // For future intersections, this would be determined dynamically
     return `Lane group containing ${this._currentLaneIds.join(' & ')}`;
   }
   
@@ -162,7 +343,6 @@ export class DirectionGuideViewModel {
   get currentLanes(): string {
     if (this._currentLaneIds.length === 0) return '';
     
-    // Show the detected lane(s), but user sees combined turns for the road
     if (this._currentLaneIds.length === 1) {
       return `${this._currentLaneIds[0]}`;
     } else {
@@ -174,18 +354,37 @@ export class DirectionGuideViewModel {
     return this.allowedTurns.filter(t => t.allowed).length;
   }
   
-  /**
-   * Get current detected lane IDs
-   */
   get detectedLaneIds(): number[] {
     return [...this._currentLaneIds];
   }
   
-  /**
-   * Get current intersection name (dynamic)
-   */
   get currentIntersectionName(): string {
     return this.intersectionData?.intersectionName || 'Unknown';
+  }
+  
+  // SPaT-related getters
+  get hasSpatData(): boolean {
+    return this.spatSignalGroups.length > 0 && this.spatSignalState !== SignalState.UNKNOWN;
+  }
+  
+  get spatStatus(): { state: SignalState; signalGroups: number[] } {
+    return {
+      state: this.spatSignalState,
+      signalGroups: this.spatSignalGroups
+    };
+  }
+  
+  get spatDataAge(): number {
+    return this.spatLastUpdate > 0 ? Date.now() - this.spatLastUpdate : -1;
+  }
+  
+  get isSpatDataStale(): boolean {
+    const age = this.spatDataAge;
+    return age > 3000; // Consider stale if older than 3 seconds
+  }
+  
+  get spatMonitoringActive(): boolean {
+    return this._spatUpdateInterval !== null;
   }
   
   /**
@@ -204,67 +403,30 @@ export class DirectionGuideViewModel {
   }
   
   /**
-   * Force refresh turn data (works for any intersection)
+   * Force refresh all data
    */
-  async refreshTurnData(): Promise<void> {
+  async refreshAllData(): Promise<void> {
     this._lanesDataCache = null;
     await this.initialize();
     if (this.showTurnGuide) {
       await this.loadTurnDataForDetectedLanes();
+      await this.loadSpatDataForDetectedLanes();
     }
-  }
-  
-  /**
-   * Debug method - test dynamic lane group detection at any position
-   */
-  public async debugLaneDetection(testPosition?: [number, number]): Promise<void> {
-    const position = testPosition || this._vehiclePosition;
-    
-    try {
-      // Get current intersection data
-      const lanesData = this._lanesDataCache || await MapDataService.fetchAllLanesData();
-      
-      console.log(`🐛 === LANE GROUP DEBUG ===`);
-      console.log(`🐛 Testing at position: [${position[0].toFixed(6)}, ${position[1].toFixed(6)}]`);
-      
-      // Test dynamic lane group detection
-      MapDataService.debugLaneDetection(position, lanesData);
-      
-      console.log(`🐛 === CURRENT STATE ===`);
-      console.log(`🐛 Detected lanes: ${this._currentLaneIds.join(', ') || 'NONE'}`);
-      console.log(`🐛 Show turn guide: ${this.showTurnGuide ? 'YES' : 'NO'}`);
-      console.log(`🐛 Available turns: ${this.allowedTurns.filter(t => t.allowed).map(t => t.type).join(', ') || 'NONE'}`);
-      
-    } catch (error) {
-      console.error('🐛 Debug test failed:', error);
-    }
-  }
-  
-  /**
-   * Set new intersection data (for when switching intersections)
-   */
-  async setIntersectionData(newIntersectionData: any): Promise<void> {
-    this._lanesDataCache = newIntersectionData;
-    this._currentLaneIds = [];
-    
-    runInAction(() => {
-      this.showTurnGuide = false;
-      this.intersectionData = null;
-    });
-    
-    // Immediately check for lane detection with new intersection
-    await this.checkDynamicLaneDetection();
   }
   
   /**
    * Cleanup
    */
   cleanup(): void {
+    this.stopSpatMonitoring(); // Stop SPaT monitoring
     this._lanesDataCache = null;
     this._currentLaneIds = [];
     runInAction(() => {
       this.showTurnGuide = false;
       this.intersectionData = null;
+      this.spatSignalState = SignalState.UNKNOWN;
+      this.spatSignalGroups = [];
+      this.spatUpdateError = null;
     });
   }
 }
