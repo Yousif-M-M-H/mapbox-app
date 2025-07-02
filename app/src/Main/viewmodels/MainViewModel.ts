@@ -2,7 +2,6 @@
 import { makeAutoObservable } from 'mobx';
 import { Coordinate } from '../../features/Map/models/Location';
 import { MapViewModel } from '../../features/Map/viewmodels/MapViewModel';
-import { DriverViewModel } from '../../features/DriverView/models/DriverViewModel';
 import { PedestrianDetectorViewModel } from '../../features/PedestrianDetector/viewmodels/PedestrianDetectorViewModel';
 import { TestingPedestrianDetectorViewModel } from '../../testingFeatures/testingPedestrianDetectorFeatureTest/viewmodels/TestingPedestrianDetectorViewModel';
 import { TestingVehicleDisplayViewModel } from '../../testingFeatures/testingVehicleDisplay/viewmodels/TestingVehicleDisplayViewModel';
@@ -11,7 +10,6 @@ import { TESTING_CONFIG } from '../../testingFeatures/TestingConfig';
 
 export class MainViewModel {
   mapViewModel: MapViewModel;
-  driverViewModel: DriverViewModel;
   pedestrianDetectorViewModel: PedestrianDetectorViewModel | null = null;
   testingPedestrianDetectorViewModel: TestingPedestrianDetectorViewModel | null = null;
   testingVehicleDisplayViewModel: TestingVehicleDisplayViewModel | null = null;
@@ -24,10 +22,7 @@ export class MainViewModel {
     console.log('MainViewModel: Initializing');
     
     this.mapViewModel = new MapViewModel();
-    this.driverViewModel = new DriverViewModel(
-      () => this.mapViewModel.userLocationCoordinate,
-      () => this.mapViewModel.getUserHeading()
-    );
+   
     
     // Create appropriate pedestrian detector based on testing mode
     if (TESTING_CONFIG.USE_TESTING_MODE) {

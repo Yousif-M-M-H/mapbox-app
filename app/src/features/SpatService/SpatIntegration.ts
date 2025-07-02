@@ -1,7 +1,9 @@
 // app/src/features/SpatService/SpatIntegration.ts
+// Updated integration layer using new services
 
 import { SpatViewModel } from './viewModels/SpatViewModel';
 import { SignalState, LaneSignalStatus } from './models/SpatModels';
+import { SpatErrorHandler } from './errorHandling/SpatErrorHandler';
 
 /**
  * Integration interface for other features to use SPaT service
@@ -29,8 +31,13 @@ export class SpatIntegration {
     laneIds: number[],
     lanesData: any[]
   ): Promise<void> {
-    const viewModel = this.getSpatViewModel();
-    await viewModel.startMonitoringApproach(approachId, approachName, laneIds, lanesData);
+    try {
+      const viewModel = this.getSpatViewModel();
+      await viewModel.startMonitoringApproach(approachId, approachName, laneIds, lanesData);
+    } catch (error) {
+      SpatErrorHandler.logError('startApproachMonitoring', error);
+      throw error;
+    }
   }
   
   /**
@@ -96,8 +103,66 @@ export class SpatIntegration {
     laneIds: number[],
     lanesData: any[]
   ): Promise<LaneSignalStatus[]> {
+    try {
+      const viewModel = this.getSpatViewModel();
+      return await viewModel.getSignalStatusForLanes(laneIds, lanesData);
+    } catch (error) {
+      SpatErrorHandler.logError('checkSignalForLanes', error);
+      return [];
+    }
+  }
+  
+  /**
+   * Force refresh current data
+   */
+  public static async refreshSignalData(): Promise<void> {
+    try {
+      const viewModel = this.getSpatViewModel();
+      await viewModel.refreshSignalData();
+    } catch (error) {
+      SpatErrorHandler.logError('refreshSignalData', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Get current approach name
+   */
+  public static getCurrentApproachName(): string {
     const viewModel = this.getSpatViewModel();
-    return viewModel.getSignalStatusForLanes(laneIds, lanesData);
+    return viewModel.currentApproachName;
+  }
+  
+  /**
+   * Get last update time
+   */
+  public static getLastUpdateTime(): number {
+    const viewModel = this.getSpatViewModel();
+    return viewModel.lastUpdateTime;
+  }
+  
+  /**
+   * Get time since last update
+   */
+  public static getTimeSinceLastUpdate(): number {
+    const viewModel = this.getSpatViewModel();
+    return viewModel.timeSinceLastUpdate;
+  }
+  
+  /**
+   * Check if there's an error
+   */
+  public static hasError(): boolean {
+    const viewModel = this.getSpatViewModel();
+    return viewModel.error !== null;
+  }
+  
+  /**
+   * Get current error message
+   */
+  public static getErrorMessage(): string | null {
+    const viewModel = this.getSpatViewModel();
+    return viewModel.error;
   }
   
   /**
@@ -111,5 +176,5 @@ export class SpatIntegration {
   }
 }
 
-// Re-export types for convenience, but import them from models
+// Re-export types for convenience
 export type { SignalState, LaneSignalStatus } from './models/SpatModels';

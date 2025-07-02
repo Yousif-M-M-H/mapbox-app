@@ -1,11 +1,16 @@
 // app/src/features/SpatService/viewModels/SpatViewModel.ts
+// Clean ViewModel focused on state management and coordination
+
 import { makeAutoObservable, runInAction } from 'mobx';
-import { SpatDataService } from '../services/SpatDataService';
-import { SpatBusinessService } from '../services/SpatBusinessService';
+import { SpatApiService } from '../services/SpatApiService';
+import { DataMappingService } from '../services/DataMappingService';
+import { SignalStateService } from '../services/SignalStateService';
+import { TimingCalculationService } from '../services/TimingCalculationService';
+import { SpatErrorHandler } from '../errorHandling/SpatErrorHandler';
 import { SpatData, SignalState, ApproachSignalStatus, LaneSignalStatus } from '../models/SpatModels';
 
 export class SpatViewModel {
-  // State
+  // Core state
   loading: boolean = false;
   error: string | null = null;
   currentSpatData: SpatData | null = null;
@@ -13,7 +18,7 @@ export class SpatViewModel {
   // Approach-specific data
   currentApproachSignalStatus: ApproachSignalStatus | null = null;
   
-  // Update management
+  // Monitoring state
   private _updateInterval: NodeJS.Timeout | null = null;
   private _lastUpdateTime: number = 0;
   private _isActive: boolean = false;
@@ -23,7 +28,7 @@ export class SpatViewModel {
   }
   
   // ========================================
-  // Public Methods
+  // Public API - Data Fetching
   // ========================================
   
   /**
@@ -31,19 +36,28 @@ export class SpatViewModel {
    */
   public async fetchCurrentSpatData(): Promise<void> {
     try {
-      const spatData = await SpatDataService.fetchSpatData();
+      const rawData = await SpatApiService.fetchSpatData();
+      const spatData = DataMappingService.mapApiResponseToSpatData(rawData);
+      
       runInAction(() => {
         this.currentSpatData = spatData;
         this._lastUpdateTime = Date.now();
         this.error = null;
       });
     } catch (error) {
-      console.error('Failed to fetch SPaT data:', error);
+      const errorMessage = SpatErrorHandler.getErrorMessage(error);
+      SpatErrorHandler.logError('fetchCurrentSpatData', error);
+      
       runInAction(() => {
-        this.error = error instanceof Error ? error.message : 'SPaT fetch failed';
+        this.error = errorMessage;
       });
+      throw error;
     }
   }
+  
+  // ========================================
+  // Public API - Monitoring
+  // ========================================
   
   /**
    * Start monitoring signal status for an approach
@@ -74,11 +88,15 @@ export class SpatViewModel {
       });
       
     } catch (error) {
-      console.error('SPaT monitoring start failed:', error);
+      const errorMessage = SpatErrorHandler.getErrorMessage(error);
+      SpatErrorHandler.logError('startMonitoringApproach', error);
+      
       runInAction(() => {
-        this.error = error instanceof Error ? error.message : 'SPaT start failed';
+        this.error = errorMessage;
         this.loading = false;
+        this._isActive = false;
       });
+      throw error;
     }
   }
   
@@ -97,6 +115,10 @@ export class SpatViewModel {
     });
   }
   
+  // ========================================
+  // Public API - Lane Signal Status
+  // ========================================
+  
   /**
    * Get signal status for specific lanes (one-time check)
    */
@@ -105,61 +127,14 @@ export class SpatViewModel {
     lanesData: any[]
   ): Promise<LaneSignalStatus[]> {
     try {
-      const spatData = await SpatDataService.fetchSpatData();
-      return SpatBusinessService.getLaneSignalStatuses(lanesData, laneIds, spatData);
+      const rawData = await SpatApiService.fetchSpatData();
+      const spatData = DataMappingService.mapApiResponseToSpatData(rawData);
+      
+      return this.buildLaneSignalStatuses(lanesData, laneIds, spatData);
     } catch (error) {
-      console.error('One-time signal check failed:', error);
+      SpatErrorHandler.logError('getSignalStatusForLanes', error);
       return [];
     }
-  }
-  
-  // ========================================
-  // Private Methods
-  // ========================================
-  
-  /**
-   * Load signal status for approach
-   */
-  private async loadSignalStatusForApproach(
-    approachId: string,
-    approachName: string,
-    laneIds: number[],
-    lanesData: any[]
-  ): Promise<void> {
-    const spatData = await SpatDataService.fetchSpatData();
-    const approachStatus = SpatBusinessService.createApproachSignalStatus(
-      approachId,
-      approachName,
-      laneIds,
-      lanesData,
-      spatData
-    );
-    
-    runInAction(() => {
-      this.currentSpatData = spatData;
-      this.currentApproachSignalStatus = approachStatus;
-      this._lastUpdateTime = Date.now();
-    });
-  }
-  
-  /**
-   * Start periodic updates
-   */
-  private startPeriodicUpdates(
-    approachId: string,
-    approachName: string,
-    laneIds: number[],
-    lanesData: any[]
-  ): void {
-    this._updateInterval = setInterval(async () => {
-      if (!this._isActive) return;
-      
-      try {
-        await this.loadSignalStatusForApproach(approachId, approachName, laneIds, lanesData);
-      } catch (error) {
-        console.error('SPaT periodic update failed:', error);
-      }
-    }, 3000); // Update every 3 seconds
   }
   
   // ========================================
@@ -210,6 +185,105 @@ export class SpatViewModel {
   
   get currentApproachName(): string {
     return this.currentApproachSignalStatus?.approachName || '';
+  }
+  
+  // ========================================
+  // Private Methods
+  // ========================================
+  
+  /**
+   * Load signal status for approach
+   */
+  private async loadSignalStatusForApproach(
+    approachId: string,
+    approachName: string,
+    laneIds: number[],
+    lanesData: any[]
+  ): Promise<void> {
+    const rawData = await SpatApiService.fetchSpatData();
+    const spatData = DataMappingService.mapApiResponseToSpatData(rawData);
+    const approachStatus = this.buildApproachSignalStatus(
+      approachId,
+      approachName,
+      laneIds,
+      lanesData,
+      spatData
+    );
+    
+    runInAction(() => {
+      this.currentSpatData = spatData;
+      this.currentApproachSignalStatus = approachStatus;
+      this._lastUpdateTime = Date.now();
+    });
+  }
+  
+  /**
+   * Start periodic updates
+   */
+  private startPeriodicUpdates(
+    approachId: string,
+    approachName: string,
+    laneIds: number[],
+    lanesData: any[]
+  ): void {
+    this._updateInterval = setInterval(async () => {
+      if (!this._isActive) return;
+      
+      try {
+        await this.loadSignalStatusForApproach(approachId, approachName, laneIds, lanesData);
+      } catch (error) {
+        SpatErrorHandler.logError('periodicUpdate', error);
+      }
+    }, 3000); // Update every 3 seconds
+  }
+  
+  /**
+   * Build lane signal statuses
+   */
+  private buildLaneSignalStatuses(
+    lanesData: any[], 
+    laneIds: number[], 
+    spatData: SpatData
+  ): LaneSignalStatus[] {
+    const targetLanes = lanesData.filter(lane => laneIds.includes(lane.laneId));
+    
+    return targetLanes.map(lane => {
+      const signalGroups = SignalStateService.extractSignalGroups(lane);
+      const signalState = SignalStateService.determineSignalState(signalGroups, spatData);
+      const timingInfo = TimingCalculationService.getTimingInfoForSignalGroups(signalGroups, spatData);
+      
+      return {
+        laneId: lane.laneId,
+        signalGroups,
+        signalState,
+        timingInfo
+      };
+    });
+  }
+  
+  /**
+   * Build approach signal status
+   */
+  private buildApproachSignalStatus(
+    approachId: string,
+    approachName: string,
+    laneIds: number[],
+    lanesData: any[],
+    spatData: SpatData
+  ): ApproachSignalStatus {
+    const laneSignalStatuses = this.buildLaneSignalStatuses(lanesData, laneIds, spatData);
+    const overallSignalState = SignalStateService.determineApproachSignalState(laneSignalStatuses);
+    const estimatedTimeToChange = TimingCalculationService.calculateApproachTimeToChange(laneSignalStatuses, spatData);
+    
+    return {
+      approachId,
+      approachName,
+      laneIds,
+      overallSignalState,
+      laneSignalStatuses,
+      timestamp: spatData.timestamp,
+      estimatedTimeToChange
+    };
   }
   
   // ========================================
