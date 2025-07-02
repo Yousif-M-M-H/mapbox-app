@@ -1,4 +1,5 @@
 // app/src/features/DirectionGuide/views/components/TurnGuideDisplay.tsx
+
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { observer } from 'mobx-react-lite';
@@ -9,63 +10,33 @@ interface TurnGuideDisplayProps {
   directionGuideViewModel: DirectionGuideViewModel;
 }
 
+/**
+ * Pure UI component for displaying turn guidance
+ * Only handles presentation logic, no business logic
+ */
 export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({ 
   directionGuideViewModel 
 }) => {
-  // VERY precise conditions: only show when car is actually inside a lane with available turns
-  const isInLane = directionGuideViewModel.detectedLaneIds.length > 0;
-  const hasTurnData = directionGuideViewModel.intersectionData !== null;
-  const hasAllowedTurns = directionGuideViewModel.turnsAvailable > 0;
+  // Determine if we should show the turn guide
+  const shouldShowGuide = shouldShowTurnGuide(directionGuideViewModel);
   
-  const shouldShow = isInLane && hasTurnData && hasAllowedTurns;
-  
-  if (!shouldShow) {
+  if (!shouldShowGuide) {
     return null;
   }
 
   const allowedTurns = directionGuideViewModel.allowedTurns.filter(turn => turn.allowed);
 
-  const getTurnIcon = (turnType: TurnType): string => {
-    switch (turnType) {
-      case TurnType.LEFT: return '⬅';
-      case TurnType.RIGHT: return '➡';
-      case TurnType.STRAIGHT: return '⬆';
-      case TurnType.U_TURN: return '🔄';
-      default: return '?';
-    }
-  };
-
-  const getTurnColor = (turnType: TurnType): string => {
-    switch (turnType) {
-      case TurnType.LEFT: return '#1a73e8';      // Blue
-      case TurnType.RIGHT: return '#137333';     // Green
-      case TurnType.STRAIGHT: return '#d93025';  // Red
-      case TurnType.U_TURN: return '#f9ab00';    // Yellow
-      default: return '#5f6368';
-    }
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.indicator}>
-        {/* Lane indicator */}
-  
-        
         {/* Turn icons */}
         <View style={styles.iconsContainer}>
           {allowedTurns.map((turn, index) => (
-            <View 
-              key={turn.type} 
-              style={[
-                styles.turnCircle,
-                { backgroundColor: getTurnColor(turn.type) },
-                index > 0 && styles.turnCircleSpacing
-              ]}
-            >
-              <View style={styles.innerCircle}>
-                <Text style={styles.turnIcon}>{getTurnIcon(turn.type)}</Text>
-              </View>
-            </View>
+            <TurnIcon
+              key={turn.type}
+              turnType={turn.type}
+              isFirst={index === 0}
+            />
           ))}
         </View>
         
@@ -74,6 +45,78 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
     </View>
   );
 });
+
+/**
+ * Individual turn icon component
+ */
+interface TurnIconProps {
+  turnType: TurnType;
+  isFirst: boolean;
+}
+
+const TurnIcon: React.FC<TurnIconProps> = ({ turnType, isFirst }) => {
+  const icon = getTurnIcon(turnType);
+  const color = getTurnColor(turnType);
+  
+  return (
+    <View 
+      style={[
+        styles.turnCircle,
+        { backgroundColor: color },
+        !isFirst && styles.turnCircleSpacing
+      ]}
+    >
+      <View style={styles.innerCircle}>
+        <Text style={styles.turnIcon}>{icon}</Text>
+      </View>
+    </View>
+  );
+};
+
+// ========================================
+// Helper Functions
+// ========================================
+
+/**
+ * Determine if turn guide should be shown
+ */
+function shouldShowTurnGuide(viewModel: DirectionGuideViewModel): boolean {
+  const isInLane = viewModel.detectedLaneIds.length > 0;
+  const hasTurnData = viewModel.intersectionData !== null;
+  const hasAllowedTurns = viewModel.turnsAvailable > 0;
+  
+  return isInLane && hasTurnData && hasAllowedTurns;
+}
+
+/**
+ * Get icon for turn type
+ */
+function getTurnIcon(turnType: TurnType): string {
+  switch (turnType) {
+    case TurnType.LEFT: return '⬅';
+    case TurnType.RIGHT: return '➡';
+    case TurnType.STRAIGHT: return '⬆';
+    case TurnType.U_TURN: return '🔄';
+    default: return '?';
+  }
+}
+
+/**
+ * Get color for turn type
+ */
+function getTurnColor(turnType: TurnType): string {
+  switch (turnType) {
+    case TurnType.LEFT: return '#1a73e8';      // Blue
+    case TurnType.RIGHT: return '#137333';     // Green
+    case TurnType.STRAIGHT: return '#d93025';  // Red
+    case TurnType.U_TURN: return '#f9ab00';    // Yellow
+    default: return '#5f6368';
+  }
+}
+
+// ========================================
+// Styles
+// ========================================
 
 const styles = StyleSheet.create({
   container: {
@@ -84,18 +127,6 @@ const styles = StyleSheet.create({
   },
   indicator: {
     alignItems: 'center',
-  },
-  laneIndicator: {
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginBottom: 8,
-  },
-  laneText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
   },
   iconsContainer: {
     flexDirection: 'row',
