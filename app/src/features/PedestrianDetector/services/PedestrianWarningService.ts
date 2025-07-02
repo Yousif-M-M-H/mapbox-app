@@ -1,26 +1,150 @@
 // app/src/features/PedestrianDetector/services/PedestrianWarningService.ts
+// Handles warning notifications and alerts
 
-import { PedestrianAlert } from '../models/PedestrianDetection';
+export interface PedestrianAlert {
+  timestamp: string;
+  pedestrianCount: number;
+  isVehicleApproaching: boolean;
+  pedestrianIds: number[];
+  vehiclePosition: [number, number];
+  distanceToNearestPedestrian?: number;
+}
 
 export class PedestrianWarningService {
+  
   /**
-   * Log a warning about pedestrians in the crosswalk
+   * Log a simple warning about pedestrians in the crosswalk
    */
   static logPedestrianWarning(pedestrianCount: number): void {
     console.warn(`⚠️ WARNING: ${pedestrianCount} pedestrian(s) detected in crosswalk!`);
   }
-
+  
   /**
-   * Log a detailed alert with additional information
+   * Log a detailed alert with comprehensive information
    */
   static logDetailedAlert(alert: PedestrianAlert): void {
+    const timeString = new Date(alert.timestamp).toLocaleTimeString();
+    const approachingText = alert.isVehicleApproaching ? 'YES' : 'NO';
+    const distanceText = alert.distanceToNearestPedestrian 
+      ? `${alert.distanceToNearestPedestrian.toFixed(2)}m` 
+      : 'N/A';
+    
     console.warn(`
       ⚠️ PEDESTRIAN ALERT
       -------------------------------------
-      Time: ${new Date(alert.timestamp).toLocaleTimeString()}
+      Time: ${timeString}
       Pedestrians in crosswalk: ${alert.pedestrianCount}
-      Vehicle approaching: ${alert.isVehicleApproaching ? 'YES' : 'NO'}
+      Pedestrian IDs: ${alert.pedestrianIds.join(', ')}
+      Vehicle approaching: ${approachingText}
+      Vehicle position: [${alert.vehiclePosition[0].toFixed(6)}, ${alert.vehiclePosition[1].toFixed(6)}]
+      Distance to nearest: ${distanceText}
       -------------------------------------
     `);
+  }
+  
+  /**
+   * Log a critical warning for immediate danger
+   */
+  static logCriticalWarning(
+    pedestrianId: number, 
+    distanceMeters: number,
+    vehiclePosition: [number, number],
+    pedestrianPosition: [number, number]
+  ): void {
+    console.error(`
+      🚨 CRITICAL WARNING
+      -------------------------------------
+      IMMEDIATE COLLISION RISK DETECTED!
+      Pedestrian ID: ${pedestrianId}
+      Distance: ${distanceMeters.toFixed(2)} meters
+      Vehicle: [${vehiclePosition[0].toFixed(6)}, ${vehiclePosition[1].toFixed(6)}]
+      Pedestrian: [${pedestrianPosition[0].toFixed(6)}, ${pedestrianPosition[1].toFixed(6)}]
+      -------------------------------------
+    `);
+  }
+  
+  /**
+   * Create a standardized alert object
+   */
+  static createAlert(
+    pedestrianCount: number,
+    isVehicleApproaching: boolean,
+    pedestrianIds: number[],
+    vehiclePosition: [number, number],
+    distanceToNearestPedestrian?: number
+  ): PedestrianAlert {
+    return {
+      timestamp: new Date().toISOString(),
+      pedestrianCount,
+      isVehicleApproaching,
+      pedestrianIds,
+      vehiclePosition,
+      distanceToNearestPedestrian
+    };
+  }
+  
+  /**
+   * Determine alert level based on conditions
+   */
+  static getAlertLevel(
+    pedestriansInCrosswalk: number,
+    isVehicleApproaching: boolean,
+    distanceToNearest: number
+  ): 'none' | 'low' | 'medium' | 'high' | 'critical' {
+    if (pedestriansInCrosswalk === 0) {
+      return 'none';
+    }
+    
+    if (!isVehicleApproaching) {
+      return 'low';
+    }
+    
+    if (distanceToNearest > 50) {
+      return 'medium';
+    }
+    
+    if (distanceToNearest > 20) {
+      return 'high';
+    }
+    
+    return 'critical';
+  }
+  
+  /**
+   * Log appropriate warning based on alert level
+   */
+  static logAlertByLevel(
+    level: 'none' | 'low' | 'medium' | 'high' | 'critical',
+    alert: PedestrianAlert
+  ): void {
+    switch (level) {
+      case 'none':
+        // No warning needed
+        break;
+      case 'low':
+        console.log(`🚶 ${alert.pedestrianCount} pedestrian(s) in crosswalk (vehicle not approaching)`);
+        break;
+      case 'medium':
+      case 'high':
+        this.logDetailedAlert(alert);
+        break;
+      case 'critical':
+        this.logDetailedAlert(alert);
+        // Could trigger additional critical alerts here
+        break;
+    }
+  }
+  
+  /**
+   * Format distance for display
+   */
+  static formatDistance(distanceMeters: number): string {
+    if (distanceMeters < 1) {
+      return `${(distanceMeters * 100).toFixed(0)}cm`;
+    } else if (distanceMeters < 1000) {
+      return `${distanceMeters.toFixed(1)}m`;
+    } else {
+      return `${(distanceMeters / 1000).toFixed(2)}km`;
+    }
   }
 }

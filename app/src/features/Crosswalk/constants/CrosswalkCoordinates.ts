@@ -16,4 +16,4 @@ export const CROSSWALK_POLYGON_COORDS: [number, number][] = [
 ];
 
 // Directly using the exact center point provided (longitude, latitude)
-export const CROSSWALK_CENTER: [number, number] = [-85.29202970933544, 35.03975204972481];                                                                                
+export const CROSSWALK_CENTER: [number, number] = [-85.29202970933544, 35.03975204972481];
