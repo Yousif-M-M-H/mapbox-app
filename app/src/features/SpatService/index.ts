@@ -1,22 +1,40 @@
 // app/src/features/SpatService/index.ts
 // Clean exports for the refactored SpatService
 
-// Export main services
+// ========================================
+// Main ViewModel (Primary Interface)
+// ========================================
+export { SpatViewModel } from './viewModels/SpatViewModel';
+
+// ========================================
+// Individual Managers (Advanced Use)
+// ========================================
+export { SpatDataManager } from './viewModels/SpatDataManager';
+export { SpatMonitoringManager } from './viewModels/SpatMonitoringManager';
+export { SpatSignalManager } from './viewModels/SpatSignalManager';
+export { SpatUIStateManager } from './viewModels/SpatUIStateManager';
+
+// ========================================
+// Services
+// ========================================
 export { SpatApiService } from './services/SpatApiService';
 export { DataMappingService } from './services/DataMappingService';
 export { SignalStateService } from './services/SignalStateService';
 export { TimingCalculationService } from './services/TimingCalculationService';
 
-// Export error handling
+// ========================================
+// Error Handling
+// ========================================
 export { SpatErrorHandler } from './errorHandling/SpatErrorHandler';
 
-// Export viewModel
-export { SpatViewModel } from './viewModels/SpatViewModel';
-
-// Export integration layer (updated to use new services)
+// ========================================
+// Integration Layer
+// ========================================
 export { SpatIntegration } from './SpatIntegration';
 
-// Export models and types
+// ========================================
+// Models and Types
+// ========================================
 export type { 
   SpatData, 
   SignalState, 
@@ -25,10 +43,33 @@ export type {
   PhaseTimingInfo 
 } from './models/SpatModels';
 
-// Export UI components
+// ========================================
+// UI Components
+// ========================================
 export { 
   SpatIcon, 
   SpatStatusBadge, 
   SpatStatusDisplay as SpatComponents 
 } from './views/SpatComponents';
 export { SpatStatusDisplay } from './views/SpatStatusDisplay';
+
+// ========================================
+// Usage Guide
+// ========================================
+
+/**
+ * Most features should use only SpatViewModel:
+ * 
+ * ```typescript
+ * import { SpatViewModel } from '@/src/features/SpatService';
+ * 
+ * const spatViewModel = new SpatViewModel();
+ * await spatViewModel.startMonitoringApproach(id, name, lanes, data);
+ * const signalState = spatViewModel.approachSignalState;
+ * ```
+ * 
+ * Individual managers are available for advanced use cases:
+ * - Custom data handling
+ * - Testing purposes
+ * - Custom integrations
+ */
