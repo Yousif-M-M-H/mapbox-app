@@ -3,7 +3,7 @@ import { makeAutoObservable, action, runInAction } from 'mobx';
 import { CROSSWALK_POLYGON_COORDS } from '../../Crosswalk/constants/CrosswalkCoordinates';
 
 // Distance threshold in coordinate units (approximately 10 meters or less)
-const PROXIMITY_WARNING_DISTANCE = 0.0001; 
+const PROXIMITY_WARNING_DISTANCE = 0.0003; 
 
 export interface PedestrianData {
   id: number;
@@ -44,7 +44,7 @@ export class PedestrianDetectorViewModel {
   private _vehiclePosition: [number, number] = [0, 0];
   
   private monitoringInterval: NodeJS.Timeout | null = null;
-  private updateFrequency: number = 2000; // Check every 2 seconds for real data
+  private updateFrequency: number = 1500; // Check every 2 seconds for real data
   
   constructor() {
     makeAutoObservable(this);
@@ -56,7 +56,7 @@ export class PedestrianDetectorViewModel {
     return this._vehiclePosition;
   }
   
-  // Getter to check if vehicle is near any pedestrian (10 meters or less)
+  
   get isVehicleNearPedestrian(): boolean {
     return this.pedestrians.some(pedestrian => 
       this.isVehicleCloseToPosition(pedestrian.coordinates)

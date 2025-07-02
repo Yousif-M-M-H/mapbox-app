@@ -1,28 +1,9 @@
 // app/src/testingFeatures/TestingConfig.ts
-
-/**
- * 🧪 TESTING FEATURES CONFIGURATION
- * 
- * Change these boolean values to enable/disable testing features
- */
 export const TESTING_CONFIG = {
-  // Pedestrian detection testing (30m threshold vs 10m production)
+  // Change this to true to enable testing mode with fixed pedestrian
   USE_TESTING_MODE: false,
-  
-  // Live vehicle display from SDSM data
   USE_VEHICLE_TESTING_FEATURE: false,
   
-  // Future testing features can be added here
-  // USE_TRAFFIC_LIGHT_TESTING: false,
-  // USE_SPEED_TESTING: false,
+  // Fixed pedestrian coordinates for testing [lat, lon]
+  FIXED_PEDESTRIAN_COORDINATES: [35.03976474031546, -85.29206330487192] as [number, number],
 } as const;
-
-/**
- * Helper function to log current testing configuration
- */
-export const logTestingConfig = (): void => {
-  console.log('🧪 Testing Features Configuration:');
-  console.log(`  - Pedestrian Testing Mode: ${TESTING_CONFIG.USE_TESTING_MODE ? 'ENABLED' : 'DISABLED'}`);
-  console.log(`  - Vehicle Display Feature: ${TESTING_CONFIG.USE_VEHICLE_TESTING_FEATURE ? 'ENABLED' : 'DISABLED'}`);
-  console.log('  - Change settings in: testingFeatures/TestingConfig.ts');
-};

@@ -14,6 +14,7 @@ import { TurnGuideDisplay } from '../../../DirectionGuide/views/components/TurnG
 import { SpatStatusDisplay } from '../../../SpatService/views/SpatStatusDisplay';
 import { SimpleLine } from '../../../PedestrianDetector/views/components/SimpleLine';
 import { VehicleMarkers } from '../../../../testingFeatures/testingVehicleDisplay/views/components/VehicleMarker';
+import { TestingModeOverlay } from '../../../../testingFeatures/testingUI';
 import { 
   CROSSWALK_CENTER, 
   CROSSWALK_POLYGON_COORDS 
@@ -66,9 +67,9 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         
         locationSubscription = await Location.watchPositionAsync(
           {
-            accuracy: Location.Accuracy.High,
-            distanceInterval: 1,
-            timeInterval: 500
+           accuracy: Location.Accuracy.High,
+distanceInterval: 1,
+timeInterval: 500
           },
           (location) => {
             updateCount++;
@@ -152,40 +153,39 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           animationDuration={1000}
         />
 
-        {/* Vehicle position marker */}
+        {/* Vehicle position marker - clean blue marker without testing radius */}
         {userLocationCoordinate[0] !== 0 && userLocationCoordinate[1] !== 0 && (
           <MapboxGL.PointAnnotation
             id="vehicle-position"
             coordinate={userLocationCoordinate}
             anchor={{x: 0.5, y: 0.5}}
           >
-            <View style={[
-              styles.userLocationMarker, 
-              isTestingMode ? styles.testingMarker : {}
-            ]}>
+            <View style={styles.userLocationMarker}>
               <View style={styles.userLocationInner} />
             </View>
           </MapboxGL.PointAnnotation>
         )}
 
-        {/* Crosswalk polygon */}
-        <MapboxGL.ShapeSource id="crosswalk-polygon-source" shape={crosswalkPolygon}>
-          <MapboxGL.FillLayer 
-            id="crosswalk-polygon-fill" 
-            style={{
-              fillColor: pedestriansInCrosswalk > 0 ? 
-                'rgba(255, 59, 48, 0.4)' : 'rgba(255, 255, 0, 0.4)',
-              fillOutlineColor: '#FFCC00'
-            }} 
-          />
-          <MapboxGL.LineLayer 
-            id="crosswalk-polygon-outline" 
-            style={{
-              lineColor: '#FFCC00',
-              lineWidth: 2
-            }} 
-          />
-        </MapboxGL.ShapeSource>
+        {/* Crosswalk polygon - conditionally rendered based on toggle */}
+        {mapViewModel.showCrosswalkPolygon && (
+          <MapboxGL.ShapeSource id="crosswalk-polygon-source" shape={crosswalkPolygon}>
+            <MapboxGL.FillLayer 
+              id="crosswalk-polygon-fill" 
+              style={{
+                fillColor: pedestriansInCrosswalk > 0 ? 
+                  'rgba(255, 59, 48, 0.4)' : 'rgba(255, 255, 0, 0.4)',
+                fillOutlineColor: '#FFCC00'
+              }} 
+            />
+            <MapboxGL.LineLayer 
+              id="crosswalk-polygon-outline" 
+              style={{
+                lineColor: '#FFCC00',
+                lineWidth: 2
+              }} 
+            />
+          </MapboxGL.ShapeSource>
+        )}
 
         {/* Simple Blue Line */}
         <SimpleLine 
@@ -199,7 +199,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           <VehicleMarkers viewModel={testingVehicleDisplayViewModel} />
         )}
         
-        {/* Pedestrian markers */}
+        {/* Pedestrian markers - single consistent color */}
         {pedestrians.map((pedestrian) => (
           <MapboxGL.PointAnnotation
             key={`pedestrian-${pedestrian.id}`}
@@ -216,21 +216,11 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         {children}
       </MapboxGL.MapView>
       
-      {/* Testing mode indicator */}
-      {isTestingMode && (
-        <View style={styles.testingIndicator}>
-          <Text style={styles.testingText}>🧪 TESTING MODE</Text>
-        </View>
-      )}
-
-      {/* Vehicle count indicator (conditionally rendered) */}
-      {testingVehicleDisplayViewModel && testingVehicleDisplayViewModel.isActive && (
-        <View style={styles.vehicleIndicator}>
-          <Text style={styles.vehicleText}>
-            🚗 {testingVehicleDisplayViewModel.vehicleCount} vehicles
-          </Text>
-        </View>
-      )}
+      {/* Testing mode overlay - separated into its own component */}
+      <TestingModeOverlay 
+        isTestingMode={isTestingMode}
+        testingVehicleDisplayViewModel={testingVehicleDisplayViewModel}
+      />
       
       {/* SPaT status display */}
       <SpatStatusDisplay directionGuideViewModel={directionGuideViewModel} />
@@ -238,11 +228,11 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       {/* Turn guidance UI */}
       <TurnGuideDisplay directionGuideViewModel={directionGuideViewModel} />
       
-      {/* Pedestrian warning */}
+      {/* Pedestrian warning - clean without testing indicators */}
       {pedestriansInCrosswalk > 0 && isVehicleNearPedestrian && (
-        <View style={[styles.warningContainer, isTestingMode ? styles.testingWarning : {}]}>
+        <View style={styles.warningContainer}>
           <Text style={styles.warningText}>
-            {isTestingMode ? '🧪 TESTING: ' : ''}Pedestrian crossing detected!
+            Pedestrian crossing detected!
           </Text>
         </View>
       )}
@@ -267,10 +257,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  testingMarker: {
-    borderColor: '#FF9800',
-    borderWidth: 4,
-  },
   userLocationInner: {
     width: 8,
     height: 8,
@@ -281,7 +267,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#FF9800',
+    backgroundColor: '#FF6B35', // Single consistent orange color
     borderWidth: 2,
     borderColor: '#FFFFFF',
     justifyContent: 'center',
@@ -292,36 +278,6 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: 'white',
-  },
-  testingIndicator: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    backgroundColor: 'rgba(255, 152, 0, 0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    elevation: 3,
-  },
-  testingText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-  vehicleIndicator: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(0, 255, 0, 0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    elevation: 3,
-  },
-  vehicleText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 12,
   },
   warningContainer: {
     position: 'absolute',
@@ -334,10 +290,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 5,
-  },
-  testingWarning: {
-    borderWidth: 2,
-    borderColor: '#FF9800',
   },
   warningText: {
     color: 'white',

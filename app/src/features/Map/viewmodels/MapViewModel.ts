@@ -12,6 +12,7 @@ export class MapViewModel {
   userHeading: number = 0;
   isInitialized: boolean = false;
   loading: boolean = false;
+  showCrosswalkPolygon: boolean = true; // Toggle for polygon visibility
   private headingSubscription: HeadingSubscription | null = null;
 
   constructor() {
@@ -48,8 +49,6 @@ export class MapViewModel {
         this.userHeading = heading;
       });
     });
-    
-    // console.log('Started heading tracking');
   }
   
   // Stop tracking heading
@@ -57,7 +56,6 @@ export class MapViewModel {
     if (this.headingSubscription) {
       this.headingSubscription.remove();
       this.headingSubscription = null;
-      // console.log('Stopped heading tracking');
     }
   }
 
@@ -110,6 +108,11 @@ export class MapViewModel {
     this.loading = loading;
   }
 
+  // Set crosswalk polygon visibility
+  setCrosswalkPolygonVisibility(visible: boolean): void {
+    this.showCrosswalkPolygon = visible;
+  }
+
   get userLocationCoordinate(): [number, number] {
     return toGeoJSONCoordinate(this.userLocation);
   }
@@ -119,5 +122,3 @@ export class MapViewModel {
     this.stopHeadingTracking();
   }
 }
-
-//when im in the street driving the blue marker is position is not accurate like for example it's shifted to the right while am in the street but it appears am in the crosswalk...is this issue fixable?

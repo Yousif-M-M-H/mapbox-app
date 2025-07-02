@@ -7,11 +7,7 @@ import { PedestrianDetectorViewModel } from '../../features/PedestrianDetector/v
 import { TestingPedestrianDetectorViewModel } from '../../testingFeatures/testingPedestrianDetectorFeatureTest/viewmodels/TestingPedestrianDetectorViewModel';
 import { TestingVehicleDisplayViewModel } from '../../testingFeatures/testingVehicleDisplay/viewmodels/TestingVehicleDisplayViewModel';
 import { DirectionGuideViewModel } from '../../features/DirectionGuide/viewModels/DirectionGuideViewModel';
-import { TESTING_CONFIG, logTestingConfig } from '../../testingFeatures/TestingConfig';
-
-// 🧪 TESTING MODE TOGGLES
-const USE_TESTING_MODE = false; // Set to false for production mode
-const USE_VEHICLE_TESTING_FEATURE = true; // Set to false to disable vehicle testing
+import { TESTING_CONFIG } from '../../testingFeatures/TestingConfig';
 
 export class MainViewModel {
   mapViewModel: MapViewModel;
@@ -21,82 +17,57 @@ export class MainViewModel {
   testingVehicleDisplayViewModel: TestingVehicleDisplayViewModel | null = null;
   directionGuideViewModel: DirectionGuideViewModel;
   
-  // Flags to track which features are enabled
-  isTestingMode: boolean = USE_TESTING_MODE;
-  isVehicleTestingEnabled: boolean = USE_VEHICLE_TESTING_FEATURE;
+  isTestingMode: boolean = TESTING_CONFIG.USE_TESTING_MODE;
+  isVehicleTestingEnabled: boolean = TESTING_CONFIG.USE_VEHICLE_TESTING_FEATURE;
   
   constructor() {
-    console.log('MainViewModel: Constructor initializing');
-    console.log(`🧪 TESTING MODE: ${USE_TESTING_MODE ? 'ENABLED (30m threshold)' : 'DISABLED (10m threshold)'}`);
+    console.log('MainViewModel: Initializing');
     
-    // Create the MapViewModel first
     this.mapViewModel = new MapViewModel();
-    
-    // Create the DriverViewModel with necessary provider functions
     this.driverViewModel = new DriverViewModel(
       () => this.mapViewModel.userLocationCoordinate,
       () => this.mapViewModel.getUserHeading()
     );
     
-    // Create the appropriate PedestrianDetectorViewModel based on mode
+    // Create appropriate pedestrian detector based on testing mode
     if (TESTING_CONFIG.USE_TESTING_MODE) {
-      console.log('MainViewModel: Creating TESTING PedestrianDetectorViewModel (30m threshold)');
+      console.log('MainViewModel: Using TESTING mode with fixed pedestrian');
       this.testingPedestrianDetectorViewModel = new TestingPedestrianDetectorViewModel();
     } else {
-      console.log('MainViewModel: Creating PRODUCTION PedestrianDetectorViewModel (10m threshold)');
+      console.log('MainViewModel: Using PRODUCTION mode with API data');
       this.pedestrianDetectorViewModel = new PedestrianDetectorViewModel();
     }
     
-    // Create the DirectionGuideViewModel for turn guidance
-    console.log('MainViewModel: Creating DirectionGuideViewModel');
     this.directionGuideViewModel = new DirectionGuideViewModel();
     
-    // Create the TestingVehicleDisplayViewModel (conditionally based on toggle)
     if (TESTING_CONFIG.USE_VEHICLE_TESTING_FEATURE) {
-      console.log('MainViewModel: Creating TestingVehicleDisplayViewModel (ENABLED)');
       this.testingVehicleDisplayViewModel = new TestingVehicleDisplayViewModel();
-    } else {
-      console.log('MainViewModel: TestingVehicleDisplayViewModel (DISABLED)');
-      this.testingVehicleDisplayViewModel = null;
     }
     
     makeAutoObservable(this);
     
     // Start pedestrian monitoring
-    console.log('MainViewModel: Starting pedestrian monitoring');
+    this.startPedestrianMonitoring();
+    
+    if (this.testingVehicleDisplayViewModel) {
+      this.testingVehicleDisplayViewModel.start();
+    }
+  }
+  
+  private startPedestrianMonitoring(): void {
     try {
-      if (TESTING_CONFIG.USE_TESTING_MODE && this.testingPedestrianDetectorViewModel) {
+      if (this.isTestingMode && this.testingPedestrianDetectorViewModel) {
         this.testingPedestrianDetectorViewModel.startMonitoring();
-        console.log('MainViewModel: TESTING monitoring started successfully');
-      } else if (!TESTING_CONFIG.USE_TESTING_MODE && this.pedestrianDetectorViewModel) {
+      } else if (!this.isTestingMode && this.pedestrianDetectorViewModel) {
         this.pedestrianDetectorViewModel.startMonitoring();
-        console.log('MainViewModel: PRODUCTION monitoring started successfully');
       }
     } catch (error) {
       console.error('MainViewModel: Error starting monitoring:', error);
     }
-    
-    // Start vehicle display testing feature (conditionally)
-    if (TESTING_CONFIG.USE_VEHICLE_TESTING_FEATURE && this.testingVehicleDisplayViewModel) {
-      console.log('MainViewModel: Starting vehicle display testing');
-      try {
-        this.testingVehicleDisplayViewModel.start();
-        console.log('MainViewModel: Vehicle display testing started successfully');
-      } catch (error) {
-        console.error('MainViewModel: Error starting vehicle display:', error);
-      }
-    } else {
-      console.log('MainViewModel: Vehicle display testing is DISABLED');
-    }
   }
   
-  // Getter to get the active pedestrian detector (testing or production)
   get activePedestrianDetector(): PedestrianDetectorViewModel | TestingPedestrianDetectorViewModel | null {
-    if (this.isTestingMode) {
-      return this.testingPedestrianDetectorViewModel;
-    } else {
-      return this.pedestrianDetectorViewModel;
-    }
+    return this.isTestingMode ? this.testingPedestrianDetectorViewModel : this.pedestrianDetectorViewModel;
   }
   
   get isInitialized(): boolean {
@@ -125,29 +96,23 @@ export class MainViewModel {
     }
   }
   
-  // Helper method to check if pedestrians are crossing (works for both modes)
   hasPedestriansCrossing(): boolean {
     const activeDetector = this.activePedestrianDetector;
     return activeDetector ? activeDetector.pedestriansInCrosswalk > 0 : false;
   }
   
-  // Get the number of pedestrians crossing (works for both modes)
   getPedestriansCrossingCount(): number {
     const activeDetector = this.activePedestrianDetector;
     return activeDetector ? activeDetector.pedestriansInCrosswalk : 0;
   }
   
-  // Check if vehicle testing feature is enabled
   get isVehicleTestingActive(): boolean {
     return this.isVehicleTestingEnabled && this.testingVehicleDisplayViewModel !== null;
   }
   
-  // Force a manual check for pedestrians (works for both modes)
   async checkForPedestrians(): Promise<number> {
     const activeDetector = this.activePedestrianDetector;
     if (!activeDetector) return 0;
-    
-    console.log(`MainViewModel: Manual pedestrian check requested (${this.isTestingMode ? 'TESTING' : 'PRODUCTION'} mode)`);
     
     if ('isMonitoring' in activeDetector && activeDetector.isMonitoring) {
       activeDetector.stopMonitoring();
@@ -160,25 +125,18 @@ export class MainViewModel {
   }
   
   cleanup() {
-    console.log('MainViewModel: Cleanup called');
-    
-    // Clean up the appropriate pedestrian detector
     if (this.isTestingMode && this.testingPedestrianDetectorViewModel) {
       this.testingPedestrianDetectorViewModel.cleanup();
     } else if (!this.isTestingMode && this.pedestrianDetectorViewModel) {
       this.pedestrianDetectorViewModel.cleanup();
     }
     
-    // Clean up the vehicle display testing
     if (this.testingVehicleDisplayViewModel) {
       this.testingVehicleDisplayViewModel.cleanup();
     }
     
-    // Clean up the map view model
     if (this.mapViewModel && this.mapViewModel.cleanup) {
       this.mapViewModel.cleanup();
     }
-    
-    console.log('MainViewModel: Cleanup complete');
   }
 }
