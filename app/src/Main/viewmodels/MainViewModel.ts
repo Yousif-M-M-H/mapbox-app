@@ -8,12 +8,16 @@ import { TestingVehicleDisplayViewModel } from '../../testingFeatures/testingVeh
 import { DirectionGuideViewModel } from '../../features/DirectionGuide/viewModels/DirectionGuideViewModel';
 import { TESTING_CONFIG } from '../../testingFeatures/TestingConfig';
 
+// Import User Heading Feature
+import { UserHeadingViewModel } from '../../features/UserHeading/viewmodels/UserHeadingViewModel';
+
 export class MainViewModel {
   mapViewModel: MapViewModel;
   pedestrianDetectorViewModel: PedestrianDetectorViewModel | null = null;
   testingPedestrianDetectorViewModel: TestingPedestrianDetectorViewModel | null = null;
   testingVehicleDisplayViewModel: TestingVehicleDisplayViewModel | null = null;
   directionGuideViewModel: DirectionGuideViewModel;
+  userHeadingViewModel: UserHeadingViewModel; // User heading feature
   
   isTestingMode: boolean = TESTING_CONFIG.USE_TESTING_MODE;
   isVehicleTestingEnabled: boolean = TESTING_CONFIG.USE_VEHICLE_TESTING_FEATURE;
@@ -22,7 +26,9 @@ export class MainViewModel {
     console.log('MainViewModel: Initializing');
     
     this.mapViewModel = new MapViewModel();
-   
+    
+    // Initialize user heading feature first
+    this.userHeadingViewModel = new UserHeadingViewModel();
     
     // Create appropriate pedestrian detector based on testing mode
     if (TESTING_CONFIG.USE_TESTING_MODE) {
@@ -44,6 +50,9 @@ export class MainViewModel {
     // Start pedestrian monitoring
     this.startPedestrianMonitoring();
     
+    // Start user heading tracking
+    this.startUserHeadingTracking();
+    
     if (this.testingVehicleDisplayViewModel) {
       this.testingVehicleDisplayViewModel.start();
     }
@@ -60,6 +69,83 @@ export class MainViewModel {
       console.error('MainViewModel: Error starting monitoring:', error);
     }
   }
+  
+  // ========================================
+  // User Heading Management (Fixed)
+  // ========================================
+  
+  /**
+   * Start user heading tracking with error handling
+   */
+  private async startUserHeadingTracking(): Promise<void> {
+    try {
+      console.log('🧭 Starting user heading tracking...');
+      
+      // Add a small delay to ensure proper initialization
+      setTimeout(async () => {
+        try {
+          await this.userHeadingViewModel.startTracking();
+        } catch (error) {
+          console.error('MainViewModel: Error starting heading tracking:', error);
+        }
+      }, 1000);
+      
+    } catch (error) {
+      console.error('MainViewModel: Error initializing heading tracking:', error);
+    }
+  }
+  
+  /**
+   * Get current user heading in degrees (with null safety)
+   */
+  get userHeading(): number | null {
+    try {
+      return this.userHeadingViewModel?.magneticHeading || null;
+    } catch (error) {
+      console.error('Error getting user heading:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Get current user direction as string (with null safety)
+   */
+  get userDirection(): string {
+    try {
+      return this.userHeadingViewModel?.compassDirection || 'Unknown';
+    } catch (error) {
+      console.error('Error getting user direction:', error);
+      return 'Unknown';
+    }
+  }
+  
+  /**
+   * Get formatted heading display string (with null safety)
+   */
+  get formattedUserHeading(): string {
+    try {
+      return this.userHeadingViewModel?.formattedHeading || 'No heading data';
+    } catch (error) {
+      console.error('Error getting formatted heading:', error);
+      return 'Heading unavailable';
+    }
+  }
+  
+  /**
+   * Check if user heading is available (with null safety)
+   */
+  get hasUserHeading(): boolean {
+    try {
+      return this.userHeadingViewModel?.hasHeading || false;
+    } catch (error) {
+      console.error('Error checking heading availability:', error);
+      return false;
+    }
+  }
+  
+  // ========================================
+  // Existing Methods (unchanged)
+  // ========================================
   
   get activePedestrianDetector(): PedestrianDetectorViewModel | TestingPedestrianDetectorViewModel | null {
     return this.isTestingMode ? this.testingPedestrianDetectorViewModel : this.pedestrianDetectorViewModel;
@@ -120,6 +206,13 @@ export class MainViewModel {
   }
   
   cleanup() {
+    // Stop user heading tracking
+    try {
+      this.userHeadingViewModel?.cleanup();
+    } catch (error) {
+      console.error('Error cleaning up heading:', error);
+    }
+    
     if (this.isTestingMode && this.testingPedestrianDetectorViewModel) {
       this.testingPedestrianDetectorViewModel.cleanup();
     } else if (!this.isTestingMode && this.pedestrianDetectorViewModel) {

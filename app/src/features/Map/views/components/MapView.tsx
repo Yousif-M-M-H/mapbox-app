@@ -1,11 +1,10 @@
 // app/src/features/Map/views/components/MapView.tsx
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import { observer } from 'mobx-react-lite';
 import * as Location from 'expo-location';
 import { MapViewModel } from '../../viewmodels/MapViewModel';
-import { DriverViewModel } from '../../../DriverView/models/DriverViewModel';
 import { PedestrianDetectorViewModel } from '../../../PedestrianDetector/viewmodels/PedestrianDetectorViewModel';
 import { TestingPedestrianDetectorViewModel } from '../../../../testingFeatures/testingPedestrianDetectorFeatureTest/viewmodels/TestingPedestrianDetectorViewModel';
 import { TestingVehicleDisplayViewModel } from '../../../../testingFeatures/testingVehicleDisplay/viewmodels/TestingVehicleDisplayViewModel';
@@ -20,29 +19,36 @@ import {
   CROSSWALK_POLYGON_COORDS 
 } from '../../../Crosswalk/constants/CrosswalkCoordinates';
 
+// Import MainViewModel for user heading
+import { MainViewModel } from '../../../../Main/viewmodels/MainViewModel';
+
 interface MapViewProps {
   mapViewModel: MapViewModel;
-  driverViewModel: DriverViewModel;
   pedestrianDetectorViewModel?: PedestrianDetectorViewModel | null;
   testingPedestrianDetectorViewModel?: TestingPedestrianDetectorViewModel | null;
   testingVehicleDisplayViewModel: TestingVehicleDisplayViewModel | null;
   directionGuideViewModel: DirectionGuideViewModel;
   isTestingMode: boolean;
+  mainViewModel?: MainViewModel;
   children?: React.ReactNode;
 }
 
 export const MapViewComponent: React.FC<MapViewProps> = observer(({ 
   mapViewModel,
-  driverViewModel,
   pedestrianDetectorViewModel,
   testingPedestrianDetectorViewModel,
   testingVehicleDisplayViewModel,
   directionGuideViewModel,
   isTestingMode,
+  mainViewModel,
   children 
 }) => {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
+  
+  // State for GPS heading (independent of camera)
+  const [gpsHeading, setGpsHeading] = useState<number | null>(null);
+  const [lastKnownHeading, setLastKnownHeading] = useState<number | null>(null);
   
   // Get the active detector based on mode
   const activeDetector = isTestingMode ? testingPedestrianDetectorViewModel : pedestrianDetectorViewModel;
@@ -53,7 +59,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     [-85.2941284, 35.0404962]
   ];
   
-  // GPS tracking setup
+  // GPS tracking setup with heading capture
   useEffect(() => {
     let locationSubscription: Location.LocationSubscription;
     let updateCount = 0;
@@ -68,14 +74,25 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         locationSubscription = await Location.watchPositionAsync(
           {
            accuracy: Location.Accuracy.High,
-distanceInterval: 1,
-timeInterval: 500
+distanceInterval: 1, // Update every meter
+timeInterval: 1000 // Update every second
           },
           (location) => {
             updateCount++;
-            const { latitude, longitude } = location.coords;
+            const { latitude, longitude, heading } = location.coords;
             
-            // Log every 10th update to avoid spam
+            // Capture GPS heading independently
+            if (heading !== null && heading !== undefined) {
+              setGpsHeading(heading);
+              setLastKnownHeading(heading);
+              
+              // Log heading updates
+              if (updateCount % 5 === 1) {
+                console.log(`🧭 GPS Heading: ${heading.toFixed(1)}° (Fixed to GPS)`);
+              }
+            }
+            
+            // Log GPS updates less frequently
             if (updateCount % 10 === 1) {
               console.log(`GPS: [${latitude.toFixed(6)}, ${longitude.toFixed(6)}] (Update #${updateCount})`);
             }
@@ -88,11 +105,11 @@ timeInterval: 500
               activeDetector.setVehiclePosition([latitude, longitude]);
             }
             
-            // Update map for blue marker
+            // Update map for blue marker (without heading to avoid conflicts)
             mapViewModel.setUserLocation({
               latitude,
               longitude,
-              heading: location.coords.heading || undefined
+              heading: undefined // Don't pass heading to avoid map-based rotation
             });
           }
         );
@@ -126,6 +143,9 @@ timeInterval: 500
   const isVehicleNearPedestrian = activeDetector?.isVehicleNearPedestrian || false;
   const userLocationCoordinate = mapViewModel.userLocationCoordinate;
 
+  // Use GPS heading (camera-independent)
+  const displayHeading = gpsHeading || lastKnownHeading;
+
   // Crosswalk polygon
   const crosswalkPolygon = {
     type: "Feature" as const,
@@ -145,28 +165,48 @@ timeInterval: 500
         logoEnabled={false}
         attributionEnabled={false}
         compassEnabled={false}
+        rotateEnabled={true} // Allow map rotation but don't affect heading
       >
         <MapboxGL.Camera 
           ref={cameraRef}
           centerCoordinate={userLocationCoordinate}
           zoomLevel={18}
           animationDuration={1000}
+          // Don't set bearing - let user control map rotation independently
         />
 
-        {/* Vehicle position marker - clean blue marker without testing radius */}
+        {/* User Location Marker with Fixed GPS Heading */}
         {userLocationCoordinate[0] !== 0 && userLocationCoordinate[1] !== 0 && (
           <MapboxGL.PointAnnotation
             id="vehicle-position"
             coordinate={userLocationCoordinate}
             anchor={{x: 0.5, y: 0.5}}
           >
-            <View style={styles.userLocationMarker}>
-              <View style={styles.userLocationInner} />
-            </View>
+            {displayHeading !== null ? (
+              // GPS-based heading arrow (fixed to real-world direction)
+              <View style={styles.userLocationContainer}>
+                <View style={[
+                  styles.headingArrow,
+                  { 
+                    transform: [{ 
+                      rotate: `${displayHeading}deg` // Direct GPS heading, no map compensation
+                    }] 
+                  }
+                ]}>
+                  <View style={styles.arrowPoint} />
+                  <View style={styles.arrowBase} />
+                </View>
+              </View>
+            ) : (
+              // Simple circular marker when no heading available
+              <View style={styles.userLocationMarker}>
+                <View style={styles.userLocationInner} />
+              </View>
+            )}
           </MapboxGL.PointAnnotation>
         )}
 
-        {/* Crosswalk polygon - conditionally rendered based on toggle */}
+        {/* Crosswalk polygon */}
         {mapViewModel.showCrosswalkPolygon && (
           <MapboxGL.ShapeSource id="crosswalk-polygon-source" shape={crosswalkPolygon}>
             <MapboxGL.FillLayer 
@@ -194,12 +234,12 @@ timeInterval: 500
           lineWidth={3} 
         />
 
-        {/* Live Vehicle Markers from SDSM (conditionally rendered) */}
+        {/* Live Vehicle Markers from SDSM */}
         {testingVehicleDisplayViewModel && (
           <VehicleMarkers viewModel={testingVehicleDisplayViewModel} />
         )}
         
-        {/* Pedestrian markers - single consistent color */}
+        {/* Pedestrian markers */}
         {pedestrians.map((pedestrian) => (
           <MapboxGL.PointAnnotation
             key={`pedestrian-${pedestrian.id}`}
@@ -216,7 +256,7 @@ timeInterval: 500
         {children}
       </MapboxGL.MapView>
       
-      {/* Testing mode overlay - separated into its own component */}
+      {/* Testing mode overlay */}
       <TestingModeOverlay 
         isTestingMode={isTestingMode}
         testingVehicleDisplayViewModel={testingVehicleDisplayViewModel}
@@ -228,7 +268,16 @@ timeInterval: 500
       {/* Turn guidance UI */}
       <TurnGuideDisplay directionGuideViewModel={directionGuideViewModel} />
       
-      {/* Pedestrian warning - clean without testing indicators */}
+      {/* GPS Heading Display (Fixed) */}
+      {displayHeading !== null && (
+        <View style={styles.headingContainer}>
+          <Text style={styles.headingText}>
+            🧭 {displayHeading.toFixed(0)}° GPS
+          </Text>
+        </View>
+      )}
+      
+      {/* Pedestrian warning */}
       {pedestriansInCrosswalk > 0 && isVehicleNearPedestrian && (
         <View style={styles.warningContainer}>
           <Text style={styles.warningText}>
@@ -247,6 +296,44 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
+  
+  // Container for heading arrow (fixed positioning)
+  userLocationContainer: {
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  // GPS-based heading arrow (Google Maps style)
+  headingArrow: {
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  arrowPoint: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 7,
+    borderRightWidth: 7,
+    borderBottomWidth: 14,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#4285F4',
+    borderStyle: 'solid',
+  },
+  arrowBase: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#4285F4',
+    borderWidth: 2,
+    borderColor: 'white',
+    marginTop: -3,
+  },
+  
+  // Simple circular marker (no heading)
   userLocationMarker: {
     width: 20,
     height: 20,
@@ -263,11 +350,12 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: 'white',
   },
+  
   pedestrianMarker: {
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#FF6B35', // Single consistent orange color
+    backgroundColor: '#FF6B35',
     borderWidth: 2,
     borderColor: '#FFFFFF',
     justifyContent: 'center',
@@ -290,11 +378,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   warningText: {
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
     textAlign: 'center',
+  },
+  headingContainer: {
+    position: 'absolute',
+    bottom: 100,
+    left: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  headingText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
