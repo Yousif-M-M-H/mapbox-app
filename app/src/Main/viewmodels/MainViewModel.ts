@@ -7,6 +7,7 @@ import { TestingPedestrianDetectorViewModel } from '../../testingFeatures/testin
 import { TestingVehicleDisplayViewModel } from '../../testingFeatures/testingVehicleDisplay/viewmodels/TestingVehicleDisplayViewModel';
 import { DirectionGuideViewModel } from '../../features/DirectionGuide/viewModels/DirectionGuideViewModel';
 import { TESTING_CONFIG } from '../../testingFeatures/TestingConfig';
+import { DetectionZoneEntryTester } from '../../features/PedestrianDetector/testing/DetectionZoneEntryTester';
 
 // Import User Heading Feature
 import { UserHeadingViewModel } from '../../features/UserHeading/viewmodels/UserHeadingViewModel';
@@ -18,6 +19,7 @@ export class MainViewModel {
   testingVehicleDisplayViewModel: TestingVehicleDisplayViewModel | null = null;
   directionGuideViewModel: DirectionGuideViewModel;
   userHeadingViewModel: UserHeadingViewModel; // User heading feature
+  detectionZoneEntryTester: DetectionZoneEntryTester; // Detection zone entry time testing
   
   isTestingMode: boolean = TESTING_CONFIG.USE_TESTING_MODE;
   isVehicleTestingEnabled: boolean = TESTING_CONFIG.USE_VEHICLE_TESTING_FEATURE;
@@ -29,6 +31,9 @@ export class MainViewModel {
     
     // Initialize user heading feature first
     this.userHeadingViewModel = new UserHeadingViewModel();
+    
+    // Initialize detection zone entry tester
+    this.detectionZoneEntryTester = new DetectionZoneEntryTester();
     
     // Create appropriate pedestrian detector based on testing mode
     if (TESTING_CONFIG.USE_TESTING_MODE) {
@@ -53,6 +58,9 @@ export class MainViewModel {
     // Start user heading tracking
     this.startUserHeadingTracking();
     
+    // Start detection zone entry testing
+    this.startDetectionZoneEntryTesting();
+    
     if (this.testingVehicleDisplayViewModel) {
       this.testingVehicleDisplayViewModel.start();
     }
@@ -68,6 +76,108 @@ export class MainViewModel {
     } catch (error) {
       console.error('MainViewModel: Error starting monitoring:', error);
     }
+  }
+  
+  // ========================================
+  // Detection Zone Entry Testing
+  // ========================================
+  
+  /**
+   * Start detection zone entry time testing
+   */
+  private startDetectionZoneEntryTesting(): void {
+    try {
+      this.detectionZoneEntryTester.startTesting();
+      
+      // Set up periodic updates to feed data to the tester
+      setInterval(() => {
+        this.updateDetectionZoneEntryTester();
+      }, 500); // Update every 500ms for responsive testing
+      
+    } catch (error) {
+      console.error('MainViewModel: Error starting detection zone entry testing:', error);
+    }
+  }
+  
+  /**
+   * Update the detection zone entry tester with current pedestrian data
+   */
+  private updateDetectionZoneEntryTester(): void {
+    if (!this.detectionZoneEntryTester.isTestingActive()) {
+      return;
+    }
+    
+    const activeDetector = this.activePedestrianDetector;
+    if (!activeDetector) {
+      return;
+    }
+    
+    try {
+      // Get current pedestrians from the active detector
+      const currentPedestrians = activeDetector.pedestrians.map(p => ({
+        id: p.id,
+        coordinates: p.coordinates
+      }));
+      
+      // Get pedestrians that are currently registered (in crosswalk)
+      const registeredPedestrianIds = this.getPedestriansInCrosswalkIds();
+      
+      // Feed data to the tester
+      this.detectionZoneEntryTester.processPedestrianUpdate(
+        currentPedestrians,
+        registeredPedestrianIds
+      );
+      
+    } catch (error) {
+      console.error('MainViewModel: Error updating detection zone entry tester:', error);
+    }
+  }
+  
+  /**
+   * Get IDs of pedestrians currently in crosswalk (considered "registered")
+   */
+  private getPedestriansInCrosswalkIds(): number[] {
+    const activeDetector = this.activePedestrianDetector;
+    if (!activeDetector) {
+      return [];
+    }
+    
+    // For the real detector, we need to check which pedestrians are in crosswalk
+    if (this.pedestrianDetectorViewModel) {
+      return this.pedestrianDetectorViewModel.getPedestriansInCrosswalk().map(p => p.id);
+    }
+    
+    // For testing detector, check manually
+    if (this.testingPedestrianDetectorViewModel) {
+      return this.testingPedestrianDetectorViewModel.pedestrians
+        .filter(p => this.isInCrosswalk(p.coordinates))
+        .map(p => p.id);
+    }
+    
+    return [];
+  }
+  
+  /**
+   * Check if coordinates are in crosswalk (helper for testing mode)
+   */
+  private isInCrosswalk(coordinates: [number, number]): boolean {
+    // This is a simplified version - in real usage the detectors handle this
+    // For testing purposes, we'll assume pedestriansInCrosswalk > 0 means registered
+    return this.pedestriansInCrosswalk > 0;
+  }
+  
+  /**
+   * Get detection zone entry testing status
+   */
+  get isDetectionZoneTestingActive(): boolean {
+    return this.detectionZoneEntryTester.isTestingActive();
+  }
+  
+  /**
+   * Stop detection zone entry testing
+   */
+  stopDetectionZoneEntryTesting(): void {
+    this.detectionZoneEntryTester.stopTesting();
   }
   
   // ========================================
@@ -187,6 +297,10 @@ export class MainViewModel {
     return activeDetector ? activeDetector.pedestriansInCrosswalk : 0;
   }
   
+  get pedestriansInCrosswalk(): number {
+    return this.getPedestriansCrossingCount();
+  }
+  
   get isVehicleTestingActive(): boolean {
     return this.isVehicleTestingEnabled && this.testingVehicleDisplayViewModel !== null;
   }
@@ -206,6 +320,13 @@ export class MainViewModel {
   }
   
   cleanup() {
+    // Stop detection zone entry testing
+    try {
+      this.detectionZoneEntryTester?.stopTesting();
+    } catch (error) {
+      console.error('Error cleaning up detection zone entry tester:', error);
+    }
+    
     // Stop user heading tracking
     try {
       this.userHeadingViewModel?.cleanup();

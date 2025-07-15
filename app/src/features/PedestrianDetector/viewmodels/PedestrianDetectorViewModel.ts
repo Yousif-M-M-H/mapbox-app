@@ -12,6 +12,7 @@ export class PedestrianDetectorViewModel {
   // State
   pedestriansInCrosswalk: number = 0;
   private _vehiclePosition: [number, number] = [0, 0];
+  private conditionsMetCallback: (() => void) | null = null;
   
   // Managers
   private dataManager: PedestrianDataManager;
@@ -53,6 +54,13 @@ export class PedestrianDetectorViewModel {
     if (this.isMonitoring) {
       this.checkConditions();
     }
+  }
+
+  /**
+   * Set callback function to be called when conditions are met
+   */
+  setConditionsMetCallback(callback: () => void): void {
+    this.conditionsMetCallback = callback;
   }
   
   // ========================================
@@ -196,6 +204,7 @@ export class PedestrianDetectorViewModel {
     try {
       let pedestriansInCrosswalkCount = 0;
       let hasCloseVehicle = false;
+      let hasMetConditions = false;
       
       // Check each pedestrian
       this.pedestrians.forEach(pedestrian => {
@@ -219,8 +228,9 @@ export class PedestrianDetectorViewModel {
           );
         }
         
-        // Log warning if both conditions are met
+        // Check if conditions are met (pedestrian in crosswalk AND vehicle is close)
         if (isInCrosswalk && isCloseToVehicle) {
+          hasMetConditions = true;
           const distance = ProximityDetectionService.getDistanceInMeters(
             this._vehiclePosition,
             pedestrian.coordinates
@@ -237,6 +247,15 @@ export class PedestrianDetectorViewModel {
       
       console.log(`📊 Status: ${pedestriansInCrosswalkCount} pedestrians in crosswalk, vehicle proximity: ${hasCloseVehicle}`);
       
+      // Call the callback if conditions are met
+      if (hasMetConditions && this.conditionsMetCallback) {
+        try {
+          this.conditionsMetCallback();
+        } catch (error) {
+          console.error('Error calling conditions met callback:', error);
+        }
+      }
+      
     } catch (error) {
       PedestrianErrorHandler.logError('checkConditions', error);
     }
@@ -251,6 +270,7 @@ export class PedestrianDetectorViewModel {
    */
   cleanup(): void {
     this.monitoringManager.cleanup();
+    this.conditionsMetCallback = null;
     
     runInAction(() => {
       this.pedestriansInCrosswalk = 0;
