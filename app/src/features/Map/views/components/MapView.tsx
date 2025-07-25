@@ -55,8 +55,8 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   
   // Line coordinates for lane visualization
   const lineCoordinates: [number, number][] = [
-    [-85.2922264, 35.0397893],
-    [-85.2941284, 35.0404962]
+    [-85.30825029306017, 35.045775324733555],
+    [-85.30784442216404, 35.04562375468416]
   ];
   
   // GPS tracking setup with heading capture

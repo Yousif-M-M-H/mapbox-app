@@ -1,7 +1,7 @@
 // app/src/testingFeatures/TestingConfig.ts
 export const TESTING_CONFIG = {
   // Change this to true to enable testing mode with Detection Latency Test
-  USE_TESTING_MODE: true,
+  USE_TESTING_MODE: false,
   USE_VEHICLE_TESTING_FEATURE: false,
   
   // Fixed pedestrian coordinates for testing [lat, lon]

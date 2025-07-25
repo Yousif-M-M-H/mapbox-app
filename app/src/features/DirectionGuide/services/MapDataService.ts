@@ -13,8 +13,8 @@ export class MapDataService {
   // Define lane groups (lanes that belong to the same road/approach)
   private static readonly LANE_GROUPS = [
     {
-      groupId: 'road_7_9',
-      lanes: [7, 9], // Lanes 7 & 9 are on the same road
+      groupId: 'road_4_5_6',
+      lanes: [4, 5, 6], // Updated: Lanes 4, 5 & 6 are on the same road
       description: 'MLK Jr Blvd approach'
     }
   ];
@@ -114,46 +114,84 @@ export class MapDataService {
   }
 
   /**
-   * Get hardcoded lanes data with signal groups included
+   * Get hardcoded lanes data with updated lane configuration
    */
   public static async fetchAllLanesData(): Promise<MultiLaneMapData> {
     const lanes: MapEventData[] = [
+      // Lane 4 (was Lane 7)
       {
         intersectionId: MLK_INTERSECTION_ID,
         intersectionName: MLK_INTERSECTION_NAME,
-        laneId: 7,
+        laneId: 4,
         laneAttributes: {
           directionalUse: [0],
           sharedWith: [],
           laneType: ["vehicle", []]
         },
         maneuvers: [2560, 12],
-        connectsTo: [],
+        connectsTo: [
+          {
+            signalGroup: 2,
+            connectingLane: {
+              lane: 4,
+              maneuver: ['left', 'straight']
+            }
+          }
+        ],
         timestamp: new Date().toISOString(),
         location: {
           type: "LineString",
           coordinates: [
-            [-85.2922136, 35.039848],   // Start
-            [-85.2922941, 35.0398777]   // End
+           [-85.30825029306017, 35.045775324733555],
+           [-85.30784442216404, 35.04562375468416]  // End
           ]
         }
       },
+      // Lane 5 (was Lane 8)
       {
         intersectionId: MLK_INTERSECTION_ID,
         intersectionName: MLK_INTERSECTION_NAME,
-        laneId: 9,
+        laneId: 5,
+        laneAttributes: {
+          directionalUse: [0],
+          sharedWith: [],
+          laneType: ["vehicle", []]
+        },
+        maneuvers: [2560, 12],
+        connectsTo: [
+          {
+            signalGroup: 2,
+            connectingLane: {
+              lane: 5,
+              maneuver: ['left', 'straight']
+            }
+          }
+        ],
+        timestamp: new Date().toISOString(),
+        location: {
+          type: "LineString",
+          coordinates: [
+            [-85.3081459, 35.0457520],   // Start
+            [-85.3072719, 35.0454189]    // End
+          ]
+        }
+      },
+      // Lane 6 (was Lane 9)
+      {
+        intersectionId: MLK_INTERSECTION_ID,
+        intersectionName: MLK_INTERSECTION_NAME,
+        laneId: 6,
         laneAttributes: {
           directionalUse: [0],
           sharedWith: [],
           laneType: ["vehicle", []]
         },
         maneuvers: [0, 12],
-        // Add signal group 2 for lane 9
         connectsTo: [
           {
             signalGroup: 2,
             connectingLane: {
-              lane: 9,
+              lane: 6,
               maneuver: ['straight']
             }
           }
@@ -162,8 +200,8 @@ export class MapDataService {
         location: {
           type: "LineString",
           coordinates: [
-            [-85.2922264, 35.0397893],   // Start
-            [-85.2941284, 35.0404962]    // End
+            [-85.3081611, 35.0457243],   // Start
+            [-85.3080344, 35.0456771]    // End
           ]
         }
       }
@@ -279,7 +317,7 @@ export class MapDataService {
   public static processApproachData(
     allLanesData: MultiLaneMapData,
     approachDirection: ApproachDirection,
-    carPosition: [number, number] = [35.039848, -85.2922136]
+    carPosition: [number, number] = [35.045776, -85.308150] // Updated test position
   ): ProcessedIntersectionData {
     return this.processCarPositionData(allLanesData, carPosition);
   }

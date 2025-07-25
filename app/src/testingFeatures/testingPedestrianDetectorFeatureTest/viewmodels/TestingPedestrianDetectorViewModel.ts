@@ -1,6 +1,6 @@
 // app/src/testingFeatures/testingPedestrianDetectorFeatureTest/viewmodels/TestingPedestrianDetectorViewModel.ts
 import { makeAutoObservable, action, runInAction } from 'mobx';
-import { CROSSWALK_POLYGON_COORDS } from '../../../features/Crosswalk/constants/CrosswalkCoordinates';
+import { CROSSWALK_POLYGONS } from '../../../features/Crosswalk/constants/CrosswalkCoordinates';
 import { TESTING_CONFIG } from '../../TestingConfig';
 
 const TESTING_PROXIMITY_WARNING_DISTANCE = 0.0003; // ~30 meters for testing
@@ -40,7 +40,7 @@ export class TestingPedestrianDetectorViewModel {
   constructor() {
     makeAutoObservable(this);
     this.setupFixedPedestrianData();
-    console.log('🧪 TestingPedestrianDetectorViewModel initialized');
+    console.log('🧪 TestingPedestrianDetectorViewModel initialized with multiple crosswalk support');
   }
 
   // Getters
@@ -89,12 +89,15 @@ export class TestingPedestrianDetectorViewModel {
   private runDetectionLatencyTest(): void {
     if (this.detectionLatencyTest.hasRunTest || this.pedestrians.length === 0) return;
     const pedestrian = this.pedestrians[0];
-    const isCurrentlyInZone = this.isPointInCrosswalk(pedestrian.coordinates);
+    const isCurrentlyInZone = this.isPointInAnyCrosswalk(pedestrian.coordinates);
+    
     // Step 1: Track zone entry
     if (!this.previouslyInZone && isCurrentlyInZone) {
       this.detectionLatencyTest.zoneEntryTime = performance.now();
-      console.log('🔍 ZONE ENTRY: Pedestrian entered detection zone');
+      const activeCrosswalks = this.getActiveCrosswalks(pedestrian.coordinates);
+      console.log(`🔍 ZONE ENTRY: Pedestrian entered crosswalk(s) ${activeCrosswalks.join(', ')}`);
     }
+    
     // Step 2: Track detection
     if (
       this.detectionLatencyTest.zoneEntryTime &&
@@ -115,7 +118,7 @@ export class TestingPedestrianDetectorViewModel {
     console.log(`🎯 Detection Latency: ${latency.toFixed(2)}ms`);
     console.log(`🎯 Zone Entry Time: ${this.detectionLatencyTest.zoneEntryTime?.toFixed(2)}ms`);
     console.log(`🎯 Detection Time: ${this.detectionLatencyTest.detectionTime?.toFixed(2)}ms`);
-    console.log('🎯 Test completed successfully!');
+    console.log('🎯 Test completed successfully with multiple crosswalk support!');
     console.log('🎯 =============================================\n');
   }
 
@@ -134,7 +137,7 @@ export class TestingPedestrianDetectorViewModel {
   private setupFixedPedestrianData(): void {
     const fixedPedestrianData: TestingPedestrianData = {
       id: 99999,
-      coordinates: [35.04574821897141, -85.30823649580637],
+      coordinates: TESTING_CONFIG.FIXED_PEDESTRIAN_COORDINATES, // Uses second crosswalk coordinates
       timestamp: new Date().toISOString(),
       heading: 0,
       speed: 0
@@ -142,21 +145,46 @@ export class TestingPedestrianDetectorViewModel {
     runInAction(() => {
       this.pedestrians = [fixedPedestrianData];
     });
-    console.log('🧪 Fixed pedestrian data set up');
+    console.log('🧪 Fixed pedestrian data set up for second crosswalk testing');
+  }
+
+  // --- Multiple Crosswalk Support ---
+
+  /**
+   * Check if point is in any crosswalk (NEW - supports multiple polygons)
+   */
+  private isPointInAnyCrosswalk(coordinates: [number, number]): boolean {
+    try {
+      // Check against all crosswalk polygons
+      return CROSSWALK_POLYGONS.some(polygon => 
+        this.isPointInPolygon(coordinates, polygon)
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get which specific crosswalk(s) a pedestrian is in (NEW)
+   */
+  private getActiveCrosswalks(coordinates: [number, number]): number[] {
+    try {
+      const activeCrosswalks: number[] = [];
+      CROSSWALK_POLYGONS.forEach((polygon, index) => {
+        if (this.isPointInPolygon(coordinates, polygon)) {
+          activeCrosswalks.push(index);
+        }
+      });
+      return activeCrosswalks;
+    } catch {
+      return [];
+    }
   }
 
   // --- Crosswalk & Proximity Logic ---
 
   getPedestriansInCrosswalk(): TestingPedestrianData[] {
-    return this.pedestrians.filter(p => this.isPointInCrosswalk(p.coordinates));
-  }
-
-  private isPointInCrosswalk(coordinates: [number, number]): boolean {
-    try {
-      return this.isPointInPolygon(coordinates, CROSSWALK_POLYGON_COORDS);
-    } catch {
-      return false;
-    }
+    return this.pedestrians.filter(p => this.isPointInAnyCrosswalk(p.coordinates));
   }
 
   private isPointInPolygon(point: [number, number], polygon: [number, number][]): boolean {
@@ -205,7 +233,7 @@ export class TestingPedestrianDetectorViewModel {
   // --- Main crosswalk check ---
 
   checkConditions(): void {
-    const count = this.pedestrians.filter(p => this.isPointInCrosswalk(p.coordinates)).length;
+    const count = this.pedestrians.filter(p => this.isPointInAnyCrosswalk(p.coordinates)).length;
     runInAction(() => {
       this.pedestriansInCrosswalk = count;
     });
