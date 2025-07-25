@@ -7,7 +7,6 @@ import { TestingPedestrianDetectorViewModel } from '../../testingFeatures/testin
 import { TestingVehicleDisplayViewModel } from '../../testingFeatures/testingVehicleDisplay/viewmodels/TestingVehicleDisplayViewModel';
 import { DirectionGuideViewModel } from '../../features/DirectionGuide/viewModels/DirectionGuideViewModel';
 import { TESTING_CONFIG } from '../../testingFeatures/TestingConfig';
-import { DetectionZoneEntryTester } from '../../features/PedestrianDetector/testing/DetectionZoneEntryTester';
 
 // Import User Heading Feature
 import { UserHeadingViewModel } from '../../features/UserHeading/viewmodels/UserHeadingViewModel';
@@ -19,7 +18,6 @@ export class MainViewModel {
   testingVehicleDisplayViewModel: TestingVehicleDisplayViewModel | null = null;
   directionGuideViewModel: DirectionGuideViewModel;
   userHeadingViewModel: UserHeadingViewModel; // User heading feature
-  detectionZoneEntryTester: DetectionZoneEntryTester; // Detection zone entry time testing
   
   isTestingMode: boolean = TESTING_CONFIG.USE_TESTING_MODE;
   isVehicleTestingEnabled: boolean = TESTING_CONFIG.USE_VEHICLE_TESTING_FEATURE;
@@ -32,12 +30,9 @@ export class MainViewModel {
     // Initialize user heading feature first
     this.userHeadingViewModel = new UserHeadingViewModel();
     
-    // Initialize detection zone entry tester
-    this.detectionZoneEntryTester = new DetectionZoneEntryTester();
-    
     // Create appropriate pedestrian detector based on testing mode
     if (TESTING_CONFIG.USE_TESTING_MODE) {
-      console.log('MainViewModel: Using TESTING mode with fixed pedestrian');
+      console.log('MainViewModel: Using TESTING mode with Detection Latency Test');
       this.testingPedestrianDetectorViewModel = new TestingPedestrianDetectorViewModel();
     } else {
       console.log('MainViewModel: Using PRODUCTION mode with API data');
@@ -58,12 +53,12 @@ export class MainViewModel {
     // Start user heading tracking
     this.startUserHeadingTracking();
     
-    // Start detection zone entry testing
-    this.startDetectionZoneEntryTesting();
-    
     if (this.testingVehicleDisplayViewModel) {
       this.testingVehicleDisplayViewModel.start();
     }
+    
+    // Start Detection Latency Test if in testing mode
+    this.startDetectionLatencyTest();
   }
   
   private startPedestrianMonitoring(): void {
@@ -79,109 +74,59 @@ export class MainViewModel {
   }
   
   // ========================================
-  // Detection Zone Entry Testing
+  // Detection Latency Test Integration
   // ========================================
   
   /**
-   * Start detection zone entry time testing
+   * Start Detection Latency Test (only in testing mode)
    */
-  private startDetectionZoneEntryTesting(): void {
-    try {
-      this.detectionZoneEntryTester.startTesting();
-      
-      // Set up periodic updates to feed data to the tester
-      setInterval(() => {
-        this.updateDetectionZoneEntryTester();
-      }, 500); // Update every 500ms for responsive testing
-      
-    } catch (error) {
-      console.error('MainViewModel: Error starting detection zone entry testing:', error);
-    }
-  }
-  
-  /**
-   * Update the detection zone entry tester with current pedestrian data
-   */
-  private updateDetectionZoneEntryTester(): void {
-    if (!this.detectionZoneEntryTester.isTestingActive()) {
-      return;
-    }
-    
-    const activeDetector = this.activePedestrianDetector;
-    if (!activeDetector) {
+  private startDetectionLatencyTest(): void {
+    if (!this.isTestingMode || !this.testingPedestrianDetectorViewModel) {
       return;
     }
     
     try {
-      // Get current pedestrians from the active detector
-      const currentPedestrians = activeDetector.pedestrians.map(p => ({
-        id: p.id,
-        coordinates: p.coordinates
-      }));
+      console.log('🎯 Starting Detection Latency Test...');
+      console.log('🎯 Test will measure time between zone entry and detection');
       
-      // Get pedestrians that are currently registered (in crosswalk)
-      const registeredPedestrianIds = this.getPedestriansInCrosswalkIds();
-      
-      // Feed data to the tester
-      this.detectionZoneEntryTester.processPedestrianUpdate(
-        currentPedestrians,
-        registeredPedestrianIds
-      );
+      // Monitor test completion
+      const checkTestCompletion = setInterval(() => {
+        if (this.testingPedestrianDetectorViewModel?.hasCompletedDetectionLatencyTest()) {
+          const result = this.testingPedestrianDetectorViewModel.getDetectionLatencyResult();
+          if (result !== null) {
+            console.log(`🎯 Detection Latency Test completed: ${result.toFixed(2)}ms`);
+          }
+          clearInterval(checkTestCompletion);
+        }
+      }, 1000);
       
     } catch (error) {
-      console.error('MainViewModel: Error updating detection zone entry tester:', error);
+      console.error('MainViewModel: Error starting detection latency test:', error);
     }
   }
   
   /**
-   * Get IDs of pedestrians currently in crosswalk (considered "registered")
+   * Get detection latency test result
    */
-  private getPedestriansInCrosswalkIds(): number[] {
-    const activeDetector = this.activePedestrianDetector;
-    if (!activeDetector) {
-      return [];
+  get detectionLatencyResult(): number | null {
+    if (this.isTestingMode && this.testingPedestrianDetectorViewModel) {
+      return this.testingPedestrianDetectorViewModel.getDetectionLatencyResult();
     }
-    
-    // For the real detector, we need to check which pedestrians are in crosswalk
-    if (this.pedestrianDetectorViewModel) {
-      return this.pedestrianDetectorViewModel.getPedestriansInCrosswalk().map(p => p.id);
-    }
-    
-    // For testing detector, check manually
-    if (this.testingPedestrianDetectorViewModel) {
-      return this.testingPedestrianDetectorViewModel.pedestrians
-        .filter(p => this.isInCrosswalk(p.coordinates))
-        .map(p => p.id);
-    }
-    
-    return [];
+    return null;
   }
   
   /**
-   * Check if coordinates are in crosswalk (helper for testing mode)
+   * Check if detection latency test has completed
    */
-  private isInCrosswalk(coordinates: [number, number]): boolean {
-    // This is a simplified version - in real usage the detectors handle this
-    // For testing purposes, we'll assume pedestriansInCrosswalk > 0 means registered
-    return this.pedestriansInCrosswalk > 0;
-  }
-  
-  /**
-   * Get detection zone entry testing status
-   */
-  get isDetectionZoneTestingActive(): boolean {
-    return this.detectionZoneEntryTester.isTestingActive();
-  }
-  
-  /**
-   * Stop detection zone entry testing
-   */
-  stopDetectionZoneEntryTesting(): void {
-    this.detectionZoneEntryTester.stopTesting();
+  get hasCompletedDetectionLatencyTest(): boolean {
+    if (this.isTestingMode && this.testingPedestrianDetectorViewModel) {
+      return this.testingPedestrianDetectorViewModel.hasCompletedDetectionLatencyTest();
+    }
+    return false;
   }
   
   // ========================================
-  // User Heading Management (Fixed)
+  // User Heading Management
   // ========================================
   
   /**
@@ -320,13 +265,6 @@ export class MainViewModel {
   }
   
   cleanup() {
-    // Stop detection zone entry testing
-    try {
-      this.detectionZoneEntryTester?.stopTesting();
-    } catch (error) {
-      console.error('Error cleaning up detection zone entry tester:', error);
-    }
-    
     // Stop user heading tracking
     try {
       this.userHeadingViewModel?.cleanup();

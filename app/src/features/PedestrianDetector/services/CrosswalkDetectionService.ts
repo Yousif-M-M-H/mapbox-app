@@ -1,20 +1,41 @@
 // app/src/features/PedestrianDetector/services/CrosswalkDetectionService.ts
 // Handles crosswalk polygon detection using point-in-polygon algorithms
 
-import { CROSSWALK_POLYGON_COORDS } from '../../Crosswalk/constants/CrosswalkCoordinates';
+import { CROSSWALK_POLYGONS } from '../../Crosswalk/constants/CrosswalkCoordinates';
 import { PedestrianErrorHandler } from '../errorHandling/PedestrianErrorHandler';
 
 export class CrosswalkDetectionService {
   
   /**
-   * Check if a pedestrian is inside the crosswalk polygon
+   * Check if a pedestrian is inside any crosswalk polygon
    */
   public static isInCrosswalk(coordinates: [number, number]): boolean {
     try {
-      return this.isPointInPolygon(coordinates, CROSSWALK_POLYGON_COORDS);
+      // Check against all crosswalk polygons
+      return CROSSWALK_POLYGONS.some(polygon => 
+        this.isPointInPolygon(coordinates, polygon)
+      );
     } catch (error) {
       PedestrianErrorHandler.logError('isInCrosswalk', error);
       return false;
+    }
+  }
+  
+  /**
+   * Check which specific crosswalk(s) a pedestrian is in
+   */
+  public static getActiveCrosswalks(coordinates: [number, number]): number[] {
+    try {
+      const activeCrosswalks: number[] = [];
+      CROSSWALK_POLYGONS.forEach((polygon, index) => {
+        if (this.isPointInPolygon(coordinates, polygon)) {
+          activeCrosswalks.push(index);
+        }
+      });
+      return activeCrosswalks;
+    } catch (error) {
+      PedestrianErrorHandler.logError('getActiveCrosswalks', error);
+      return [];
     }
   }
   
@@ -114,14 +135,19 @@ export class CrosswalkDetectionService {
   /**
    * Get crosswalk polygon bounds for debugging
    */
-  public static getCrosswalkBounds(): {
+  public static getCrosswalkBounds(crosswalkIndex: number = 0): {
     minLat: number;
     maxLat: number;
     minLng: number;
     maxLng: number;
-  } {
-    const lats = CROSSWALK_POLYGON_COORDS.map(([lng, lat]) => lat);
-    const lngs = CROSSWALK_POLYGON_COORDS.map(([lng, lat]) => lng);
+  } | null {
+    if (crosswalkIndex >= CROSSWALK_POLYGONS.length) {
+      return null;
+    }
+    
+    const polygon = CROSSWALK_POLYGONS[crosswalkIndex];
+    const lats = polygon.map(([lng, lat]) => lat);
+    const lngs = polygon.map(([lng, lat]) => lng);
     
     return {
       minLat: Math.min(...lats),

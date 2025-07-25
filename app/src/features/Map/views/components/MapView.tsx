@@ -16,7 +16,7 @@ import { VehicleMarkers } from '../../../../testingFeatures/testingVehicleDispla
 import { TestingModeOverlay } from '../../../../testingFeatures/testingUI';
 import { 
   CROSSWALK_CENTER, 
-  CROSSWALK_POLYGON_COORDS 
+  CROSSWALK_POLYGONS 
 } from '../../../Crosswalk/constants/CrosswalkCoordinates';
 
 // Import MainViewModel for user heading
@@ -146,16 +146,6 @@ timeInterval: 1000 // Update every second
   // Use GPS heading (camera-independent)
   const displayHeading = gpsHeading || lastKnownHeading;
 
-  // Crosswalk polygon
-  const crosswalkPolygon = {
-    type: "Feature" as const,
-    properties: {},
-    geometry: {
-      type: "Polygon" as const,
-      coordinates: [CROSSWALK_POLYGON_COORDS]
-    }
-  };
-
   return (
     <View style={styles.container}>
       <MapboxGL.MapView 
@@ -206,26 +196,44 @@ timeInterval: 1000 // Update every second
           </MapboxGL.PointAnnotation>
         )}
 
-        {/* Crosswalk polygon */}
-        {mapViewModel.showCrosswalkPolygon && (
-          <MapboxGL.ShapeSource id="crosswalk-polygon-source" shape={crosswalkPolygon}>
-            <MapboxGL.FillLayer 
-              id="crosswalk-polygon-fill" 
-              style={{
-                fillColor: pedestriansInCrosswalk > 0 ? 
-                  'rgba(255, 59, 48, 0.4)' : 'rgba(255, 255, 0, 0.4)',
-                fillOutlineColor: '#FFCC00'
-              }} 
-            />
-            <MapboxGL.LineLayer 
-              id="crosswalk-polygon-outline" 
-              style={{
-                lineColor: '#FFCC00',
-                lineWidth: 2
-              }} 
-            />
-          </MapboxGL.ShapeSource>
-        )}
+        {/* Multiple crosswalk polygons */}
+        {mapViewModel.showCrosswalkPolygon && CROSSWALK_POLYGONS.map((polygonCoords, index) => {
+          const crosswalkPolygon = {
+            type: "Feature" as const,
+            properties: { 
+              crosswalkId: index,
+              name: `Crosswalk ${index + 1}`
+            },
+            geometry: {
+              type: "Polygon" as const,
+              coordinates: [polygonCoords]
+            }
+          };
+
+          return (
+            <MapboxGL.ShapeSource 
+              key={`crosswalk-${index}`}
+              id={`crosswalk-polygon-source-${index}`} 
+              shape={crosswalkPolygon}
+            >
+              <MapboxGL.FillLayer 
+                id={`crosswalk-polygon-fill-${index}`} 
+                style={{
+                  fillColor: pedestriansInCrosswalk > 0 ? 
+                    'rgba(255, 59, 48, 0.4)' : 'rgba(255, 255, 0, 0.4)',
+                  fillOutlineColor: '#FFCC00'
+                }} 
+              />
+              <MapboxGL.LineLayer 
+                id={`crosswalk-polygon-outline-${index}`} 
+                style={{
+                  lineColor: '#FFCC00',
+                  lineWidth: 2
+                }} 
+              />
+            </MapboxGL.ShapeSource>
+          );
+        })}
 
         {/* Simple Blue Line */}
         <SimpleLine 
