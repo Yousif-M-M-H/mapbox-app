@@ -4,20 +4,22 @@ import { Coordinate } from '../../features/Map/models/Location';
 import { MapViewModel } from '../../features/Map/viewmodels/MapViewModel';
 import { PedestrianDetectorViewModel } from '../../features/PedestrianDetector/viewmodels/PedestrianDetectorViewModel';
 import { TestingPedestrianDetectorViewModel } from '../../testingFeatures/testingPedestrianDetectorFeatureTest/viewmodels/TestingPedestrianDetectorViewModel';
-import { TestingVehicleDisplayViewModel } from '../../testingFeatures/testingVehicleDisplay/viewmodels/TestingVehicleDisplayViewModel';
 import { DirectionGuideViewModel } from '../../features/DirectionGuide/viewModels/DirectionGuideViewModel';
 import { TESTING_CONFIG } from '../../testingFeatures/TestingConfig';
 
 // Import User Heading Feature
 import { UserHeadingViewModel } from '../../features/UserHeading/viewmodels/UserHeadingViewModel';
 
+// Import SDSM Vehicle Display
+import { VehicleDisplayViewModel } from '../../features/SDSM/viewmodels/VehicleDisplayViewModel';
+
 export class MainViewModel {
   mapViewModel: MapViewModel;
   pedestrianDetectorViewModel: PedestrianDetectorViewModel | null = null;
   testingPedestrianDetectorViewModel: TestingPedestrianDetectorViewModel | null = null;
-  testingVehicleDisplayViewModel: TestingVehicleDisplayViewModel | null = null;
   directionGuideViewModel: DirectionGuideViewModel;
   userHeadingViewModel: UserHeadingViewModel; // User heading feature
+  vehicleDisplayViewModel: VehicleDisplayViewModel; // SDSM vehicle display
   
   isTestingMode: boolean = TESTING_CONFIG.USE_TESTING_MODE;
   isVehicleTestingEnabled: boolean = TESTING_CONFIG.USE_VEHICLE_TESTING_FEATURE;
@@ -30,6 +32,9 @@ export class MainViewModel {
     // Initialize user heading feature first
     this.userHeadingViewModel = new UserHeadingViewModel();
     
+    // Initialize SDSM vehicle display
+    this.vehicleDisplayViewModel = new VehicleDisplayViewModel();
+    
     // Create appropriate pedestrian detector based on testing mode
     if (TESTING_CONFIG.USE_TESTING_MODE) {
       console.log('MainViewModel: Using TESTING mode with Detection Latency Test');
@@ -41,10 +46,7 @@ export class MainViewModel {
     
     this.directionGuideViewModel = new DirectionGuideViewModel();
     
-    if (TESTING_CONFIG.USE_VEHICLE_TESTING_FEATURE) {
-      this.testingVehicleDisplayViewModel = new TestingVehicleDisplayViewModel();
-    }
-    
+
     makeAutoObservable(this);
     
     // Start pedestrian monitoring
@@ -53,9 +55,11 @@ export class MainViewModel {
     // Start user heading tracking
     this.startUserHeadingTracking();
     
-    if (this.testingVehicleDisplayViewModel) {
-      this.testingVehicleDisplayViewModel.start();
-    }
+    // Start testing vehicle display if enabled
+
+    // Start SDSM vehicle display
+    this.vehicleDisplayViewModel.start();
+    console.log('🚗 Started SDSM vehicle display at 10Hz');
     
     // Start Detection Latency Test if in testing mode
     this.startDetectionLatencyTest();
@@ -246,9 +250,7 @@ export class MainViewModel {
     return this.getPedestriansCrossingCount();
   }
   
-  get isVehicleTestingActive(): boolean {
-    return this.isVehicleTestingEnabled && this.testingVehicleDisplayViewModel !== null;
-  }
+
   
   async checkForPedestrians(): Promise<number> {
     const activeDetector = this.activePedestrianDetector;
@@ -272,15 +274,20 @@ export class MainViewModel {
       console.error('Error cleaning up heading:', error);
     }
     
+    // Stop SDSM vehicle display
+    try {
+      this.vehicleDisplayViewModel?.cleanup();
+      console.log('🚗 SDSM vehicle display cleaned up');
+    } catch (error) {
+      console.error('Error cleaning up vehicle display:', error);
+    }
+    
     if (this.isTestingMode && this.testingPedestrianDetectorViewModel) {
       this.testingPedestrianDetectorViewModel.cleanup();
     } else if (!this.isTestingMode && this.pedestrianDetectorViewModel) {
       this.pedestrianDetectorViewModel.cleanup();
     }
     
-    if (this.testingVehicleDisplayViewModel) {
-      this.testingVehicleDisplayViewModel.cleanup();
-    }
     
     if (this.mapViewModel && this.mapViewModel.cleanup) {
       this.mapViewModel.cleanup();

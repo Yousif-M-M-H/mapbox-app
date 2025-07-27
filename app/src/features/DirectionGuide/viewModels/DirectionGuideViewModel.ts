@@ -19,130 +19,140 @@ export class DirectionGuideViewModel {
   loading: boolean = false;
   error: string | null = null;
   showTurnGuide: boolean = false;
-  
+
   // Specialized managers
   private laneDetectionViewModel!: LaneDetectionViewModel;
   private vehiclePositionViewModel!: VehiclePositionViewModel;
   private turnDataManager!: TurnDataManager;
   private spatStateManager!: SpatStateManager;
   private positionChangeHandler!: PositionChangeHandler;
-  
+
   // Subscription cleanup
   private unsubscribePosition: (() => void) | null = null;
-  
+
   constructor() {
     makeAutoObservable(this);
-    
+
     // Initialize managers
     this.initializeManagers();
-    
+
     // Setup coordination
     this.setupPositionTracking();
-    
+
     // Initialize
     this.initialize();
   }
-  
+
   // ========================================
   // Public API - Vehicle Position
   // ========================================
-  
+
   get vehiclePosition(): [number, number] {
     return this.vehiclePositionViewModel.currentPosition;
   }
-  
+
   setVehiclePosition(position: [number, number]): void {
     this.vehiclePositionViewModel.setPosition(position);
   }
-  
+
   // ========================================
   // Public API - Lane Information
   // ========================================
-  
+
   get detectedLaneIds(): number[] {
     return this.laneDetectionViewModel.detectedLaneIds;
   }
-  
+
   get currentApproachName(): string {
     return this.laneDetectionViewModel.currentApproachName;
   }
-  
+
   get currentLanes(): string {
     return this.laneDetectionViewModel.currentLanes;
   }
-  
+
   isInLane(laneId: number): boolean {
     return this.positionChangeHandler.isInLane(laneId);
   }
-  
+
   // ========================================
   // Public API - Turn Information
   // ========================================
-  
+
   get intersectionData(): ProcessedIntersectionData | null {
     return this.turnDataManager.intersectionData;
   }
-  
+
   get allowedTurns(): AllowedTurn[] {
     return this.turnDataManager.allowedTurns;
   }
-  
+
   get turnsAvailable(): number {
     return this.turnDataManager.turnsAvailable;
   }
-  
+
   get currentIntersectionName(): string {
     return this.turnDataManager.intersectionName;
   }
-  
+
   isTurnAllowed(turnType: string): boolean {
     return this.turnDataManager.isTurnAllowed(turnType);
   }
-  
+
   // ========================================
   // Public API - SPaT Information
   // ========================================
-  
+
   get hasSpatData(): boolean {
     return this.spatStateManager.hasSpatData;
   }
-  
+
   get spatStatus(): { state: SignalState; signalGroups: number[] } {
     return this.spatStateManager.spatStatus;
   }
-  
+
   get spatSignalState(): SignalState {
     return this.spatStateManager.signalState;
   }
-  
+
   get spatSignalGroups(): number[] {
     return this.spatStateManager.signalGroups;
   }
-  
+
   get spatLastUpdate(): number {
     return this.spatStateManager.lastUpdate;
   }
-  
+
   get spatDataAge(): number {
     return this.spatStateManager.dataAge;
   }
-  
+
   get isSpatDataStale(): boolean {
     return this.spatStateManager.isDataStale;
   }
-  
+
   get spatMonitoringActive(): boolean {
     return this.spatStateManager.isMonitoring;
   }
-  
+
   get spatUpdateError(): string | null {
     return this.spatStateManager.updateError;
   }
-  
+
+  // Add this method to the existing DirectionGuideViewModel class in the "Public API - SPaT Information" section:
+  /**
+   * Get SPaT countdown timing - NEW
+   */
+  get spatCountdown() {
+    return this.spatStateManager.countdown;
+  }
+
+  // This single line addition exposes the countdown to the UI components
+
   // ========================================
   // Public API - Actions
   // ========================================
-  
+
   /**
    * Force refresh all data
    */
@@ -152,24 +162,23 @@ export class DirectionGuideViewModel {
         this.loading = true;
         this.error = null;
       });
-      
+
       await this.laneDetectionViewModel.refreshData();
-      
+
       // Trigger re-detection with current position
       if (this.vehiclePositionViewModel.isValidPosition) {
         const shouldShow = await this.positionChangeHandler.handlePositionChange(
           this.vehiclePositionViewModel.currentPosition
         );
-        
+
         runInAction(() => {
           this.showTurnGuide = shouldShow;
         });
       }
-      
+
       runInAction(() => {
         this.loading = false;
       });
-      
     } catch (error) {
       console.error('❌ Failed to refresh all data:', error);
       runInAction(() => {
@@ -178,7 +187,7 @@ export class DirectionGuideViewModel {
       });
     }
   }
-  
+
   /**
    * Cleanup all resources
    */
@@ -188,25 +197,25 @@ export class DirectionGuideViewModel {
       this.unsubscribePosition();
       this.unsubscribePosition = null;
     }
-    
+
     // Cleanup all managers
     this.laneDetectionViewModel.cleanup();
     this.vehiclePositionViewModel.cleanup();
     this.turnDataManager.cleanup();
     this.spatStateManager.cleanup();
     this.positionChangeHandler.cleanup();
-    
+
     runInAction(() => {
       this.showTurnGuide = false;
       this.loading = false;
       this.error = null;
     });
   }
-  
+
   // ========================================
   // Private Methods
   // ========================================
-  
+
   /**
    * Initialize all managers
    */
@@ -215,7 +224,7 @@ export class DirectionGuideViewModel {
     this.vehiclePositionViewModel = new VehiclePositionViewModel();
     this.turnDataManager = new TurnDataManager();
     this.spatStateManager = new SpatStateManager();
-    
+
     // Position change handler coordinates the other managers
     this.positionChangeHandler = new PositionChangeHandler(
       this.laneDetectionViewModel,
@@ -223,7 +232,7 @@ export class DirectionGuideViewModel {
       this.spatStateManager
     );
   }
-  
+
   /**
    * Setup position tracking coordination
    */
@@ -231,14 +240,14 @@ export class DirectionGuideViewModel {
     this.unsubscribePosition = this.vehiclePositionViewModel.onPositionChange(
       async (position) => {
         const shouldShowGuide = await this.positionChangeHandler.handlePositionChange(position);
-        
+
         runInAction(() => {
           this.showTurnGuide = shouldShowGuide;
         });
       }
     );
   }
-  
+
   /**
    * Initialize the ViewModel
    */
@@ -248,16 +257,15 @@ export class DirectionGuideViewModel {
         this.loading = true;
         this.error = null;
       });
-      
+
       // Initialize lane detection (loads cached data)
       await this.laneDetectionViewModel.initialize();
-      
+
       runInAction(() => {
         this.loading = false;
       });
-      
+
       console.log('✅ DirectionGuideViewModel initialized successfully');
-      
     } catch (error) {
       console.error('❌ DirectionGuideViewModel initialization failed:', error);
       runInAction(() => {

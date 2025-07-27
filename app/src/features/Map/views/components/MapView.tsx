@@ -7,12 +7,12 @@ import * as Location from 'expo-location';
 import { MapViewModel } from '../../viewmodels/MapViewModel';
 import { PedestrianDetectorViewModel } from '../../../PedestrianDetector/viewmodels/PedestrianDetectorViewModel';
 import { TestingPedestrianDetectorViewModel } from '../../../../testingFeatures/testingPedestrianDetectorFeatureTest/viewmodels/TestingPedestrianDetectorViewModel';
-import { TestingVehicleDisplayViewModel } from '../../../../testingFeatures/testingVehicleDisplay/viewmodels/TestingVehicleDisplayViewModel';
+import { VehicleDisplayViewModel } from '../../../SDSM/viewmodels/VehicleDisplayViewModel'
 import { DirectionGuideViewModel } from '../../../DirectionGuide/viewModels/DirectionGuideViewModel';
 import { TurnGuideDisplay } from '../../../DirectionGuide/views/components/TurnGuideDisplay';
 import { SpatStatusDisplay } from '../../../SpatService/views/SpatStatusDisplay';
 import { SimpleLine } from '../../../PedestrianDetector/views/components/SimpleLine';
-import { VehicleMarkers } from '../../../../testingFeatures/testingVehicleDisplay/views/components/VehicleMarker';
+import { VehicleMarkers } from '../../../SDSM/views/VehicleMarkers'
 import { TestingModeOverlay } from '../../../../testingFeatures/testingUI';
 import { 
   CROSSWALK_CENTER, 
@@ -22,11 +22,13 @@ import {
 // Import MainViewModel for user heading
 import { MainViewModel } from '../../../../Main/viewmodels/MainViewModel';
 
+
+
 interface MapViewProps {
   mapViewModel: MapViewModel;
   pedestrianDetectorViewModel?: PedestrianDetectorViewModel | null;
   testingPedestrianDetectorViewModel?: TestingPedestrianDetectorViewModel | null;
-  testingVehicleDisplayViewModel: TestingVehicleDisplayViewModel | null;
+  testingVehicleDisplayViewModel: VehicleDisplayViewModel | null;
   directionGuideViewModel: DirectionGuideViewModel;
   isTestingMode: boolean;
   mainViewModel?: MainViewModel;
@@ -242,10 +244,15 @@ timeInterval: 1000 // Update every second
           lineWidth={3} 
         />
 
-        {/* Live Vehicle Markers from SDSM */}
-        {testingVehicleDisplayViewModel && (
-          <VehicleMarkers viewModel={testingVehicleDisplayViewModel} />
+        {/* SDSM Vehicle Markers (Main Feature - FROM SDSM FOLDER ONLY) */}
+        {mainViewModel?.vehicleDisplayViewModel && (
+          <VehicleMarkers viewModel={mainViewModel.vehicleDisplayViewModel} />
         )}
+
+      {testingVehicleDisplayViewModel && (
+  <VehicleMarkers viewModel={testingVehicleDisplayViewModel as unknown as VehicleDisplayViewModel} />
+)}
+
         
         {/* Pedestrian markers */}
         {pedestrians.map((pedestrian) => (
@@ -264,11 +271,14 @@ timeInterval: 1000 // Update every second
         {children}
       </MapboxGL.MapView>
       
-      {/* Testing mode overlay */}
-      <TestingModeOverlay 
-        isTestingMode={isTestingMode}
-        testingVehicleDisplayViewModel={testingVehicleDisplayViewModel}
-      />
+ <TestingModeOverlay 
+  isTestingMode={isTestingMode}
+  testingVehicleDisplayViewModel={testingVehicleDisplayViewModel as unknown as VehicleDisplayViewModel}
+/>
+
+      
+      {/* SDSM Vehicle Status Display (FROM SDSM FOLDER ONLY) */}
+     
       
       {/* SPaT status display */}
       <SpatStatusDisplay directionGuideViewModel={directionGuideViewModel} />

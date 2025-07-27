@@ -1,4 +1,6 @@
 // app/src/features/SpatService/views/SpatStatusDisplay.tsx
+// Enhanced with countdown display using existing API fields
+
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { observer } from 'mobx-react-lite';
@@ -12,7 +14,6 @@ interface SpatStatusDisplayProps {
 export const SpatStatusDisplay: React.FC<SpatStatusDisplayProps> = observer(({ 
   directionGuideViewModel 
 }) => {
-  // Only show when car is in a lane with SPaT data
   const isInLane = directionGuideViewModel.detectedLaneIds.length > 0;
   const hasSpatData = directionGuideViewModel.hasSpatData;
   const spatStatus = directionGuideViewModel.spatStatus;
@@ -41,15 +42,32 @@ export const SpatStatusDisplay: React.FC<SpatStatusDisplayProps> = observer(({
     }
   };
 
+  // NEW: Get countdown from DirectionGuide (we'll need to add this property)
+  const countdown = directionGuideViewModel.spatCountdown;
+  const hasCountdown = countdown?.hasCountdown || false;
+  const formattedTime = countdown?.formattedTime || '';
+
   const signalColor = getSignalColor(spatStatus.state);
   const signalText = getSignalText(spatStatus.state);
 
   return (
     <View style={styles.container}>
+      {/* Signal indicator */}
       <View style={[styles.signalIndicator, { backgroundColor: signalColor }]} />
+      
+      {/* Signal text */}
       <Text style={[styles.signalText, { color: signalColor }]}>
         {signalText}
       </Text>
+      
+      {/* NEW: Countdown display - positioned next to signal */}
+      {hasCountdown && formattedTime && (
+        <View style={styles.countdownContainer}>
+          <Text style={styles.countdownText}>
+            {formattedTime}
+          </Text>
+        </View>
+      )}
     </View>
   );
 });
@@ -57,7 +75,7 @@ export const SpatStatusDisplay: React.FC<SpatStatusDisplayProps> = observer(({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 100, // Position above turn guide
+    bottom: 100,
     right: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -74,11 +92,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 0, 0, 0.1)',
     zIndex: 999,
   },
-  warningContainer: {
-    borderWidth: 2,
-    borderColor: '#f59e0b',
-    backgroundColor: 'rgba(255, 237, 213, 0.95)',
-  },
   signalIndicator: {
     width: 12,
     height: 12,
@@ -90,17 +103,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 2,
   },
-  warningIndicator: {
-    borderWidth: 1,
-    borderColor: '#f59e0b',
-  },
   signalText: {
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.3,
   },
-  warningIcon: {
-    fontSize: 12,
-    marginLeft: 4,
+  // NEW: Countdown styles - positioned next to signal text
+  countdownContainer: {
+    marginLeft: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    borderRadius: 6,
+    minWidth: 32,
+    alignItems: 'center',
+  },
+  countdownText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1f2937',
+    fontFamily: 'monospace', // Better for numbers
   },
 });

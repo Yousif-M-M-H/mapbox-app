@@ -1,18 +1,17 @@
-// app/src/features/SDSM/services/SDSMService.ts
+// app/src/features/SDSM/services/SDSMService.ts (Updated for SPaT endpoint)
 import { SDSMResponse, SDSMObject, PedestrianInfo, VehicleInfo } from '../models/SDSMData';
 
 export class SDSMService {
-  private static readonly API_URL = 'http://10.199.1.11:9095/latest/sdsm_events';
-  private static readonly REQUEST_TIMEOUT = 5000; // 5 seconds
+  // UPDATED: Using the SPaT endpoint as requested
+  private static readonly API_URL = 'http://10.199.1.11:9095/latest/mlk_spat_events';
+  private static readonly REQUEST_TIMEOUT = 1000; // Reduced for 10Hz updates
 
   /**
-   * Fetch SDSM data from Redis endpoint
+   * Fetch SDSM data from SPaT endpoint (vehicles and other objects)
    * @returns Promise with SDSM data including vehicles and pedestrians (VRUs)
    */
   static async fetchSDSMData(): Promise<SDSMResponse | null> {
     try {
-      console.log('Fetching SDSM data from:', this.API_URL);
-      
       // Create abort controller for timeout (React Native compatible)
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT);
@@ -22,6 +21,7 @@ export class SDSMService {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache' // Ensure fresh data for 10Hz
         },
         signal: controller.signal,
       });
@@ -34,10 +34,12 @@ export class SDSMService {
       }
       
       const rawData: SDSMResponse = await response.json();
-      console.log('Raw SDSM response:', rawData);
       
       if (this.isValidSDSMResponse(rawData)) {
-        this.logDataSummary(rawData);
+        // Only log summary every 50 requests to avoid spam at 10Hz
+        if (Math.random() < 0.02) { // ~2% chance = every 50 requests at 10Hz
+          this.logDataSummary(rawData);
+        }
         return rawData;
       } else {
         console.warn('Invalid SDSM response structure');
@@ -46,7 +48,8 @@ export class SDSMService {
       
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        console.error('SDSM API request timed out');
+        // Don't log timeout errors at 10Hz - too spammy
+        // console.error('SDSM API request timed out');
       } else {
         console.error('Error fetching SDSM data:', error);
       }
@@ -61,7 +64,7 @@ export class SDSMService {
     return (
       data &&
       typeof data === 'object' &&
-      typeof data.intersectionID === 'string' &&
+      (typeof data.intersectionID === 'string' || typeof data.intersectionID === 'number') &&
       typeof data.intersection === 'string' &&
       typeof data.timestamp === 'string' &&
       Array.isArray(data.objects)
@@ -69,22 +72,22 @@ export class SDSMService {
   }
   
   /**
-   * Log summary of the fetched data
+   * Log summary of the fetched data (throttled for 10Hz)
    */
   private static logDataSummary(data: SDSMResponse): void {
     const vehicles = this.filterVehicles(data);
     const pedestrians = this.filterPedestrians(data);
     
-    console.log(`📊 SDSM Data Summary:`);
+    console.log(`📊 SDSM Data Summary (SPaT endpoint):`);
     console.log(`- Intersection: ${data.intersection} (ID: ${data.intersectionID})`);
     console.log(`- Timestamp: ${data.timestamp}`);
     console.log(`- Total Objects: ${data.objects.length}`);
     console.log(`- Vehicles: ${vehicles.length}`);
     console.log(`- Pedestrians (VRUs): ${pedestrians.length}`);
     
-    // Log each pedestrian position
-    pedestrians.forEach(ped => {
-      console.log(`  🚶 Pedestrian ${ped.objectID}: [${ped.location.coordinates[0]}, ${ped.location.coordinates[1]}]`);
+    // Log vehicle positions
+    vehicles.forEach(vehicle => {
+      console.log(`  🚗 Vehicle ${vehicle.objectID}: [${vehicle.location.coordinates[0]}, ${vehicle.location.coordinates[1]}]`);
     });
   }
   

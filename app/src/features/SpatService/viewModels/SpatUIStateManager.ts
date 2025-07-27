@@ -1,16 +1,15 @@
 // app/src/features/SpatService/viewModels/SpatUIStateManager.ts
-// Handles computed properties and UI state
+// Enhanced with countdown using existing API fields only
 
 import { makeAutoObservable } from 'mobx';
 import { SpatDataManager } from './SpatDataManager';
 import { SpatMonitoringManager } from './SpatMonitoringManager';
 import { ApproachSignalStatus, SignalState, LaneSignalStatus } from '../models/SpatModels';
+import { CountdownTimingService, CountdownResult } from '../services/CountdownTimingService';
 
 export class SpatUIStateManager {
-  // Current approach status
   currentApproachStatus: ApproachSignalStatus | null = null;
   
-  // Dependencies
   private dataManager: SpatDataManager;
   private monitoringManager: SpatMonitoringManager;
   
@@ -23,45 +22,23 @@ export class SpatUIStateManager {
     this.monitoringManager = monitoringManager;
   }
   
-  // ========================================
-  // Public Methods
-  // ========================================
-  
-  /**
-   * Update current approach status
-   */
   setApproachStatus(status: ApproachSignalStatus | null): void {
     this.currentApproachStatus = status;
   }
   
-  /**
-   * Clear approach status
-   */
   clearApproachStatus(): void {
     this.currentApproachStatus = null;
   }
   
-  // ========================================
-  // Computed Properties for UI
-  // ========================================
-  
-  /**
-   * Whether we have valid signal data
-   */
+  // Existing computed properties
   get hasSignalData(): boolean {
     return this.currentApproachStatus !== null && this.dataManager.isDataValid();
   }
   
-  /**
-   * Current approach signal state
-   */
   get approachSignalState(): SignalState {
     return this.currentApproachStatus?.overallSignalState || SignalState.UNKNOWN;
   }
   
-  /**
-   * Signal status text for display
-   */
   get signalStatusText(): string {
     switch (this.approachSignalState) {
       case SignalState.GREEN: return 'GO';
@@ -71,9 +48,6 @@ export class SpatUIStateManager {
     }
   }
   
-  /**
-   * Signal color class for styling
-   */
   get signalColorClass(): string {
     switch (this.approachSignalState) {
       case SignalState.GREEN: return 'text-green-500';
@@ -83,85 +57,90 @@ export class SpatUIStateManager {
     }
   }
   
-  /**
-   * Lane signal statuses for detailed view
-   */
   get laneSignalStatuses(): LaneSignalStatus[] {
     return this.currentApproachStatus?.laneSignalStatuses || [];
   }
   
-  /**
-   * Current approach name
-   */
+  // NEW: Countdown timing computed properties
+  get signalCountdown(): CountdownResult {
+    if (!this.hasSignalData || !this.dataManager.currentSpatData) {
+      return { remainingSeconds: 0, hasCountdown: false, formattedTime: '' };
+    }
+
+    // Get signal groups from the first lane (simplified approach)
+    const firstLane = this.laneSignalStatuses[0];
+    if (!firstLane) {
+      return { remainingSeconds: 0, hasCountdown: false, formattedTime: '' };
+    }
+
+    return CountdownTimingService.getCountdownForSignalGroups(
+      firstLane.signalGroups,
+      this.approachSignalState,
+      this.dataManager.currentSpatData
+    );
+  }
+  
+  get hasCountdown(): boolean {
+    return this.signalCountdown.hasCountdown;
+  }
+  
+  get countdownSeconds(): number {
+    return this.signalCountdown.remainingSeconds;
+  }
+  
+  get formattedCountdown(): string {
+    return this.signalCountdown.formattedTime;
+  }
+  
+  // Enhanced signal status with countdown
+  get signalStatusWithCountdown(): string {
+    const baseStatus = this.signalStatusText;
+    if (this.hasCountdown && this.formattedCountdown) {
+      return `${baseStatus} (${this.formattedCountdown})`;
+    }
+    return baseStatus;
+  }
+  
+  // Existing properties remain unchanged
   get currentApproachName(): string {
     return this.monitoringManager.approachName;
   }
   
-  /**
-   * Whether monitoring is active
-   */
   get isMonitoring(): boolean {
     return this.monitoringManager.isMonitoring;
   }
   
-  /**
-   * Last update time
-   */
   get lastUpdateTime(): number {
     return this.dataManager.lastUpdateTime;
   }
   
-  /**
-   * Time since last update
-   */
   get timeSinceLastUpdate(): number {
     const lastUpdate = this.dataManager.lastUpdateTime;
     return lastUpdate > 0 ? Date.now() - lastUpdate : -1;
   }
   
-  /**
-   * Whether there's a loading state
-   */
   get loading(): boolean {
     return this.dataManager.loading;
   }
   
-  /**
-   * Current error message
-   */
   get error(): string | null {
     return this.dataManager.error;
   }
   
-  /**
-   * Estimated time to signal change
-   */
   get estimatedTimeToChange(): number {
     return this.currentApproachStatus?.estimatedTimeToChange || 0;
   }
   
-  /**
-   * Signal data age for debugging
-   */
   get dataAge(): number {
     return this.dataManager.getDataAge();
   }
   
-  /**
-   * Whether signal data is stale
-   */
   get isDataStale(): boolean {
     const age = this.dataAge;
-    return age > 5000; // Consider stale after 5 seconds
+    return age > 5000;
   }
   
-  // ========================================
-  // Utility Methods
-  // ========================================
-  
-  /**
-   * Get formatted time since last update
-   */
+  // Utility methods
   getFormattedTimeSinceUpdate(): string {
     const time = this.timeSinceLastUpdate;
     if (time < 0) return 'Never';
@@ -173,22 +152,16 @@ export class SpatUIStateManager {
     return `${minutes}m ago`;
   }
   
-  /**
-   * Get status summary for debugging
-   */
   getStatusSummary(): string {
     if (!this.hasSignalData) return 'No signal data';
     
-    const state = this.signalStatusText;
+    const state = this.signalStatusWithCountdown;
     const approach = this.currentApproachName;
     const age = this.getFormattedTimeSinceUpdate();
     
     return `${approach}: ${state} (${age})`;
   }
   
-  /**
-   * Cleanup resources
-   */
   cleanup(): void {
     this.clearApproachStatus();
   }
