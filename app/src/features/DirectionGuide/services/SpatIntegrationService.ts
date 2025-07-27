@@ -31,7 +31,7 @@ export class SpatIntegrationService {
         try {
           await this.spatViewModel.fetchCurrentSpatData();
         } catch (error) {
-          console.error('🚨 CRITICAL: SPaT update failed:', error);
+          console.error(' SPaT update failed:', error);
         }
       }, 500);
       

@@ -52,14 +52,7 @@ export class PedestrianWarningService {
     pedestrianPosition: [number, number]
   ): void {
     console.error(`
-      🚨 CRITICAL WARNING
-      -------------------------------------
-      IMMEDIATE COLLISION RISK DETECTED!
-      Pedestrian ID: ${pedestrianId}
-      Distance: ${distanceMeters.toFixed(2)} meters
-      Vehicle: [${vehiclePosition[0].toFixed(6)}, ${vehiclePosition[1].toFixed(6)}]
-      Pedestrian: [${pedestrianPosition[0].toFixed(6)}, ${pedestrianPosition[1].toFixed(6)}]
-      -------------------------------------
+     
     `);
   }
   

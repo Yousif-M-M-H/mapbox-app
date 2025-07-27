@@ -56,7 +56,7 @@ export class SpatStateManager {
       console.log('🚦 SPaT monitoring started for signal groups:', signalGroups);
       
     } catch (error) {
-      console.error('🚨 CRITICAL SPaT ERROR:', error);
+      console.error(' SPaT ERROR:', error);
       runInAction(() => {
         this.updateError = error instanceof Error ? error.message : 'SPaT error';
         this.signalState = SignalState.UNKNOWN;
