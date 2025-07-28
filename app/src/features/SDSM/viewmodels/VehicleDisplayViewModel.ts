@@ -1,7 +1,6 @@
 // app/src/features/SDSM/viewmodels/VehicleDisplayViewModel.ts
 import { makeAutoObservable, runInAction } from 'mobx';
 import { VehicleInfo } from '../models/SDSMData';
-import { SDSMService } from '../services/SDSMService';
 
 export class VehicleDisplayViewModel {
   // Observable state
@@ -13,22 +12,19 @@ export class VehicleDisplayViewModel {
   
   // Private properties
   private updateInterval: NodeJS.Timeout | null = null;
-  private readonly API_URL = 'http://10.199.1.11:9095/latest/mlk_spat_events';
-  private readonly UPDATE_FREQUENCY = 100; // 10Hz = 100ms interval
-  private readonly REQUEST_TIMEOUT = 1000; // 1 second timeout for low latency
+  private readonly API_URL = 'http://10.199.1.11:9095/latest/sdsm_events';
+  private readonly UPDATE_FREQUENCY = 1000; // 1 second
+  private readonly REQUEST_TIMEOUT = 3000; // 3 seconds
   
   constructor() {
     makeAutoObservable(this);
-    console.log('🚗 VehicleDisplayViewModel: Initialized for 10Hz updates');
   }
   
   /**
-   * Start real-time vehicle tracking at 10Hz
+   * Start real-time vehicle tracking
    */
   start(): void {
     if (this.isActive) return;
-    
-    console.log('🚗 Starting 10Hz vehicle tracking...');
     
     runInAction(() => {
       this.isActive = true;
@@ -39,7 +35,7 @@ export class VehicleDisplayViewModel {
     // Fetch immediately
     this.fetchVehicles();
     
-    // Set up 10Hz interval
+    // Set up interval
     this.updateInterval = setInterval(() => {
       this.fetchVehicles();
     }, this.UPDATE_FREQUENCY);
@@ -58,19 +54,15 @@ export class VehicleDisplayViewModel {
       this.isActive = false;
       this.vehicles = [];
     });
-    
-    console.log('🚗 Stopped vehicle tracking');
   }
   
   /**
-   * Fetch vehicles from SDSM API with low latency
+   * Fetch vehicles from API
    */
   private async fetchVehicles(): Promise<void> {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT);
-      
-      const startTime = performance.now();
       
       const response = await fetch(this.API_URL, {
         method: 'GET',
@@ -89,11 +81,7 @@ export class VehicleDisplayViewModel {
       }
       
       const rawData = await response.json();
-      const fetchTime = performance.now() - startTime;
-      
-      // Filter only vehicles from the response
-      const vehicleObjects = this.filterVehiclesFromResponse(rawData);
-      const vehicles = this.convertToVehicleInfo(vehicleObjects);
+      const vehicles = this.extractVehicles(rawData);
       
       runInAction(() => {
         this.vehicles = vehicles;
@@ -102,18 +90,7 @@ export class VehicleDisplayViewModel {
         this.error = null;
       });
       
-      // Log performance every 50 updates (every 5 seconds at 10Hz)
-      if (this.updateCount % 50 === 0) {
-        console.log(`🚗 Update #${this.updateCount}: ${vehicles.length} vehicles, fetch: ${fetchTime.toFixed(1)}ms`);
-      }
-      
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        console.warn('🚗 Request timeout (>1s)');
-      } else {
-        console.error('🚗 Fetch error:', error);
-      }
-      
       runInAction(() => {
         this.error = error instanceof Error ? error.message : 'Unknown error';
       });
@@ -121,36 +98,34 @@ export class VehicleDisplayViewModel {
   }
   
   /**
-   * Filter only vehicle objects from API response
+   * Extract vehicles from API response
    */
-  private filterVehiclesFromResponse(data: any): any[] {
+  private extractVehicles(data: any): VehicleInfo[] {
     if (!data?.objects || !Array.isArray(data.objects)) {
       return [];
     }
     
-    return data.objects.filter((obj: any) => obj.type === 'vehicle');
+    return data.objects
+      .filter((obj: any) => obj.type === 'vehicle')
+      .map((obj: any) => ({
+        id: obj.objectID,
+        coordinates: obj.location?.coordinates || [0, 0],
+        timestamp: obj.timestamp,
+        heading: obj.heading,
+        speed: obj.speed,
+        size: obj.size
+      }))
+      .filter((vehicle: VehicleInfo) => 
+        vehicle.coordinates[0] !== 0 && vehicle.coordinates[1] !== 0
+      );
   }
   
   /**
-   * Convert raw vehicle objects to VehicleInfo format
-   */
-  private convertToVehicleInfo(vehicleObjects: any[]): VehicleInfo[] {
-    return vehicleObjects.map(obj => ({
-      id: obj.objectID,
-      coordinates: obj.location?.coordinates || [0, 0],
-      timestamp: obj.timestamp,
-      heading: obj.heading,
-      speed: obj.speed,
-      size: obj.size
-    }));
-  }
-  
-  /**
-   * Convert API coordinates [lat, lng] to Mapbox format [lng, lat]
+   * Convert coordinates for Mapbox
    */
   getMapboxCoordinates(vehicle: VehicleInfo): [number, number] {
     const [lat, lng] = vehicle.coordinates;
-    return [lng, lat];
+    return [lng, lat]; // Mapbox expects [longitude, latitude]
   }
   
   /**
@@ -161,31 +136,9 @@ export class VehicleDisplayViewModel {
   }
   
   /**
-   * Get update frequency in Hz
-   */
-  get updateFrequency(): number {
-    return 1000 / this.UPDATE_FREQUENCY;
-  }
-  
-  /**
-   * Get time since last update in ms
-   */
-  get timeSinceLastUpdate(): number {
-    return this.lastUpdateTime > 0 ? Date.now() - this.lastUpdateTime : -1;
-  }
-  
-  /**
-   * Check if data is fresh (updated within last 500ms)
-   */
-  get isDataFresh(): boolean {
-    return this.timeSinceLastUpdate < 500;
-  }
-  
-  /**
    * Cleanup resources
    */
   cleanup(): void {
     this.stop();
-    console.log('🚗 VehicleDisplayViewModel: Cleaned up');
   }
 }

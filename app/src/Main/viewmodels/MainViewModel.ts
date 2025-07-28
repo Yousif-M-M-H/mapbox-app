@@ -55,11 +55,9 @@ export class MainViewModel {
     // Start user heading tracking
     this.startUserHeadingTracking();
     
-    // Start testing vehicle display if enabled
-
     // Start SDSM vehicle display
     this.vehicleDisplayViewModel.start();
-    console.log('🚗 Started SDSM vehicle display at 10Hz');
+    console.log('🚗 Started SDSM vehicle display');
     
     // Start Detection Latency Test if in testing mode
     this.startDetectionLatencyTest();
