@@ -71,7 +71,7 @@ export class PedestrianDataManager {
         this.loading = false;
       });
       
-      console.log(`🚶 Found ${pedestrianData.length} pedestrians in SDSM data`);
+      //console.log(`🚶 Found ${pedestrianData.length} pedestrians in SDSM data`);
       
     } catch (error) {
       const errorMessage = PedestrianErrorHandler.getErrorMessage(error);

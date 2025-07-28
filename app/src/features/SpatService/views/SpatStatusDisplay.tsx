@@ -61,13 +61,7 @@ export const SpatStatusDisplay: React.FC<SpatStatusDisplayProps> = observer(({
       </Text>
       
       {/* NEW: Countdown display - positioned next to signal */}
-      {hasCountdown && formattedTime && (
-        <View style={styles.countdownContainer}>
-          <Text style={styles.countdownText}>
-            {formattedTime}
-          </Text>
-        </View>
-      )}
+
     </View>
   );
 });

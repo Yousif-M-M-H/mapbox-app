@@ -1,6 +1,9 @@
 // app/src/features/SDSM/index.ts
 // Clean exports for the SDSM vehicle display feature
 
+import { SDSMService } from './services/SDSMService';
+import { VehicleDisplayViewModel } from './viewmodels/VehicleDisplayViewModel';
+
 // ========================================
 // Main ViewModel (Primary Interface)
 // ========================================
@@ -10,7 +13,6 @@ export { VehicleDisplayViewModel } from './viewmodels/VehicleDisplayViewModel';
 // UI Components
 // ========================================
 export { VehicleMarkers } from './views/VehicleMarkers';
-export { VehicleStatusDisplay } from './views/VehicleStatusDisplay';
 
 // ========================================
 // Services

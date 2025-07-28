@@ -16,7 +16,7 @@ export class LocationService {
   static async getCurrentLocation(): Promise<Coordinate | null> {
     try {
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High
+        accuracy: Location.Accuracy.BestForNavigation
       });
       
       return {

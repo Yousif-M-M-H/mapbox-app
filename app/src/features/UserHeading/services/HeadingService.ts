@@ -69,7 +69,7 @@ export class HeadingService {
       
       // Get current location with heading
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High
+        accuracy: Location.Accuracy.BestForNavigation
       });
       
       if (location.coords.heading !== null && location.coords.heading !== undefined) {
@@ -94,7 +94,7 @@ export class HeadingService {
   private async getMovementHeading(): Promise<number | null> {
     try {
       const currentLocation = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High
+        accuracy: Location.Accuracy.BestForNavigation
       });
       
       if (!this.previousLocation) {

@@ -245,7 +245,7 @@ export class PedestrianDetectorViewModel {
         this.pedestriansInCrosswalk = pedestriansInCrosswalkCount;
       });
       
-      console.log(`📊 Status: ${pedestriansInCrosswalkCount} pedestrians in crosswalk, vehicle proximity: ${hasCloseVehicle}`);
+      //console.log(`📊 Status: ${pedestriansInCrosswalkCount} pedestrians in crosswalk, vehicle proximity: ${hasCloseVehicle}`);
       
       // Call the callback if conditions are met
       if (hasMetConditions && this.conditionsMetCallback) {

@@ -75,7 +75,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         
         locationSubscription = await Location.watchPositionAsync(
           {
-           accuracy: Location.Accuracy.High,
+           accuracy: Location.Accuracy.BestForNavigation,
 distanceInterval: 1, // Update every meter
 timeInterval: 1000 // Update every second
           },
