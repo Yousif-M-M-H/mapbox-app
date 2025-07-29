@@ -11,7 +11,7 @@ export class SpatDataService {
    */
   public static async fetchSpatData(): Promise<SpatData> {
     try {
-      console.log('🚦 Fetching SPaT data from API...');
+      // console.log('🚦 Fetching SPaT data from API...');
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT);

@@ -57,7 +57,7 @@ export class MainViewModel {
     
     // Start SDSM vehicle display
     this.vehicleDisplayViewModel.start();
-    console.log('🚗 Started SDSM vehicle display');
+    // console.log('🚗 Started SDSM vehicle display');
     
     // Start Detection Latency Test if in testing mode
     this.startDetectionLatencyTest();

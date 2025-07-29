@@ -13,7 +13,7 @@ export class SpatApiService {
    */
   public static async fetchSpatData(): Promise<SpatData> {
     try {
-      console.log('🚦 Fetching SPaT data from API...');
+      // console.log('🚦 Fetching SPaT data from API...');
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT);
@@ -34,7 +34,7 @@ export class SpatApiService {
       }
       
       const rawData = await response.json();
-      console.log('✅ SPaT data received successfully');
+      // console.log('✅ SPaT data received successfully');
       
       return rawData;
       

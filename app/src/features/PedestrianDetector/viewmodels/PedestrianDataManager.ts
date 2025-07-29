@@ -147,7 +147,12 @@ export class PedestrianDataManager {
         throw new Error(`SDSM API error: ${response.status}`);
       }
       
-      return await response.json();
+      const rawData = await response.json();
+      
+      // Simple log of API data
+      console.log('🔍 SDSM API Data:', JSON.stringify(rawData, null, 2));
+      
+      return rawData;
       
     } catch (error) {
       clearTimeout(timeoutId);
