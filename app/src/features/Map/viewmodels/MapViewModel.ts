@@ -12,7 +12,7 @@ export class MapViewModel {
   userHeading: number = 0;
   isInitialized: boolean = false;
   loading: boolean = false;
-  showCrosswalkPolygon: boolean = true; // Toggle for polygon visibility
+  showCrosswalkPolygon: boolean = false; // Toggle for polygon visibility
   private headingSubscription: HeadingSubscription | null = null;
 
   constructor() {

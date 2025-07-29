@@ -12,7 +12,7 @@ export class PedestrianMonitoringManager {
   // Dependencies
   private dataManager: PedestrianDataManager;
   private monitoringInterval: NodeJS.Timeout | null = null;
-  private readonly UPDATE_FREQUENCY = 1000; // Check every 1.5 seconds for real data
+  private readonly UPDATE_FREQUENCY = 1500; // Check every 1.5 seconds for real data
   
   // Callback for when data updates
   private onDataUpdateCallback: (() => void) | null = null;
