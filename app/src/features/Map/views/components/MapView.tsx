@@ -14,9 +14,9 @@ import { SpatStatusDisplay } from '../../../SpatService/views/SpatStatusDisplay'
 import { SimpleLine } from '../../../PedestrianDetector/views/components/SimpleLine';
 import { VehicleMarkers } from '../../../SDSM/views/VehicleMarkers'
 import { TestingModeOverlay } from '../../../../testingFeatures/testingUI';
-import { 
-  CROSSWALK_CENTER, 
-  CROSSWALK_POLYGONS 
+import {
+  CROSSWALK_CENTER,
+  CROSSWALK_POLYGONS
 } from '../../../Crosswalk/constants/CrosswalkCoordinates';
 
 // Import MainViewModel for user heading
@@ -35,7 +35,7 @@ interface MapViewProps {
   children?: React.ReactNode;
 }
 
-export const MapViewComponent: React.FC<MapViewProps> = observer(({ 
+export const MapViewComponent: React.FC<MapViewProps> = observer(({
   mapViewModel,
   pedestrianDetectorViewModel,
   testingPedestrianDetectorViewModel,
@@ -43,70 +43,82 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   directionGuideViewModel,
   isTestingMode,
   mainViewModel,
-  children 
+  children
 }) => {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
-  
+
   // State for GPS heading (independent of camera)
   const [gpsHeading, setGpsHeading] = useState<number | null>(null);
   const [lastKnownHeading, setLastKnownHeading] = useState<number | null>(null);
-  
+
   // Get the active detector based on mode
   const activeDetector = isTestingMode ? testingPedestrianDetectorViewModel : pedestrianDetectorViewModel;
-  
+
   // Line coordinates for lane visualization
   const lineCoordinates: [number, number][] = [
     [-85.30825029306017, 35.045775324733555],
     [-85.30784442216404, 35.04562375468416]
   ];
-  
+
+  // Lane 5 coordinates
+  const lane5Coordinates: [number, number][] = [
+    [-85.3081459, 35.0457520],   // Start
+    [-85.3072719, 35.0454189]   // End
+  ];
+
+  // Lane 6 coordinates
+  const lane6Coordinates: [number, number][] = [
+    [-85.3081611, 35.0457243],   // Start
+    [-85.3080344, 35.0456771]    // End
+  ];
+
   // GPS tracking setup with heading capture
   useEffect(() => {
     let locationSubscription: Location.LocationSubscription;
     let updateCount = 0;
-    
+
     const setupLocationTracking = async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
           return;
         }
-        
+
         locationSubscription = await Location.watchPositionAsync(
           {
-           accuracy: Location.Accuracy.BestForNavigation,
-distanceInterval: 1, // Update every meter
-timeInterval: 1000 // Update every second
+            accuracy: Location.Accuracy.BestForNavigation,
+            distanceInterval: 1, // Update every meter
+            timeInterval: 1000 // Update every second
           },
           (location) => {
             updateCount++;
             const { latitude, longitude, heading } = location.coords;
-            
+
             // Capture GPS heading independently
             if (heading !== null && heading !== undefined) {
               setGpsHeading(heading);
               setLastKnownHeading(heading);
-              
+
               // Log heading updates
               if (updateCount % 5 === 1) {
                 console.log(`🧭 GPS Heading: ${heading.toFixed(1)}° (Fixed to GPS)`);
               }
             }
-            
+
             // Log GPS updates less frequently
             if (updateCount % 10 === 1) {
               console.log(`GPS: [${latitude.toFixed(6)}, ${longitude.toFixed(6)}] (Update #${updateCount})`);
             }
-            
+
             // Update DirectionGuide with live GPS
             directionGuideViewModel.setVehiclePosition([latitude, longitude]);
-            
+
             // Update other components
             if (activeDetector && 'setVehiclePosition' in activeDetector) {
               activeDetector.setVehiclePosition([latitude, longitude]);
             }
-            
+
             // Update map for blue marker (without heading to avoid conflicts)
             mapViewModel.setUserLocation({
               latitude,
@@ -115,19 +127,19 @@ timeInterval: 1000 // Update every second
             });
           }
         );
-        
+
         // Start pedestrian monitoring
         if (activeDetector && 'startMonitoring' in activeDetector) {
           activeDetector.startMonitoring();
         }
-        
+
       } catch (error) {
         console.error('GPS setup error:', error);
       }
     };
-    
+
     setupLocationTracking();
-    
+
     return () => {
       if (locationSubscription) {
         locationSubscription.remove();
@@ -150,21 +162,21 @@ timeInterval: 1000 // Update every second
 
   return (
     <View style={styles.container}>
-      <MapboxGL.MapView 
+      <MapboxGL.MapView
         ref={mapRef}
-        style={styles.map} 
+        style={styles.map}
         styleURL="mapbox://styles/mapbox/streets-v12"
         logoEnabled={false}
         attributionEnabled={false}
         compassEnabled={false}
         rotateEnabled={true} // Allow map rotation but don't affect heading
       >
-        <MapboxGL.Camera 
+        <MapboxGL.Camera
           ref={cameraRef}
           centerCoordinate={userLocationCoordinate}
           zoomLevel={18}
           animationDuration={1000}
-          // Don't set bearing - let user control map rotation independently
+        // Don't set bearing - let user control map rotation independently
         />
 
         {/* User Location Marker with Fixed GPS Heading */}
@@ -172,17 +184,17 @@ timeInterval: 1000 // Update every second
           <MapboxGL.PointAnnotation
             id="vehicle-position"
             coordinate={userLocationCoordinate}
-            anchor={{x: 0.5, y: 0.5}}
+            anchor={{ x: 0.5, y: 0.5 }}
           >
             {displayHeading !== null ? (
               // GPS-based heading arrow (fixed to real-world direction)
               <View style={styles.userLocationContainer}>
                 <View style={[
                   styles.headingArrow,
-                  { 
-                    transform: [{ 
+                  {
+                    transform: [{
                       rotate: `${displayHeading}deg` // Direct GPS heading, no map compensation
-                    }] 
+                    }]
                   }
                 ]}>
                   <View style={styles.arrowPoint} />
@@ -202,7 +214,7 @@ timeInterval: 1000 // Update every second
         {mapViewModel.showCrosswalkPolygon && CROSSWALK_POLYGONS.map((polygonCoords, index) => {
           const crosswalkPolygon = {
             type: "Feature" as const,
-            properties: { 
+            properties: {
               crosswalkId: index,
               name: `Crosswalk ${index + 1}`
             },
@@ -213,79 +225,132 @@ timeInterval: 1000 // Update every second
           };
 
           return (
-            <MapboxGL.ShapeSource 
+            <MapboxGL.ShapeSource
               key={`crosswalk-${index}`}
-              id={`crosswalk-polygon-source-${index}`} 
+              id={`crosswalk-polygon-source-${index}`}
               shape={crosswalkPolygon}
             >
-              <MapboxGL.FillLayer 
-                id={`crosswalk-polygon-fill-${index}`} 
+              <MapboxGL.FillLayer
+                id={`crosswalk-polygon-fill-${index}`}
                 style={{
-                  fillColor: pedestriansInCrosswalk > 0 ? 
+                  fillColor: pedestriansInCrosswalk > 0 ?
                     'rgba(255, 59, 48, 0.4)' : 'rgba(255, 255, 0, 0.4)',
                   fillOutlineColor: '#FFCC00'
-                }} 
+                }}
               />
-              <MapboxGL.LineLayer 
-                id={`crosswalk-polygon-outline-${index}`} 
+              <MapboxGL.LineLayer
+                id={`crosswalk-polygon-outline-${index}`}
                 style={{
                   lineColor: '#FFCC00',
                   lineWidth: 2
-                }} 
+                }}
               />
             </MapboxGL.ShapeSource>
           );
         })}
 
-        {/* Simple Blue Line */}
-        <SimpleLine 
-          coordinates={lineCoordinates} 
-          lineColor="#0066FF" 
-          lineWidth={3} 
-        />
+        {/* Lane 4 - Blue Line (Original) */}
+        <MapboxGL.ShapeSource id="lane-4-source" shape={{
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "LineString",
+            coordinates: lineCoordinates
+          }
+        }}>
+          <MapboxGL.LineLayer
+            id="lane-4-layer"
+            style={{
+              lineColor: "#0066FF",
+              lineWidth: 3,
+              lineCap: 'round',
+              lineJoin: 'round'
+            }}
+          />
+        </MapboxGL.ShapeSource>
+
+        {/* Lane 5 - Blue Line */}
+        <MapboxGL.ShapeSource id="lane-5-source" shape={{
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "LineString",
+            coordinates: lane5Coordinates
+          }
+        }}>
+          <MapboxGL.LineLayer
+            id="lane-5-layer"
+            style={{
+              lineColor: "#0066FF",
+              lineWidth: 3,
+              lineCap: 'round',
+              lineJoin: 'round'
+            }}
+          />
+        </MapboxGL.ShapeSource>
+
+        {/* Lane 6 - Blue Line */}
+        <MapboxGL.ShapeSource id="lane-6-source" shape={{
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "LineString",
+            coordinates: lane6Coordinates
+          }
+        }}>
+          <MapboxGL.LineLayer
+            id="lane-6-layer"
+            style={{
+              lineColor: "#0066FF",
+              lineWidth: 3,
+              lineCap: 'round',
+              lineJoin: 'round'
+            }}
+          />
+        </MapboxGL.ShapeSource>
 
         {/* SDSM Vehicle Markers (Main Feature - FROM SDSM FOLDER ONLY) */}
         {mainViewModel?.vehicleDisplayViewModel && (
           <VehicleMarkers viewModel={mainViewModel.vehicleDisplayViewModel} />
         )}
 
-      {testingVehicleDisplayViewModel && (
-  <VehicleMarkers viewModel={testingVehicleDisplayViewModel as unknown as VehicleDisplayViewModel} />
-)}
+        {testingVehicleDisplayViewModel && (
+          <VehicleMarkers viewModel={testingVehicleDisplayViewModel as unknown as VehicleDisplayViewModel} />
+        )}
 
-        
+
         {/* Pedestrian markers */}
         {pedestrians.map((pedestrian) => (
           <MapboxGL.PointAnnotation
             key={`pedestrian-${pedestrian.id}`}
             id={`pedestrian-${pedestrian.id}`}
             coordinate={[pedestrian.coordinates[1], pedestrian.coordinates[0]]}
-            anchor={{x: 0.5, y: 0.5}}
+            anchor={{ x: 0.5, y: 0.5 }}
           >
             <View style={styles.pedestrianMarker}>
               <View style={styles.markerInner} />
             </View>
           </MapboxGL.PointAnnotation>
         ))}
-        
+
         {children}
       </MapboxGL.MapView>
-      
- <TestingModeOverlay 
-  isTestingMode={isTestingMode}
-  testingVehicleDisplayViewModel={testingVehicleDisplayViewModel as unknown as VehicleDisplayViewModel}
-/>
 
-      
+      <TestingModeOverlay
+        isTestingMode={isTestingMode}
+        testingVehicleDisplayViewModel={testingVehicleDisplayViewModel as unknown as VehicleDisplayViewModel}
+      />
+
+
       {/* SDSM Vehicle Status Display (FROM SDSM FOLDER ONLY) */}
-     
-      
+
+
       {/* SPaT status display */}
       <SpatStatusDisplay directionGuideViewModel={directionGuideViewModel} />
-      
+
       {/* Turn guidance UI */}
       <TurnGuideDisplay directionGuideViewModel={directionGuideViewModel} />
-      
+
       {/* GPS Heading Display (Fixed) */}
       {displayHeading !== null && (
         <View style={styles.headingContainer}>
@@ -294,7 +359,7 @@ timeInterval: 1000 // Update every second
           </Text>
         </View>
       )}
-      
+
       {/* Pedestrian warning */}
       {pedestriansInCrosswalk > 0 && isVehicleNearPedestrian && (
         <View style={styles.warningContainer}>
@@ -314,7 +379,7 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  
+
   // Container for heading arrow (fixed positioning)
   userLocationContainer: {
     width: 28,
@@ -322,7 +387,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
+
   // GPS-based heading arrow (Google Maps style)
   headingArrow: {
     width: 28,
@@ -350,7 +415,7 @@ const styles = StyleSheet.create({
     borderColor: 'white',
     marginTop: -3,
   },
-  
+
   // Simple circular marker (no heading)
   userLocationMarker: {
     width: 20,
@@ -368,7 +433,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: 'white',
   },
-  
+
   pedestrianMarker: {
     width: 18,
     height: 18,
