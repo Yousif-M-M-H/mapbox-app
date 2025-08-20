@@ -41,8 +41,12 @@ export class PedestrianDataManager {
   private _lastUpdateTime: number = 0;
   
   // Configuration
-  private readonly API_URL = 'http://10.199.1.11:9095/latest/sdsm_events';
+  private readonly API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events';
   private readonly REQUEST_TIMEOUT = 5000;
+  
+  // State preservation
+  private lastMessageTimestamp: string | null = null;
+  private pedestrianMap: Map<number, PedestrianData> = new Map();
   
   constructor() {
     makeAutoObservable(this);
@@ -63,15 +67,17 @@ export class PedestrianDataManager {
       });
       
       const rawData = await this.performApiRequest();
-      const pedestrianData = this.extractPedestrianData(rawData);
+      
+      // Only update if we have a new message
+      if (rawData.timestamp && rawData.timestamp !== this.lastMessageTimestamp) {
+        this.lastMessageTimestamp = rawData.timestamp;
+        this.updatePedestrianState(rawData);
+      }
+      // If timestamp is same, preserve current state
       
       runInAction(() => {
-        this.pedestrians = pedestrianData;
-        this._lastUpdateTime = Date.now();
         this.loading = false;
       });
-      
-      //console.log(`🚶 Found ${pedestrianData.length} pedestrians in SDSM data`);
       
     } catch (error) {
       const errorMessage = PedestrianErrorHandler.getErrorMessage(error);
@@ -81,9 +87,35 @@ export class PedestrianDataManager {
         this.error = errorMessage;
         this.loading = false;
       });
-      
-      // Don't clear existing data on error, just log it
     }
+  }
+  
+  /**
+   * Update pedestrian state with new SDSM data
+   */
+  private updatePedestrianState(rawData: SDSMApiResponse): void {
+    const pedestrianData = this.extractPedestrianData(rawData);
+    
+    // Update pedestrian map with new positions
+    pedestrianData.forEach(pedestrian => {
+      this.pedestrianMap.set(pedestrian.id, pedestrian);
+    });
+    
+    // Remove pedestrians that are no longer in the data
+    const currentPedestrianIds = new Set(pedestrianData.map(p => p.id));
+    const keysToDelete: number[] = [];
+    this.pedestrianMap.forEach((_, id) => {
+      if (!currentPedestrianIds.has(id)) {
+        keysToDelete.push(id);
+      }
+    });
+    keysToDelete.forEach(id => this.pedestrianMap.delete(id));
+    
+    // Update observable array
+    runInAction(() => {
+      this.pedestrians = Array.from(this.pedestrianMap.values());
+      this._lastUpdateTime = Date.now();
+    });
   }
   
   /**
@@ -115,6 +147,8 @@ export class PedestrianDataManager {
   clearData(): void {
     runInAction(() => {
       this.pedestrians = [];
+      this.pedestrianMap.clear();
+      this.lastMessageTimestamp = null;
       this.error = null;
       this._lastUpdateTime = 0;
     });
@@ -148,9 +182,6 @@ export class PedestrianDataManager {
       }
       
       const rawData = await response.json();
-      
-      // Simple log of API data
-      console.log('🔍 SDSM API Data:', JSON.stringify(rawData, null, 2));
       
       return rawData;
       

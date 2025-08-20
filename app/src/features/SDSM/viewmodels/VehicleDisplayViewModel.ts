@@ -12,9 +12,11 @@ export class VehicleDisplayViewModel {
   
   // Private properties
   private updateInterval: NodeJS.Timeout | null = null;
-  private readonly API_URL = 'http://10.199.1.11:9095/latest/sdsm_events';
-  private readonly UPDATE_FREQUENCY = 1000; // 1 second
+  private readonly API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events';
+  private readonly POLL_FREQUENCY = 100; // Poll API every 100ms for new messages
   private readonly REQUEST_TIMEOUT = 3000; // 3 seconds
+  private lastMessageTimestamp: string | null = null;
+  private vehicleMap: Map<number, VehicleInfo> = new Map();
   
   constructor() {
     makeAutoObservable(this);
@@ -30,15 +32,20 @@ export class VehicleDisplayViewModel {
       this.isActive = true;
       this.error = null;
       this.updateCount = 0;
+      this.vehicleMap.clear();
     });
     
-    // Fetch immediately
-    this.fetchVehicles();
-    
-    // Set up interval
+    // Start polling for new messages
+    this.startPolling();
+  }
+  
+  /**
+   * Start polling for new SDSM messages
+   */
+  private startPolling(): void {
     this.updateInterval = setInterval(() => {
       this.fetchVehicles();
-    }, this.UPDATE_FREQUENCY);
+    }, this.POLL_FREQUENCY);
   }
   
   /**
@@ -53,11 +60,13 @@ export class VehicleDisplayViewModel {
     runInAction(() => {
       this.isActive = false;
       this.vehicles = [];
+      this.vehicleMap.clear();
+      this.lastMessageTimestamp = null;
     });
   }
   
   /**
-   * Fetch vehicles from API
+   * Fetch vehicles from API - only update on new messages
    */
   private async fetchVehicles(): Promise<void> {
     try {
@@ -81,20 +90,52 @@ export class VehicleDisplayViewModel {
       }
       
       const rawData = await response.json();
-      const vehicles = this.extractVehicles(rawData);
       
-      runInAction(() => {
-        this.vehicles = vehicles;
-        this.lastUpdateTime = Date.now();
-        this.updateCount++;
-        this.error = null;
-      });
+      // Check if this is a new message by timestamp
+      if (rawData.timestamp && rawData.timestamp !== this.lastMessageTimestamp) {
+        this.lastMessageTimestamp = rawData.timestamp;
+        this.updateVehicleState(rawData);
+      }
+      // If timestamp is same, do nothing - preserve current state
       
     } catch (error) {
-      runInAction(() => {
-        this.error = error instanceof Error ? error.message : 'Unknown error';
-      });
+      // Silently ignore errors to avoid console spam during frequent polling
+      if (error instanceof Error && error.name !== 'AbortError') {
+        runInAction(() => {
+          this.error = error.message;
+        });
+      }
     }
+  }
+  
+  /**
+   * Update vehicle state with new SDSM data
+   */
+  private updateVehicleState(data: any): void {
+    const newVehicles = this.extractVehicles(data);
+    
+    // Update vehicle map with new positions
+    newVehicles.forEach(vehicle => {
+      this.vehicleMap.set(vehicle.id, vehicle);
+    });
+    
+    // Remove vehicles that are no longer in the data
+    const currentVehicleIds = new Set(newVehicles.map(v => v.id));
+    const keysToDelete: number[] = [];
+    this.vehicleMap.forEach((_, id) => {
+      if (!currentVehicleIds.has(id)) {
+        keysToDelete.push(id);
+      }
+    });
+    keysToDelete.forEach(id => this.vehicleMap.delete(id));
+    
+    // Update observable array
+    runInAction(() => {
+      this.vehicles = Array.from(this.vehicleMap.values());
+      this.lastUpdateTime = Date.now();
+      this.updateCount++;
+      this.error = null;
+    });
   }
   
   /**

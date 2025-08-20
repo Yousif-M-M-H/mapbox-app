@@ -59,8 +59,6 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   const lineCoordinates: [number, number][] = [
     [-85.3082228825378, 35.045758400746536],
     [-85.30808198885602, 35.045705490572416]
-    //[-85.30824494558026, 35.04577400569863]
-    //[-85.30810297259131, 35.04572084892506]
   ];
 
   // Lane 5 coordinates

@@ -5,7 +5,7 @@ import { SpatData } from '../models/SpatModels';
 import { SpatErrorHandler } from '../errorHandling/SpatErrorHandler';
 
 export class SpatApiService {
-  private static readonly SPAT_API_URL = 'http://10.199.1.11:9095/latest/mlk_spat_events';
+  private static readonly SPAT_API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events';
   private static readonly REQUEST_TIMEOUT = 5000;
   
   /**

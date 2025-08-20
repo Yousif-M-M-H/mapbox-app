@@ -36,7 +36,7 @@ export const SDSM_CONFIG = {
   FEATURE_NAME: 'SDSM Vehicle Display',
   VERSION: '1.0.0',
   UPDATE_FREQUENCY_HZ: 0.66,
-  API_ENDPOINT: 'http://10.199.1.11:9095/latest/mlk_spat_events',
+  API_ENDPOINT: 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events',
   REQUEST_TIMEOUT_MS: 1000,
   DESCRIPTION: 'Real-time vehicle display from SDSM data at 10Hz'
 };
