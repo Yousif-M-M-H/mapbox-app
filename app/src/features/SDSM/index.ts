@@ -50,6 +50,8 @@ export const SDSM_CONFIG = {
  * @returns Configured VehicleDisplayViewModel ready to use
  */
 export const createVehicleDisplay = (): VehicleDisplayViewModel => {
+  // Log SDSM vehicle display initialization with configuration details
+  // Helps verify correct setup and configuration values during startup
   console.log(`🚗 Creating ${SDSM_CONFIG.FEATURE_NAME} v${SDSM_CONFIG.VERSION}`);
   console.log(`🚗 Frequency: ${SDSM_CONFIG.UPDATE_FREQUENCY_HZ}Hz`);
   console.log(`🚗 Endpoint: ${SDSM_CONFIG.API_ENDPOINT}`);
@@ -62,11 +64,14 @@ export const createVehicleDisplay = (): VehicleDisplayViewModel => {
  * Test SDSM connection and log results
  */
 export const testSDSMConnection = async (): Promise<boolean> => {
+  // Log SDSM connection test initiation for debugging network connectivity
   console.log('🚗 Testing SDSM connection...');
   
   try {
     const isConnected = await SDSMService.testConnection();
     
+    // Log SDSM connection test results to confirm API availability
+    // Essential for diagnosing network issues and API endpoint problems
     if (isConnected) {
       console.log('✅ SDSM connection successful');
       console.log(`🚗 Ready to display vehicles at ${SDSM_CONFIG.UPDATE_FREQUENCY_HZ}Hz`);
@@ -77,6 +82,7 @@ export const testSDSMConnection = async (): Promise<boolean> => {
     
     return isConnected;
   } catch (error) {
+    // Log SDSM connection errors for troubleshooting network or API issues
     console.error('🚗 SDSM connection test error:', error);
     return false;
   }

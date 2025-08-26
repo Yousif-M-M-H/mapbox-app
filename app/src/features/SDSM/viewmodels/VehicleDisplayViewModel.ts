@@ -1,6 +1,7 @@
 // app/src/features/SDSM/viewmodels/VehicleDisplayViewModel.ts
 import { makeAutoObservable, runInAction } from 'mobx';
 import { VehicleInfo } from '../models/SDSMData';
+import { SDSMLatencyTracker } from '../services/SDSMLatencyTracker';
 
 export class VehicleDisplayViewModel {
   // Observable state
@@ -17,9 +18,11 @@ export class VehicleDisplayViewModel {
   private readonly REQUEST_TIMEOUT = 3000; // 3 seconds
   private lastMessageTimestamp: string | null = null;
   private vehicleMap: Map<number, VehicleInfo> = new Map();
+  private latencyTracker: SDSMLatencyTracker;
   
   constructor() {
     makeAutoObservable(this);
+    this.latencyTracker = SDSMLatencyTracker.getInstance();
   }
   
   /**
@@ -114,8 +117,13 @@ export class VehicleDisplayViewModel {
   private updateVehicleState(data: any): void {
     const newVehicles = this.extractVehicles(data);
     
-    // Update vehicle map with new positions
+    // Track new vehicles for latency measurement
     newVehicles.forEach(vehicle => {
+      const existingVehicle = this.vehicleMap.get(vehicle.id);
+      if (!existingVehicle) {
+        // This is a new vehicle, record its creation time
+        this.latencyTracker.recordObjectCreation(vehicle.id, 'vehicle');
+      }
       this.vehicleMap.set(vehicle.id, vehicle);
     });
     
@@ -181,5 +189,6 @@ export class VehicleDisplayViewModel {
    */
   cleanup(): void {
     this.stop();
+    this.latencyTracker.cleanup();
   }
 }

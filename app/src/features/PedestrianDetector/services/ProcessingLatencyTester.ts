@@ -60,6 +60,8 @@ export class ProcessingLatencyTester {
    * Test processing latency for a single cycle
    */
   async testSingleProcessingCycle(): Promise<ProcessingLatencyMetrics> {
+    // Log SDSM data fetch operation during processing latency testing
+    // Essential for measuring data retrieval time in performance analysis
     console.log('   📡 Fetching fresh SDSM data...');
     
     try {
@@ -275,6 +277,8 @@ export class ProcessingLatencyTester {
     console.log('\n📝 TRB RESEARCH NOTES:');
     console.log('├─ Processing Environment: React Native + JavaScript');
     console.log('├─ Detection Algorithms: Point-in-polygon + distance calc');
+    // Log SDSM data format specification for research documentation
+    // Important for understanding the V2X standard compliance in performance studies
     console.log('├─ Data Format: SDSM V2X Standard');
     console.log('├─ Measurement Method: Performance.now() API');
     console.log('└─ Statistical Analysis: 10 samples with 1s intervals');

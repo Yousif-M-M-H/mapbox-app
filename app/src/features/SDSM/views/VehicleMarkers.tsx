@@ -1,9 +1,10 @@
 // app/src/features/SDSM/views/VehicleMarkers.tsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import { observer } from 'mobx-react-lite';
 import { VehicleDisplayViewModel } from '../viewmodels/VehicleDisplayViewModel';
+import { SDSMLatencyTracker } from '../services/SDSMLatencyTracker';
 import Icon from '@expo/vector-icons/FontAwesome'; 
 
 interface VehicleMarkersProps {
@@ -11,6 +12,17 @@ interface VehicleMarkersProps {
 }
 
 export const VehicleMarkers: React.FC<VehicleMarkersProps> = observer(({ viewModel }) => {
+  const latencyTracker = SDSMLatencyTracker.getInstance();
+
+  // Track when vehicles are overlaid in the UI
+  useEffect(() => {
+    if (viewModel?.isActive && viewModel.vehicles.length > 0) {
+      viewModel.vehicles.forEach(vehicle => {
+        latencyTracker.recordObjectOverlay(vehicle.id, 'vehicle');
+      });
+    }
+  }, [viewModel.vehicles, viewModel?.isActive, latencyTracker]);
+
   if (!viewModel?.isActive || viewModel.vehicles.length === 0) {
     return null;
   }

@@ -30,6 +30,8 @@ export class PedestrianDetectorViewModel {
       this.checkConditions();
     });
     
+    // Log PedestrianDetectorViewModel initialization with SDSM data source confirmation
+    // Helps verify the pedestrian detection system is using live SDSM vehicle data
     console.log('🚶 PedestrianDetectorViewModel: Initialized with real SDSM data');
   }
   

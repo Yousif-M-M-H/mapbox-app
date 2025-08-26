@@ -55,6 +55,8 @@ export class ColdStartTester {
     
     try {
       // Step 1: First API Call
+      // Log first SDSM API call attempt during cold start testing
+      // Critical for measuring initial system responsiveness and API latency
       console.log('   📡 Making first SDSM API call...');
       const apiStartTime = performance.now();
       const rawData = await this.performFirstAPICall();
@@ -262,6 +264,8 @@ export class ColdStartTester {
     console.log('\n📝 TRB RESEARCH NOTES:');
     console.log('├─ Measurement Type: Cold Start (First Detection Cycle)');
     console.log('├─ Environment: React Native + Expo');
+    // Log technical details of SDSM-based detection stack for research documentation
+    // Important for understanding the system architecture in performance studies
     console.log('├─ Detection Stack: SDSM API + Point-in-polygon + Distance calc');
     console.log('├─ Network: Mobile/WiFi Connection');
     console.log('├─ Timing Method: JavaScript Performance API');

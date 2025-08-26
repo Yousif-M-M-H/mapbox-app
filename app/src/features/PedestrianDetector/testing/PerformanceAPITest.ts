@@ -17,6 +17,8 @@ export class PerformanceAPITest {
    */
   async runTRBPerformanceTest(): Promise<void> {
     console.log('\n🔬 === TRB RESEARCH: API PERFORMANCE TEST ===');
+    // Log SDSM API latency testing initiation for TRB research documentation
+    // Critical for measuring real-world V2X communication performance metrics
     console.log('📊 Testing SDSM API latency for research paper');
     console.log('🎯 Target: Measure real-world V2X communication delays');
     
@@ -88,6 +90,8 @@ export class PerformanceAPITest {
     
     console.log('\n📝 TRB RESEARCH NOTES:');
     console.log('├─ Test Environment: React Native + Expo');
+    // Log SDSM API endpoint details for research methodology documentation
+    // Important for understanding V2X standard compliance and data source specifications
     console.log('├─ API Endpoint: SDSM Events (V2X Standard)');
     console.log('├─ Network: Mobile/WiFi Connection');
     console.log('├─ Measurement Method: JavaScript Performance API');

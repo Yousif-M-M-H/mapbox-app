@@ -12,6 +12,7 @@ import { UserHeadingViewModel } from '../../features/UserHeading/viewmodels/User
 
 // Import SDSM Vehicle Display
 import { VehicleDisplayViewModel } from '../../features/SDSM/viewmodels/VehicleDisplayViewModel';
+import { SDSMLatencyTracker } from '../../features/SDSM/services/SDSMLatencyTracker';
 
 export class MainViewModel {
   mapViewModel: MapViewModel;
@@ -59,6 +60,9 @@ export class MainViewModel {
     this.vehicleDisplayViewModel.start();
     // console.log('🚗 Started SDSM vehicle display');
     
+    // Start SDSM latency tracking and automatic logging
+    this.startSDSMLatencyTracking();
+    
     // Start Detection Latency Test if in testing mode
     this.startDetectionLatencyTest();
   }
@@ -72,6 +76,34 @@ export class MainViewModel {
       }
     } catch (error) {
       console.error('MainViewModel: Error starting monitoring:', error);
+    }
+  }
+  
+  // ========================================
+  // SDSM Latency Tracking
+  // ========================================
+  
+  /**
+   * Start SDSM latency tracking and automatic logging
+   */
+  private startSDSMLatencyTracking(): void {
+    try {
+      const latencyTracker = SDSMLatencyTracker.getInstance();
+      
+      // Start automatic logging every 10 seconds
+      latencyTracker.startAutomaticLogging(10000);
+      
+      // Schedule detailed logging after 5 seconds from app start
+      latencyTracker.scheduleDetailedLogging();
+      
+      // Log SDSM latency tracking initialization to confirm performance monitoring is active
+      // This helps verify that object timing measurements are being captured properly
+      console.log('📊 SDSM Latency Tracking initialized - measuring object creation to UI overlay time');
+      console.log('📋 Detailed timestamp report will be generated in 5 seconds');
+      
+    } catch (error) {
+      // Log SDSM latency tracking initialization errors for debugging
+      console.error('MainViewModel: Error starting SDSM latency tracking:', error);
     }
   }
   
@@ -275,6 +307,7 @@ export class MainViewModel {
     // Stop SDSM vehicle display
     try {
       this.vehicleDisplayViewModel?.cleanup();
+      // Log SDSM vehicle display cleanup confirmation for proper resource management
       console.log('🚗 SDSM vehicle display cleaned up');
     } catch (error) {
       console.error('Error cleaning up vehicle display:', error);

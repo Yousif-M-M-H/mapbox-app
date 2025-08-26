@@ -3,6 +3,7 @@
 
 import { makeAutoObservable, runInAction } from 'mobx';
 import { PedestrianErrorHandler } from '../errorHandling/PedestrianErrorHandler';
+import { SDSMLatencyTracker } from '../../SDSM/services/SDSMLatencyTracker';
 
 export interface PedestrianData {
   id: number;
@@ -47,9 +48,11 @@ export class PedestrianDataManager {
   // State preservation
   private lastMessageTimestamp: string | null = null;
   private pedestrianMap: Map<number, PedestrianData> = new Map();
+  private latencyTracker: SDSMLatencyTracker;
   
   constructor() {
     makeAutoObservable(this);
+    this.latencyTracker = SDSMLatencyTracker.getInstance();
   }
   
   // ========================================
@@ -96,8 +99,13 @@ export class PedestrianDataManager {
   private updatePedestrianState(rawData: SDSMApiResponse): void {
     const pedestrianData = this.extractPedestrianData(rawData);
     
-    // Update pedestrian map with new positions
+    // Track new pedestrians for latency measurement and update pedestrian map
     pedestrianData.forEach(pedestrian => {
+      const existingPedestrian = this.pedestrianMap.get(pedestrian.id);
+      if (!existingPedestrian) {
+        // This is a new pedestrian, record its creation time
+        this.latencyTracker.recordObjectCreation(pedestrian.id, 'vru');
+      }
       this.pedestrianMap.set(pedestrian.id, pedestrian);
     });
     
@@ -111,10 +119,15 @@ export class PedestrianDataManager {
     });
     keysToDelete.forEach(id => this.pedestrianMap.delete(id));
     
-    // Update observable array
+    // Update observable array and record overlay for pedestrians that are being processed
     runInAction(() => {
       this.pedestrians = Array.from(this.pedestrianMap.values());
       this._lastUpdateTime = Date.now();
+      
+      // Record overlay time for all current pedestrians since they are now "displayed" in the system
+      this.pedestrians.forEach(pedestrian => {
+        this.latencyTracker.recordObjectOverlay(pedestrian.id, 'vru');
+      });
     });
   }
   
