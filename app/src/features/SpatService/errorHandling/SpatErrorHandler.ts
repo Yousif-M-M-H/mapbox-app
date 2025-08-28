@@ -56,7 +56,6 @@ export class SpatErrorHandler {
    */
   public static logError(context: string, error: unknown): void {
     const message = this.getErrorMessage(error);
-    console.error(`🚨 SPaT Error [${context}]:`, message);
   }
   
   /**

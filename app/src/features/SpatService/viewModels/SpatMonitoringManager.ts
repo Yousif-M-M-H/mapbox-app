@@ -67,7 +67,6 @@ export class SpatMonitoringManager {
       // Start periodic updates
       this.startPeriodicUpdates();
       
-      console.log(`🚦 Started SPaT monitoring for approach: ${approachName}`);
       
     } catch (error) {
       SpatErrorHandler.logError('startMonitoring', error);
@@ -93,7 +92,6 @@ export class SpatMonitoringManager {
       this.currentLanesData = [];
     });
     
-    console.log('🛑 Stopped SPaT monitoring');
   }
   
   /**

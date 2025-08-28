@@ -11,7 +11,6 @@ export const useLocationPermission = (): [boolean, boolean] => {
         const permission = await LocationService.requestPermission();
         setHasPermission(permission);
       } catch (error) {
-        console.error('Error checking location permission:', error);
         setHasPermission(false);
       } finally {
         setIsLoading(false);

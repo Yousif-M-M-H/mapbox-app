@@ -33,7 +33,6 @@ export class MapViewModel {
         });
       }
     } catch (error) {
-      console.error('Initialization error:', error);
       runInAction(() => {
         this.isInitialized = true;
       });
@@ -81,7 +80,6 @@ export class MapViewModel {
         return null;
       }
     } catch (error) {
-      console.error('Error getting current location:', error);
       runInAction(() => {
         this.isInitialized = true;
       });

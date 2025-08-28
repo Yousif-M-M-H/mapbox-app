@@ -180,7 +180,6 @@ export class DirectionGuideViewModel {
         this.loading = false;
       });
     } catch (error) {
-      console.error('❌ Failed to refresh all data:', error);
       runInAction(() => {
         this.error = error instanceof Error ? error.message : 'Refresh failed';
         this.loading = false;
@@ -265,9 +264,7 @@ export class DirectionGuideViewModel {
         this.loading = false;
       });
 
-      console.log('✅ DirectionGuideViewModel initialized successfully');
     } catch (error) {
-      console.error('❌ DirectionGuideViewModel initialization failed:', error);
       runInAction(() => {
         this.error = error instanceof Error ? error.message : 'Init failed';
         this.loading = false;

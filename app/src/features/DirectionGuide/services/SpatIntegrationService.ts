@@ -31,13 +31,10 @@ export class SpatIntegrationService {
         try {
           await this.spatViewModel.fetchCurrentSpatData();
         } catch (error) {
-          console.error(' SPaT update failed:', error);
         }
       }, 500);
       
-      console.log('🚦 Started continuous SPaT monitoring for signal groups:', signalGroups);
     } catch (error) {
-      console.error('Failed to start SPaT monitoring:', error);
       throw error;
     }
   }
@@ -49,7 +46,6 @@ export class SpatIntegrationService {
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
       this.updateInterval = null;
-      console.log('🛑 Stopped SPaT monitoring');
     }
   }
   

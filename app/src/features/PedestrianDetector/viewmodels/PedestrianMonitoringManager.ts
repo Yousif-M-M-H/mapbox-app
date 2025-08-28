@@ -43,7 +43,6 @@ export class PedestrianMonitoringManager {
     }
     
     try {
-      console.log('🚶 Starting real-time pedestrian monitoring...');
       
       runInAction(() => {
         this.isMonitoring = true;
@@ -74,7 +73,6 @@ export class PedestrianMonitoringManager {
       this.isMonitoring = false;
     });
     
-    console.log('🛑 Stopped pedestrian monitoring');
   }
   
   /**
@@ -117,7 +115,6 @@ export class PedestrianMonitoringManager {
       this.stopMonitoring();
       // Update frequency (this would require making UPDATE_FREQUENCY mutable)
       // For now, just log the change
-      console.log(`🚶 Update frequency changed to ${frequencyMs}ms`);
       this.startMonitoring();
     }
   }
@@ -171,6 +168,5 @@ export class PedestrianMonitoringManager {
     this.dataManager.cleanup();
     this.onDataUpdateCallback = null;
     
-    console.log('🚶 PedestrianMonitoringManager: Cleaned up');
   }
 }

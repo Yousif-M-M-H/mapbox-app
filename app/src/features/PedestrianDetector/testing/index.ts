@@ -23,17 +23,8 @@ export const MESSAGE_LATENCY_CONFIG = {
  */
 export const verifyLatencyTestingIntegration = (): boolean => {
   try {
-    console.log('⏱️ Message Latency Testing Integration Check:');
-    console.log(`  - Feature: ${MESSAGE_LATENCY_CONFIG.FEATURE_NAME}`);
-    console.log(`  - Version: ${MESSAGE_LATENCY_CONFIG.VERSION}`);
-    console.log(`  - Precision: ${MESSAGE_LATENCY_CONFIG.PRECISION}`);
-    console.log(`  - Trigger Point: ${MESSAGE_LATENCY_CONFIG.MEASUREMENT_POINTS.CONDITION_MET}`);
-    console.log(`  - Display Point: ${MESSAGE_LATENCY_CONFIG.MEASUREMENT_POINTS.MESSAGE_DISPLAYED}`);
-    console.log('  - Integration: ✅ Ready for testing');
-    console.log('  - Usage: Move vehicle near crosswalk with pedestrian to trigger test');
     return true;
   } catch (error) {
-    console.error('⏱️ Latency Testing Integration Check Failed:', error);
     return false;
   }
 };

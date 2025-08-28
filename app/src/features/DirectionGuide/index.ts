@@ -86,7 +86,6 @@ export {
  * This is the main entry point for using the DirectionGuide feature
  */
 export const createDirectionGuideViewModel = (): DirectionGuideViewModel => {
-  console.log('🧭 Creating DirectionGuideViewModel...');
   return new DirectionGuideViewModel();
 };
 
@@ -95,9 +94,6 @@ export const createDirectionGuideViewModel = (): DirectionGuideViewModel => {
  */
 export const testDirectionGuide = async (): Promise<void> => {
   try {
-    console.log('\n======== TESTING DIRECTION GUIDE FEATURE ========');
-    console.log('Testing refactored MVVM architecture');
-    console.log(`Test Position: [${CAR_POSITION[0]}, ${CAR_POSITION[1]}]`);
 
     const viewModel = createDirectionGuideViewModel();
     viewModel.setVehiclePosition(CAR_POSITION);
@@ -106,18 +102,11 @@ export const testDirectionGuide = async (): Promise<void> => {
 
     if (viewModel.showTurnGuide) {
       const turns = viewModel.allowedTurns.filter((t) => t.allowed).map((t) => t.type);
-      console.log(`✅ Test successful! Detected turns: ${turns.join(', ')}`);
-      console.log(`📍 Approach: ${viewModel.currentApproachName}`);
-      console.log(`🛣️ Lanes: ${viewModel.currentLanes}`);
     } else {
-      console.log(`ℹ️ No turns detected at test position`);
     }
 
-    console.log('Direction Guide test completed successfully');
-    console.log('=================================================\n');
 
     viewModel.cleanup();
   } catch (error: unknown) {
-    console.error('Direction Guide test failed:', error);
   }
 };

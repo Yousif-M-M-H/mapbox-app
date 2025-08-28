@@ -46,7 +46,6 @@ export class PositionChangeHandler {
       return isInAnyLane;
       
     } catch (error) {
-      console.error('❌ Position change handling failed:', error);
       return false;
     }
   }
@@ -81,7 +80,6 @@ export class PositionChangeHandler {
    * Handle when vehicle enters lanes
    */
   private async handleEnteredLanes(): Promise<void> {
-    console.log(`🛣️ Vehicle entered lanes: ${this.laneDetection.detectedLaneIds.join(', ')}`);
     
     // Load turn data and start SPaT monitoring in parallel
     await Promise.all([
@@ -94,7 +92,6 @@ export class PositionChangeHandler {
    * Handle when vehicle leaves lanes
    */
   private handleLeftLanes(): void {
-    console.log('🛣️ Vehicle left all lanes');
     
     // Clear turn data and stop SPaT monitoring
     this.turnDataManager.clearTurnData();
@@ -112,7 +109,6 @@ export class PositionChangeHandler {
       await this.turnDataManager.loadTurnData(lanesData, vehiclePosition);
       
     } catch (error) {
-      console.error('❌ Failed to load turn data for current lanes:', error);
     }
   }
   
@@ -126,11 +122,9 @@ export class PositionChangeHandler {
       if (signalGroups.length > 0) {
         await this.spatStateManager.startMonitoring(signalGroups);
       } else {
-        console.log('🚦 No signal groups found for current lanes');
       }
       
     } catch (error) {
-      console.error('❌ Failed to start SPaT monitoring for current lanes:', error);
     }
   }
   

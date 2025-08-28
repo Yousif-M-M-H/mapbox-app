@@ -26,7 +26,6 @@ export class LocationViewModel extends BaseViewModel {
         });
       }
     } catch (error) {
-      console.error('Initialization error:', error);
       runInAction(() => {
         this.isInitialized = true;
       });
@@ -51,7 +50,6 @@ export class LocationViewModel extends BaseViewModel {
         return null;
       }
     } catch (error) {
-      console.error('Error getting current location:', error);
       runInAction(() => {
         this.isInitialized = true;
       });

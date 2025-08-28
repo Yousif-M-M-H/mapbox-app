@@ -25,9 +25,7 @@ export class SpatOfflineService {
       const result = await this.db.getFirstAsync('SELECT COUNT(*) as count FROM frames');
       this.totalFrames = (result as any)?.count || 0;
       
-      console.log(`📊 SPaT Offline: ${this.totalFrames} frames available`);
     } catch (error) {
-      console.error('❌ SPaT Offline: Failed to initialize database:', error);
       throw error;
     }
   }
@@ -69,7 +67,6 @@ export class SpatOfflineService {
       return spatData;
       
     } catch (error) {
-      console.error('❌ SPaT Offline: Failed to get frame:', error);
       throw error;
     }
   }

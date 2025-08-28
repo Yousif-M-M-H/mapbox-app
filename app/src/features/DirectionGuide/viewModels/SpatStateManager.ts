@@ -48,10 +48,8 @@ export class SpatStateManager {
       });
       
       this.startStateMonitoring(signalGroups);
-      console.log('🚦 SPaT monitoring started for signal groups:', signalGroups);
       
     } catch (error) {
-      console.error('SPaT ERROR:', error);
       runInAction(() => {
         this.updateError = error instanceof Error ? error.message : 'SPaT error';
         this.signalState = SignalState.UNKNOWN;
@@ -74,7 +72,6 @@ export class SpatStateManager {
       this.updateError = null;
     });
     
-    console.log('🛑 SPaT monitoring stopped');
   }
   
   async updateState(): Promise<void> {
@@ -94,7 +91,6 @@ export class SpatStateManager {
       this.updateCountdownWithFreshData();
       
     } catch (error) {
-      console.error('SPaT state update failed:', error);
       runInAction(() => {
         this.updateError = error instanceof Error ? error.message : 'SPaT update failed';
       });
@@ -118,7 +114,6 @@ export class SpatStateManager {
         );
       }
     } catch (error) {
-      console.error('Error updating countdown:', error);
     }
   }
   
@@ -162,7 +157,6 @@ export class SpatStateManager {
           this.stateUpdateInterval = setTimeout(updateState, 3000); // Every 3 seconds for fresh SPaT data
         }
       } catch (error) {
-        console.error('SPaT state monitoring error:', error);
         runInAction(() => {
           this.updateError = error instanceof Error ? error.message : 'Monitoring error';
         });

@@ -26,8 +26,6 @@ export class DetectionZoneEntryTester {
   private isActive: boolean = false;
   
   constructor() {
-    console.log('🔍 Detection Zone Entry Tester initialized');
-    console.log('📍 Detection Zone: Crosswalk polygon area');
   }
   
   /**
@@ -35,7 +33,6 @@ export class DetectionZoneEntryTester {
    */
   startTesting(): void {
     if (this.isActive) {
-      console.log('🔍 Detection Zone Entry Testing already active');
       return;
     }
     
@@ -43,8 +40,6 @@ export class DetectionZoneEntryTester {
     this.trackedPedestrians.clear();
     this.metrics = [];
     
-    console.log('🔍 Started Detection Zone Entry Time testing');
-    console.log('📊 Monitoring pedestrian zone entry and registration timing...');
   }
   
   /**
@@ -56,7 +51,6 @@ export class DetectionZoneEntryTester {
     this.isActive = false;
     this.logFinalResults();
     
-    console.log('🔍 Stopped Detection Zone Entry Time testing');
   }
   
   /**
@@ -111,7 +105,6 @@ export class DetectionZoneEntryTester {
       trackingData.zoneEntryTime = currentTime;
       trackingData.wasInZone = true;
       
-      console.log(`🚶 Pedestrian ${id} entered detection zone at coordinates [${coordinates[0].toFixed(6)}, ${coordinates[1].toFixed(6)}]`);
     }
     
     // Check for registration (wasn't registered, now is registered)
@@ -119,7 +112,6 @@ export class DetectionZoneEntryTester {
       trackingData.registrationTime = currentTime;
       trackingData.isRegistered = true;
       
-      console.log(`📝 Pedestrian ${id} officially registered by system`);
       
       // Calculate detection zone entry time if we have both timestamps
       if (trackingData.zoneEntryTime && trackingData.registrationTime) {
@@ -151,13 +143,6 @@ export class DetectionZoneEntryTester {
     this.metrics.push(metric);
     
     // Log the measurement
-    console.log(`\n⏱️ DETECTION ZONE ENTRY TIME MEASURED:`);
-    console.log(`   Pedestrian ID: ${trackingData.id}`);
-    console.log(`   Zone Entry Time: ${trackingData.zoneEntryTime.toFixed(2)}ms`);
-    console.log(`   Registration Time: ${trackingData.registrationTime.toFixed(2)}ms`);
-    console.log(`   🎯 Detection Zone Entry Time: ${detectionZoneEntryTime.toFixed(2)}ms`);
-    console.log(`   Coordinates: [${trackingData.coordinates[0].toFixed(6)}, ${trackingData.coordinates[1].toFixed(6)}]`);
-    console.log(`───────────────────────────────────────────────────────\n`);
   }
   
   /**
@@ -216,7 +201,6 @@ export class DetectionZoneEntryTester {
       if (!currentIds.has(id)) {
         // Pedestrian is no longer present, clean up
         this.trackedPedestrians.delete(id);
-        console.log(`🚶‍♂️ Pedestrian ${id} left detection area - cleaning up tracking data`);
       }
     }
   }
@@ -225,33 +209,20 @@ export class DetectionZoneEntryTester {
    * Log final testing results and statistics
    */
   private logFinalResults(): void {
-    console.log('\n🔍 DETECTION ZONE ENTRY TIME TEST RESULTS:');
-    console.log('=========================================');
     
     if (this.metrics.length === 0) {
-      console.log('📊 No complete measurements recorded');
-      console.log('   (Pedestrians may not have completed the full entry->registration cycle)');
     } else {
       const times = this.metrics.map(m => m.detectionZoneEntryTime);
       const averageTime = times.reduce((sum, time) => sum + time, 0) / times.length;
       const minTime = Math.min(...times);
       const maxTime = Math.max(...times);
       
-      console.log(`📊 Total Measurements: ${this.metrics.length}`);
-      console.log(`⏱️ Average Detection Zone Entry Time: ${averageTime.toFixed(2)}ms`);
-      console.log(`🚀 Fastest Detection: ${minTime.toFixed(2)}ms`);
-      console.log(`🐌 Slowest Detection: ${maxTime.toFixed(2)}ms`);
       
       // Log each individual measurement
-      console.log('\n📋 Individual Measurements:');
       this.metrics.forEach((metric, index) => {
-        console.log(`   ${index + 1}. Pedestrian ${metric.pedestrianId}: ${metric.detectionZoneEntryTime.toFixed(2)}ms`);
       });
     }
     
-    console.log('=========================================');
-    console.log('🎯 Detection Zone Entry Time testing completed');
-    console.log('=========================================\n');
   }
   
   /**
@@ -274,6 +245,5 @@ export class DetectionZoneEntryTester {
   clearData(): void {
     this.trackedPedestrians.clear();
     this.metrics = [];
-    console.log('🔍 Detection Zone Entry Tester data cleared');
   }
 }

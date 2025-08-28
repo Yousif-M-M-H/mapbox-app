@@ -41,7 +41,6 @@ export const PedestrianMarker: React.FC<PedestrianMarkerProps> = ({
       </MapboxGL.PointAnnotation>
     );
   } catch (error) {
-    console.error('Error rendering pedestrian marker:', error);
     return null;
   }
 };

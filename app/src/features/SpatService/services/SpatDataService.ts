@@ -11,7 +11,6 @@ export class SpatDataService {
    */
   public static async fetchSpatData(): Promise<SpatData> {
     try {
-      // console.log('🚦 Fetching SPaT data from API...');
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT);
@@ -32,23 +31,14 @@ export class SpatDataService {
       }
       
       const data = await response.json();
-      console.log('✅ SPaT data received:', {
-        intersection: data.intersection,
-        timestamp: data.timestamp,
-        greens: data.phaseStatusGroupGreens,
-        reds: data.phaseStatusGroupReds,
-        yellows: data.phaseStatusGroupYellows
-      });
       
       return this.mapApiResponseToSpatData(data);
       
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
-        console.error('❌ SPaT API request timeout');
         throw new Error('SPaT API request timeout');
       }
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('❌ SPaT fetch failed:', errorMessage);
       throw new Error(`SPaT fetch failed: ${errorMessage}`);
     }
   }
@@ -235,11 +225,9 @@ export class SpatDataService {
   public static async testConnection(): Promise<boolean> {
     try {
       await this.fetchSpatData();
-      console.log('✅ SPaT API connection successful');
       return true;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('❌ SPaT API connection failed:', errorMessage);
       return false;
     }
   }

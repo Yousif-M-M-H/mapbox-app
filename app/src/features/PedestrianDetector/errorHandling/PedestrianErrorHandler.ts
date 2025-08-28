@@ -49,14 +49,12 @@ export class PedestrianErrorHandler {
    */
   public static logError(context: string, error: unknown): void {
     const message = this.getErrorMessage(error);
-    console.error(`🚶 Pedestrian Error [${context}]:`, message);
   }
   
   /**
    * Log warning with context
    */
   public static logWarning(context: string, message: string): void {
-    console.warn(`⚠️ Pedestrian Warning [${context}]:`, message);
   }
   
   /**

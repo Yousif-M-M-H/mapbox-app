@@ -1,5 +1,7 @@
 // app/src/features/SDSM/services/SDSMLatencyTracker.ts
 
+import { SDSMFrequencyMonitor } from './SDSMFrequencyMonitor';
+
 export interface LatencyMeasurement {
   objectId: number;
   createdAt: number;
@@ -41,11 +43,11 @@ export class SDSMLatencyTracker {
       type: objectType 
     });
     
-    // Log SDSM object creation for latency measurement tracking
-    // This helps debug when objects are first received from the SDSM API
-    if (this.isLoggingEnabled) {
-      console.log(`📍 SDSM Object Created - ID: ${objectId}, Type: ${objectType}, Time: ${creationTime.toFixed(2)}ms, Timestamp: ${timestamp}`);
-    }
+    // Record SDSM object reception in frequency monitor
+    const frequencyMonitor = SDSMFrequencyMonitor.getInstance();
+    frequencyMonitor.recordSDSMObjectReceived(objectId, objectType);
+    
+    // Removed verbose logging to reduce noise - only keeping analysis logs
   }
 
   /**
@@ -57,11 +59,7 @@ export class SDSMLatencyTracker {
     const creationData = this.objectCreationTimes.get(objectId);
     
     if (creationData === undefined) {
-      // Warn when attempting to measure latency for an object without recorded creation time
-      // This indicates a timing issue in the object lifecycle tracking
-      if (this.isLoggingEnabled) {
-        console.warn(`⚠️  SDSM Object Overlay - No creation time found for ID: ${objectId}`);
-      }
+      // Removed verbose warning to reduce noise
       return;
     }
 
@@ -79,16 +77,16 @@ export class SDSMLatencyTracker {
 
     this.latencyMeasurements.push(measurement);
     
+    // Record vehicle display in frequency monitor (only for vehicles)
+    if (objectType === 'vehicle') {
+      const frequencyMonitor = SDSMFrequencyMonitor.getInstance();
+      frequencyMonitor.recordVehicleDisplayed(objectId);
+    }
+    
     // Clean up creation time entry
     this.objectCreationTimes.delete(objectId);
     
-    // Log successful latency measurement from SDSM object creation to UI overlay
-    // Critical for performance monitoring and identifying rendering bottlenecks
-    if (this.isLoggingEnabled) {
-      console.log(`🎯 SDSM Latency Measured - ID: ${objectId}, Type: ${objectType}, Latency: ${latencyMs.toFixed(2)}ms`);
-      console.log(`   Created: ${creationData.timestamp}`);
-      console.log(`   Overlaid: ${overlayTimestamp}`);
-    }
+    // Removed verbose latency logs to reduce noise
 
     // Keep only recent measurements (last 100)
     if (this.latencyMeasurements.length > 100) {
@@ -174,28 +172,13 @@ export class SDSMLatencyTracker {
   public startAutomaticLogging(intervalMs: number = 10000): void {
     this.isLoggingEnabled = true;
     
-    // Log initial message to confirm latency tracking initialization
-    // Helps verify that performance monitoring is active
-    console.log('🚀 SDSM Latency Tracking Started - Automatic logging every 10 seconds');
+    // Removed initialization log to reduce noise
     
     // Set up periodic logging
     setInterval(() => {
       const stats = this.getLatencyStats();
       
-      // Periodic logging of SDSM latency statistics for ongoing performance monitoring
-      // Provides real-time insights into system responsiveness and object rendering speed
-      if (stats.count > 0) {
-        console.log('📊 SDSM Latency Stats:', {
-          'Total Measurements': stats.count,
-          'Average Latency': `${stats.averageMs.toFixed(2)}ms`,
-          'Min Latency': `${stats.minMs.toFixed(2)}ms`,
-          'Max Latency': `${stats.maxMs.toFixed(2)}ms`,
-          'Vehicle Average': `${stats.vehicleAverageMs.toFixed(2)}ms`,
-          'VRU Average': `${stats.vruAverageMs.toFixed(2)}ms`
-        });
-      } else {
-        console.log('📊 SDSM Latency Stats: No measurements yet');
-      }
+      // Removed periodic latency stats to reduce noise
     }, intervalMs);
   }
 
@@ -212,54 +195,7 @@ export class SDSMLatencyTracker {
    * Log detailed measurements with exact timestamps
    */
   public logDetailedMeasurements(): void {
-    // Generate comprehensive SDSM latency report for detailed performance analysis
-    // Essential for identifying performance bottlenecks and system optimization
-    console.log('\n' + '='.repeat(80));
-    console.log('📊 DETAILED SDSM LATENCY REPORT (5 seconds after app start)');
-    console.log('='.repeat(80));
-    
-    if (this.latencyMeasurements.length === 0) {
-      // Log diagnostic information when no SDSM objects have been processed
-      // Helps identify potential issues with data flow or system connectivity
-      console.log('📝 No SDSM objects have been processed yet.');
-      console.log('   This could be due to:');
-      console.log('   • No objects detected in the SDSM API');
-      console.log('   • Network connectivity issues');
-      console.log('   • Objects not yet reaching the UI overlay stage');
-      console.log('='.repeat(80) + '\n');
-      return;
-    }
-
-    // Display total count of processed SDSM objects for performance assessment
-    console.log(`📈 Total Objects Processed: ${this.latencyMeasurements.length}`);
-    console.log('');
-
-    // Group measurements by type
-    const vehicleMeasurements = this.latencyMeasurements.filter(m => m.objectType === 'vehicle');
-    const vruMeasurements = this.latencyMeasurements.filter(m => m.objectType === 'vru');
-
-    // Log detailed measurements for the most recent SDSM objects (last 10)
-    // Provides granular timing information for debugging specific latency issues
-    this.latencyMeasurements.slice(-10).forEach((measurement, index) => {
-      console.log(`📍 Object #${index + 1}:`);
-      console.log(`   🆔 ID: ${measurement.objectId} (${measurement.objectType.toUpperCase()})`);
-      console.log(`   🕐 API Timestamp:     ${measurement.createdAtTimestamp}`);
-      console.log(`   🖥️  UI Overlay Timestamp: ${measurement.overlaidAtTimestamp}`);
-      console.log(`   ⏱️  Latency: ${measurement.latencyMs.toFixed(2)}ms`);
-      console.log('');
-    });
-
-    // Display comprehensive SDSM latency statistics broken down by object type
-    // Critical for understanding performance characteristics of different SDSM object types
-    const stats = this.getLatencyStats();
-    console.log('📊 SUMMARY STATISTICS:');
-    console.log(`   🚗 Vehicles: ${vehicleMeasurements.length} objects, avg: ${stats.vehicleAverageMs.toFixed(2)}ms`);
-    console.log(`   🚶 VRUs: ${vruMeasurements.length} objects, avg: ${stats.vruAverageMs.toFixed(2)}ms`);
-    console.log(`   📈 Overall Average: ${stats.averageMs.toFixed(2)}ms`);
-    console.log(`   📉 Min Latency: ${stats.minMs.toFixed(2)}ms`);
-    console.log(`   📈 Max Latency: ${stats.maxMs.toFixed(2)}ms`);
-    
-    console.log('='.repeat(80) + '\n');
+    // Removed detailed analysis report - user already has the data
   }
 
   /**

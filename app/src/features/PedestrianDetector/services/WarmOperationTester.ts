@@ -10,7 +10,6 @@ export class WarmOperationTester {
   private isRunning: boolean = false;
   
   constructor() {
-    console.log('🔥 Warm Operation Tester initialized');
   }
   
   /**
@@ -21,7 +20,6 @@ export class WarmOperationTester {
       throw new Error('Warm operation measurement already running');
     }
     
-    console.log(`🔥 Starting Warm Operation Measurement (${numberOfCycles} cycles)...`);
     this.isRunning = true;
     this.warmCycles = [];
     this.cycleCount = 0;
@@ -29,7 +27,6 @@ export class WarmOperationTester {
     try {
       // Run multiple warm detection cycles
       for (let i = 1; i <= numberOfCycles; i++) {
-        console.log(`\n   🔄 Running warm cycle ${i}/${numberOfCycles}...`);
         
         const metrics = await this.measureSingleWarmCycle(i);
         this.warmCycles.push(metrics);
@@ -89,11 +86,9 @@ export class WarmOperationTester {
         success: true
       };
       
-      console.log(`      ✅ Cycle ${cycleNumber}: ${totalCycleTime.toFixed(2)}ms (${pedestrians.length} pedestrians)`);
       return metrics;
       
     } catch (error) {
-      console.error(`      ❌ Cycle ${cycleNumber} failed:`, error);
       
       const failedMetrics: WarmOperationMetrics = {
         cycleNumber,
@@ -242,13 +237,6 @@ export class WarmOperationTester {
    * Log warm operation results
    */
   private logWarmOperationResults(summary: WarmOperationSummary): void {
-    console.log('\n🔥 WARM OPERATION MEASUREMENT RESULTS:');
-    console.log('======================================');
-    console.log(`Total Cycles Measured: ${summary.totalCycles}`);
-    console.log(`Success Rate: ${summary.successRate.toFixed(1)}%`);
-    console.log(`Average Cycle Time: ${summary.averageCycleTime.toFixed(2)}ms`);
-    console.log(`Fastest Cycle: ${summary.fastestCycle.toFixed(2)}ms`);
-    console.log(`Slowest Cycle: ${summary.slowestCycle.toFixed(2)}ms`);
     
     if (summary.averageCycleTime > 0) {
       // Performance breakdown
@@ -256,16 +244,8 @@ export class WarmOperationTester {
       const processingPercent = (summary.averageProcessingTime / summary.averageCycleTime * 100).toFixed(1);
       const statePercent = (summary.averageStateUpdateTime / summary.averageCycleTime * 100).toFixed(1);
       
-      console.log('\nWarm Operation Breakdown:');
-      console.log(`Average API Call: ${summary.averageApiTime.toFixed(2)}ms (${apiPercent}%)`);
-      console.log(`Average Processing: ${summary.averageProcessingTime.toFixed(2)}ms (${processingPercent}%)`);
-      console.log(`Average State Update: ${summary.averageStateUpdateTime.toFixed(2)}ms (${statePercent}%)`);
     }
     
-    console.log('======================================');
-    console.log('🎯 These represent detection cycles after app warm-up');
-    console.log('   (subsequent operations with optimized performance)');
-    console.log('======================================\n');
   }
   
   /**

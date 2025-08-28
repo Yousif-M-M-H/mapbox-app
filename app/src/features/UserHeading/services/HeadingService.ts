@@ -9,7 +9,6 @@ export class HeadingService {
   
   constructor(config: HeadingConfig) {
     this.config = config;
-    console.log('🧭 HeadingService initialized');
   }
   
   /**
@@ -46,7 +45,6 @@ export class HeadingService {
       return heading;
       
     } catch (error) {
-      console.error('🧭 Error getting heading:', error);
       return null;
     }
   }
@@ -63,7 +61,6 @@ export class HeadingService {
       // Check if heading is available
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        console.warn('🧭 Location permission not granted for heading');
         return null;
       }
       
@@ -83,7 +80,6 @@ export class HeadingService {
       return null;
       
     } catch (error) {
-      console.error('🧭 Error getting compass heading:', error);
       return null;
     }
   }
@@ -114,7 +110,6 @@ export class HeadingService {
       return bearing;
       
     } catch (error) {
-      console.error('🧭 Error calculating movement heading:', error);
       return null;
     }
   }

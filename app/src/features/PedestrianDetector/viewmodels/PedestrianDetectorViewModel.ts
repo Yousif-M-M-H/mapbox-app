@@ -30,9 +30,7 @@ export class PedestrianDetectorViewModel {
       this.checkConditions();
     });
     
-    // Log PedestrianDetectorViewModel initialization with SDSM data source confirmation
-    // Helps verify the pedestrian detection system is using live SDSM vehicle data
-    console.log('🚶 PedestrianDetectorViewModel: Initialized with real SDSM data');
+    // Removed initialization log to reduce noise
   }
   
   // ========================================
@@ -218,7 +216,6 @@ export class PedestrianDetectorViewModel {
         
         if (isInCrosswalk) {
           pedestriansInCrosswalkCount++;
-          console.log(`🚶 Pedestrian ${pedestrian.id} is in crosswalk at [${pedestrian.coordinates[0]}, ${pedestrian.coordinates[1]}]`);
         }
         
         if (isCloseToVehicle) {
@@ -238,7 +235,6 @@ export class PedestrianDetectorViewModel {
             pedestrian.coordinates
           );
           
-          console.log(`\n🔴 WARNING: Pedestrian ${pedestrian.id} is crossing and vehicle is approaching (${distance.toFixed(2)} meters away)!`);
         }
       });
       
@@ -247,14 +243,12 @@ export class PedestrianDetectorViewModel {
         this.pedestriansInCrosswalk = pedestriansInCrosswalkCount;
       });
       
-      //console.log(`📊 Status: ${pedestriansInCrosswalkCount} pedestrians in crosswalk, vehicle proximity: ${hasCloseVehicle}`);
       
       // Call the callback if conditions are met
       if (hasMetConditions && this.conditionsMetCallback) {
         try {
           this.conditionsMetCallback();
         } catch (error) {
-          console.error('Error calling conditions met callback:', error);
         }
       }
       
@@ -279,6 +273,5 @@ export class PedestrianDetectorViewModel {
       this._vehiclePosition = [0, 0];
     });
     
-    console.log('🚶 PedestrianDetectorViewModel: Cleaned up');
   }
 }

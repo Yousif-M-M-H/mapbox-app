@@ -40,7 +40,6 @@ export class TestingPedestrianDetectorViewModel {
   constructor() {
     makeAutoObservable(this);
     this.setupFixedPedestrianData();
-    console.log('🧪 TestingPedestrianDetectorViewModel initialized with multiple crosswalk support');
   }
 
   // Getters
@@ -76,12 +75,10 @@ export class TestingPedestrianDetectorViewModel {
       this.monitoringInterval = null;
     }
     this.isMonitoring = false;
-    console.log('🧪 Stopped testing mode monitoring');
   });
 
   cleanup = action((): void => {
     this.stopMonitoring();
-    console.log('🧪 ViewModel cleaned up');
   });
 
   // --- Detection Latency Logic ---
@@ -95,7 +92,6 @@ export class TestingPedestrianDetectorViewModel {
     if (!this.previouslyInZone && isCurrentlyInZone) {
       this.detectionLatencyTest.zoneEntryTime = performance.now();
       const activeCrosswalks = this.getActiveCrosswalks(pedestrian.coordinates);
-      console.log(`🔍 ZONE ENTRY: Pedestrian entered crosswalk(s) ${activeCrosswalks.join(', ')}`);
     }
     
     // Step 2: Track detection
@@ -114,12 +110,6 @@ export class TestingPedestrianDetectorViewModel {
   }
 
   private logDetectionLatencyResult(latency: number): void {
-    console.log(`\n🎯 ======= DETECTION LATENCY TEST RESULT =======`);
-    console.log(`🎯 Detection Latency: ${latency.toFixed(2)}ms`);
-    console.log(`🎯 Zone Entry Time: ${this.detectionLatencyTest.zoneEntryTime?.toFixed(2)}ms`);
-    console.log(`🎯 Detection Time: ${this.detectionLatencyTest.detectionTime?.toFixed(2)}ms`);
-    console.log('🎯 Test completed successfully with multiple crosswalk support!');
-    console.log('🎯 =============================================\n');
   }
 
   // --- Public API for test results ---
@@ -145,7 +135,6 @@ export class TestingPedestrianDetectorViewModel {
     runInAction(() => {
       this.pedestrians = [fixedPedestrianData];
     });
-    console.log('🧪 Fixed pedestrian data set up for second crosswalk testing');
   }
 
   // --- Multiple Crosswalk Support ---

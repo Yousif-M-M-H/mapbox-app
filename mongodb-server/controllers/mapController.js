@@ -35,7 +35,6 @@ exports.getAllMapEvents = async (req, res) => {
       data: mapEvents
     });
   } catch (error) {
-    console.error('Error fetching map events:', error);
     return res.status(500).json({
       success: false,
       message: 'Server error',
@@ -77,7 +76,6 @@ exports.getMapEventsByIntersection = async (req, res) => {
       data: mapEvents
     });
   } catch (error) {
-    console.error('Error fetching map events by intersection:', error);
     return res.status(500).json({
       success: false,
       message: 'Server error',
@@ -136,7 +134,6 @@ exports.getMapEventsByBounds = async (req, res) => {
       data: mapEvents
     });
   } catch (error) {
-    console.error('Error fetching map events by bounds:', error);
     return res.status(500).json({
       success: false,
       message: 'Server error',
@@ -188,7 +185,6 @@ exports.getVisualizationData = async (req, res) => {
       data: visualizationData
     });
   } catch (error) {
-    console.error('Error fetching visualization data:', error);
     return res.status(500).json({
       success: false,
       message: 'Server error',
@@ -198,4 +194,3 @@ exports.getVisualizationData = async (req, res) => {
 };
 
 
-console.log("please push the code")

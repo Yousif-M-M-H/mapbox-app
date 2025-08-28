@@ -4,8 +4,6 @@ import { API_CONFIG } from '../api/config';
 
 // Try multiple connection approaches to find what works
 export const testServerConnection = async () => {
-  console.log('==== SERVER CONNECTION TEST ====');
-  console.log('Platform:', Platform.OS);
 
   // Define different server URLs to try
   const urlsToTest = [
@@ -23,7 +21,6 @@ export const testServerConnection = async () => {
   // Test each URL
   for (const { name, url } of urlsToTest) {
     try {
-      console.log(`Testing connection to ${name}: ${url}`);
       
       // Set a timeout for the fetch request
       const controller = new AbortController();
@@ -45,7 +42,6 @@ export const testServerConnection = async () => {
       const responseStatus = `Status: ${response.status}`;
       const responseTime = `Time: ${endTime - startTime}ms`;
       
-      console.log(`${name} - ${responseStatus}, ${responseTime}`);
       
       if (response.ok) {
         successfulConnection = true;
@@ -55,7 +51,6 @@ export const testServerConnection = async () => {
         results.push(`❌ ${name} - ${responseStatus}, ${responseTime}`);
       }
     } catch (error) {
-      console.error(`Error testing ${name}:`, error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       results.push(`❌ ${name} - Error: ${errorMessage}`);
     }
@@ -65,7 +60,6 @@ export const testServerConnection = async () => {
   const resultsMessage = results.join('\n\n');
   
   if (successfulConnection) {
-    console.log(`Found working connection: ${successUrl}`);
     Alert.alert(
       'Connection Test Results',
       `Found a working connection!\n\n${resultsMessage}\n\nUpdate your config to use: ${successUrl}`,
@@ -73,7 +67,6 @@ export const testServerConnection = async () => {
     );
     return { success: true, url: successUrl };
   } else {
-    console.log('No working connections found');
     Alert.alert(
       'Connection Test Results',
       `No working connections found. Make sure your server is running.\n\n${resultsMessage}`,

@@ -19,7 +19,6 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({ onPermis
         onPermissionGranted();
       }
     } catch (error) {
-      console.error('Error requesting location permission:', error);
       setStatus('error');
     }
   };

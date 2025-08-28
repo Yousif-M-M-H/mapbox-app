@@ -12,20 +12,15 @@ export class ColdStartTester {
   constructor() {
     // Record when the tester is created (app start time)
     this.appStartTime = performance.now();
-    console.log('❄️ ColdStartTester initialized for TRB research - app start time recorded');
   }
   
   /**
    * Run comprehensive cold start test for TRB research
    */
   async runTRBColdStartTest(): Promise<void> {
-    console.log('\n🔬 === TRB RESEARCH: COLD START LATENCY TEST ===');
-    console.log('❄️ Testing first-time detection cycle performance');
-    console.log('🎯 Target: Measure app initialization + first detection latency');
     
     try {
       if (this.hasRunColdStart) {
-        console.log('⚠️ Cold start already measured - showing previous results');
         this.displayColdStartResults();
         return;
       }
@@ -38,7 +33,6 @@ export class ColdStartTester {
       this.generateTRBColdStartSummary(metrics);
       
     } catch (error) {
-      console.error('❌ TRB Cold Start Test failed:', error);
     }
   }
   
@@ -50,35 +44,27 @@ export class ColdStartTester {
       throw new Error('Cold start measurement already completed');
     }
     
-    console.log('\n❄️ Starting Cold Start Measurement...');
     const coldStartBegin = performance.now();
     
     try {
       // Step 1: First API Call
-      // Log first SDSM API call attempt during cold start testing
-      // Critical for measuring initial system responsiveness and API latency
-      console.log('   📡 Making first SDSM API call...');
+      // Removed API call log to reduce noise
       const apiStartTime = performance.now();
       const rawData = await this.performFirstAPICall();
       const apiEndTime = performance.now();
       const apiCallTime = apiEndTime - apiStartTime;
-      console.log(`   ✅ First API call: ${apiCallTime.toFixed(2)}ms`);
       
       // Step 2: First Data Processing
-      console.log('   ⚙️ Processing first detection cycle...');
       const processingStartTime = performance.now();
       const { pedestrians, pedestriansInCrosswalk, nearbyPedestrians } = this.performFirstProcessing(rawData);
       const processingEndTime = performance.now();
       const processingTime = processingEndTime - processingStartTime;
-      console.log(`   ✅ First processing: ${processingTime.toFixed(2)}ms`);
       
       // Step 3: First State Update (simulated)
-      console.log('   🔄 Completing first state update...');
       const stateStartTime = performance.now();
       this.performFirstStateUpdate(pedestrians, pedestriansInCrosswalk, nearbyPedestrians);
       const stateEndTime = performance.now();
       const stateUpdateTime = stateEndTime - stateStartTime;
-      console.log(`   ✅ First state update: ${stateUpdateTime.toFixed(2)}ms`);
       
       // Calculate total time
       const totalColdStartTime = performance.now() - coldStartBegin;
@@ -94,12 +80,10 @@ export class ColdStartTester {
       };
       
       this.hasRunColdStart = true;
-      console.log(`❄️ Cold start complete: ${totalColdStartTime.toFixed(2)}ms total`);
       
       return metrics;
       
     } catch (error) {
-      console.error('❌ Cold start measurement failed:', error);
       
       const failedMetrics: ColdStartMetrics = {
         totalColdStartTime: performance.now() - coldStartBegin,
@@ -229,21 +213,11 @@ export class ColdStartTester {
    * Generate TRB research summary for cold start
    */
   private generateTRBColdStartSummary(metrics: ColdStartMetrics): void {
-    console.log('\n❄️ === TRB COLD START SUMMARY ===');
-    console.log(`📈 Cold Start Measurement: ${metrics.success ? '✅ SUCCESS' : '❌ FAILED'}`);
     
     if (!metrics.success) {
-      console.log('❌ Cold start failed - no performance data available');
-      console.log('========================================\n');
       return;
     }
     
-    console.log('\n🎯 COLD START LATENCY RESULTS:');
-    console.log(`├─ Total Cold Start Time: ${metrics.totalColdStartTime.toFixed(2)}ms`);
-    console.log(`├─ First API Call: ${metrics.apiCallTime.toFixed(2)}ms`);
-    console.log(`├─ First Processing: ${metrics.processingTime.toFixed(2)}ms`);
-    console.log(`├─ First State Update: ${metrics.stateUpdateTime.toFixed(2)}ms`);
-    console.log(`└─ Pedestrians Detected: ${metrics.pedestrianCount}`);
     
     // Performance breakdown
     if (metrics.totalColdStartTime > 0) {
@@ -251,55 +225,31 @@ export class ColdStartTester {
       const processingPercent = (metrics.processingTime / metrics.totalColdStartTime * 100).toFixed(1);
       const statePercent = (metrics.stateUpdateTime / metrics.totalColdStartTime * 100).toFixed(1);
       
-      console.log('\n❄️ COLD START BREAKDOWN:');
-      console.log(`├─ API Call: ${apiPercent}% of total time`);
-      console.log(`├─ Processing: ${processingPercent}% of total time`);
-      console.log(`├─ State Update: ${statePercent}% of total time`);
-      console.log(`└─ Other Overhead: ${(100 - parseFloat(apiPercent) - parseFloat(processingPercent) - parseFloat(statePercent)).toFixed(1)}%`);
     }
     
     // Performance assessment
     this.assessColdStartPerformance(metrics);
     
-    console.log('\n📝 TRB RESEARCH NOTES:');
-    console.log('├─ Measurement Type: Cold Start (First Detection Cycle)');
-    console.log('├─ Environment: React Native + Expo');
-    // Log technical details of SDSM-based detection stack for research documentation
-    // Important for understanding the system architecture in performance studies
-    console.log('├─ Detection Stack: SDSM API + Point-in-polygon + Distance calc');
-    console.log('├─ Network: Mobile/WiFi Connection');
-    console.log('├─ Timing Method: JavaScript Performance API');
-    console.log('└─ Use Case: V2X Pedestrian Safety Application');
+    // Removed detection stack log to reduce noise
     
-    console.log('\n✅ TRB Cold Start Test Complete');
-    console.log('📄 Cold start data ready for research paper analysis');
-    console.log('========================================\n');
   }
   
   /**
    * Assess cold start performance for research context
    */
   private assessColdStartPerformance(metrics: ColdStartMetrics): void {
-    console.log('\n🎯 COLD START PERFORMANCE ASSESSMENT:');
     
     const totalTime = metrics.totalColdStartTime;
     
     if (totalTime < 500) {
-      console.log('✅ Excellent: Cold start < 500ms (Fast app initialization)');
     } else if (totalTime < 1000) {
-      console.log('✅ Good: Cold start < 1000ms (Acceptable for safety apps)');
     } else if (totalTime < 2000) {
-      console.log('⚠️ Moderate: Cold start < 2000ms (May impact user experience)');
     } else {
-      console.log('❌ Poor: Cold start > 2000ms (Too slow for safety applications)');
     }
     
     if (metrics.apiCallTime > totalTime * 0.7) {
-      console.log('⚠️ Network-bound: API call dominates cold start time');
     } else if (metrics.processingTime > totalTime * 0.3) {
-      console.log('⚠️ Processing-bound: Detection algorithms slow down cold start');
     } else {
-      console.log('✅ Balanced: Good distribution of cold start time');
     }
   }
   
@@ -308,7 +258,6 @@ export class ColdStartTester {
    */
   private displayColdStartResults(): void {
     if (!this.coldStartResult) {
-      console.log('❄️ No cold start results available');
       return;
     }
     
@@ -339,8 +288,6 @@ export class ColdStartTester {
    * Clear results (for fresh testing - requires app restart for true cold start)
    */
   clearResults(): void {
-    console.log('⚠️ Note: True cold start requires app restart');
-    console.log('🗑️ Cold start results cleared');
   }
   
   /**

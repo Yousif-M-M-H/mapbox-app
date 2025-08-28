@@ -13,6 +13,7 @@ import { UserHeadingViewModel } from '../../features/UserHeading/viewmodels/User
 // Import SDSM Vehicle Display
 import { VehicleDisplayViewModel } from '../../features/SDSM/viewmodels/VehicleDisplayViewModel';
 import { SDSMLatencyTracker } from '../../features/SDSM/services/SDSMLatencyTracker';
+import { SDSMFrequencyMonitor } from '../../features/SDSM/services/SDSMFrequencyMonitor';
 
 export class MainViewModel {
   mapViewModel: MapViewModel;
@@ -26,7 +27,6 @@ export class MainViewModel {
   isVehicleTestingEnabled: boolean = TESTING_CONFIG.USE_VEHICLE_TESTING_FEATURE;
   
   constructor() {
-    console.log('MainViewModel: Initializing');
     
     this.mapViewModel = new MapViewModel();
     
@@ -38,10 +38,8 @@ export class MainViewModel {
     
     // Create appropriate pedestrian detector based on testing mode
     if (TESTING_CONFIG.USE_TESTING_MODE) {
-      console.log('MainViewModel: Using TESTING mode with Detection Latency Test');
       this.testingPedestrianDetectorViewModel = new TestingPedestrianDetectorViewModel();
     } else {
-      console.log('MainViewModel: Using PRODUCTION mode with API data');
       this.pedestrianDetectorViewModel = new PedestrianDetectorViewModel();
     }
     
@@ -58,10 +56,12 @@ export class MainViewModel {
     
     // Start SDSM vehicle display
     this.vehicleDisplayViewModel.start();
-    // console.log('🚗 Started SDSM vehicle display');
     
     // Start SDSM latency tracking and automatic logging
     this.startSDSMLatencyTracking();
+    
+    // Start SDSM frequency monitoring for 60-second analysis
+    this.startSDSMFrequencyMonitoring();
     
     // Start Detection Latency Test if in testing mode
     this.startDetectionLatencyTest();
@@ -75,7 +75,6 @@ export class MainViewModel {
         this.pedestrianDetectorViewModel.startMonitoring();
       }
     } catch (error) {
-      console.error('MainViewModel: Error starting monitoring:', error);
     }
   }
   
@@ -96,14 +95,27 @@ export class MainViewModel {
       // Schedule detailed logging after 5 seconds from app start
       latencyTracker.scheduleDetailedLogging();
       
-      // Log SDSM latency tracking initialization to confirm performance monitoring is active
-      // This helps verify that object timing measurements are being captured properly
-      console.log('📊 SDSM Latency Tracking initialized - measuring object creation to UI overlay time');
-      console.log('📋 Detailed timestamp report will be generated in 5 seconds');
+      // Removed latency tracking initialization logs to reduce noise
       
     } catch (error) {
-      // Log SDSM latency tracking initialization errors for debugging
-      console.error('MainViewModel: Error starting SDSM latency tracking:', error);
+      // Keep error logs for debugging critical issues
+    }
+  }
+
+  /**
+   * Start SDSM frequency monitoring for 60-second analysis
+   */
+  private startSDSMFrequencyMonitoring(): void {
+    try {
+      const frequencyMonitor = SDSMFrequencyMonitor.getInstance();
+      
+      // Start frequency monitoring with automatic analysis after 1 minute
+      frequencyMonitor.startMonitoring();
+      
+      // Removed frequency monitoring initialization logs to reduce noise
+      
+    } catch (error) {
+      // Keep error logs for debugging critical issues
     }
   }
   
@@ -120,22 +132,18 @@ export class MainViewModel {
     }
     
     try {
-      console.log('🎯 Starting Detection Latency Test...');
-      console.log('🎯 Test will measure time between zone entry and detection');
       
       // Monitor test completion
       const checkTestCompletion = setInterval(() => {
         if (this.testingPedestrianDetectorViewModel?.hasCompletedDetectionLatencyTest()) {
           const result = this.testingPedestrianDetectorViewModel.getDetectionLatencyResult();
           if (result !== null) {
-            console.log(`🎯 Detection Latency Test completed: ${result.toFixed(2)}ms`);
           }
           clearInterval(checkTestCompletion);
         }
       }, 1000);
       
     } catch (error) {
-      console.error('MainViewModel: Error starting detection latency test:', error);
     }
   }
   
@@ -168,19 +176,16 @@ export class MainViewModel {
    */
   private async startUserHeadingTracking(): Promise<void> {
     try {
-      console.log('🧭 Starting user heading tracking...');
       
       // Add a small delay to ensure proper initialization
       setTimeout(async () => {
         try {
           await this.userHeadingViewModel.startTracking();
         } catch (error) {
-          console.error('MainViewModel: Error starting heading tracking:', error);
         }
       }, 1000);
       
     } catch (error) {
-      console.error('MainViewModel: Error initializing heading tracking:', error);
     }
   }
   
@@ -191,7 +196,6 @@ export class MainViewModel {
     try {
       return this.userHeadingViewModel?.magneticHeading || null;
     } catch (error) {
-      console.error('Error getting user heading:', error);
       return null;
     }
   }
@@ -203,7 +207,6 @@ export class MainViewModel {
     try {
       return this.userHeadingViewModel?.compassDirection || 'Unknown';
     } catch (error) {
-      console.error('Error getting user direction:', error);
       return 'Unknown';
     }
   }
@@ -215,7 +218,6 @@ export class MainViewModel {
     try {
       return this.userHeadingViewModel?.formattedHeading || 'No heading data';
     } catch (error) {
-      console.error('Error getting formatted heading:', error);
       return 'Heading unavailable';
     }
   }
@@ -227,7 +229,6 @@ export class MainViewModel {
     try {
       return this.userHeadingViewModel?.hasHeading || false;
     } catch (error) {
-      console.error('Error checking heading availability:', error);
       return false;
     }
   }
@@ -261,7 +262,6 @@ export class MainViewModel {
       await this.mapViewModel.getCurrentLocation();
       return this.mapViewModel.userLocation;
     } catch (error) {
-      console.error('MainViewModel: Failed to refresh location:', error);
       return null;
     }
   }
@@ -301,16 +301,13 @@ export class MainViewModel {
     try {
       this.userHeadingViewModel?.cleanup();
     } catch (error) {
-      console.error('Error cleaning up heading:', error);
     }
     
     // Stop SDSM vehicle display
     try {
       this.vehicleDisplayViewModel?.cleanup();
-      // Log SDSM vehicle display cleanup confirmation for proper resource management
-      console.log('🚗 SDSM vehicle display cleaned up');
+      // Removed cleanup log to reduce noise
     } catch (error) {
-      console.error('Error cleaning up vehicle display:', error);
     }
     
     if (this.isTestingMode && this.testingPedestrianDetectorViewModel) {

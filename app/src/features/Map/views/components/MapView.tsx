@@ -55,6 +55,10 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   // Get the active detector based on mode
   const activeDetector = isTestingMode ? testingPedestrianDetectorViewModel : pedestrianDetectorViewModel;
 
+  // Simple toggle to control SDSM vehicle visibility on map
+  // Set to false to hide vehicles from map while keeping background functionality
+  const SHOW_SDSM_VEHICLES = true;
+
   // Line coordinates for lane visualization
   const lineCoordinates: [number, number][] = [
     [-85.3082228825378, 35.045758400746536],
@@ -103,16 +107,10 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
               setGpsHeading(heading);
               setLastKnownHeading(heading);
 
-              // Log heading updates
-              if (updateCount % 5 === 1) {
-                console.log(`🧭 GPS Heading: ${heading.toFixed(1)}° (Fixed to GPS)`);
-              }
+              // Removed heading update logs
             }
 
-            // Log GPS updates less frequently
-            if (updateCount % 10 === 1) {
-              console.log(`GPS: [${latitude.toFixed(6)}, ${longitude.toFixed(6)}] (Update #${updateCount})`);
-            }
+            // Removed GPS update logs
 
             // Update DirectionGuide with live GPS
             directionGuideViewModel.setVehiclePosition([latitude, longitude]);
@@ -137,7 +135,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         }
 
       } catch (error) {
-        console.error('GPS setup error:', error);
+        // Removed error logging
       }
     };
 
@@ -313,11 +311,11 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         </MapboxGL.ShapeSource>
 
         {/* SDSM Vehicle Markers (Main Feature - FROM SDSM FOLDER ONLY) */}
-        {mainViewModel?.vehicleDisplayViewModel && (
+        {SHOW_SDSM_VEHICLES && mainViewModel?.vehicleDisplayViewModel && (
           <VehicleMarkers viewModel={mainViewModel.vehicleDisplayViewModel} />
         )}
 
-        {testingVehicleDisplayViewModel && (
+        {SHOW_SDSM_VEHICLES && testingVehicleDisplayViewModel && (
           <VehicleMarkers viewModel={testingVehicleDisplayViewModel as unknown as VehicleDisplayViewModel} />
         )}
 

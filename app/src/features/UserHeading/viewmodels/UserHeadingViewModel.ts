@@ -34,7 +34,6 @@ export class UserHeadingViewModel {
     this.intersectionAnalyzer = new IntersectionAnalyzer(this.intersections.A, this.intersections.B);
     makeAutoObservable(this);
     
-    console.log('🧭 UserHeadingViewModel initialized with intersection analysis');
   }
   
   /**
@@ -60,17 +59,14 @@ export class UserHeadingViewModel {
     }
     
     try {
-      console.log('🧭 Starting heading tracking with intersection analysis...');
       
       runInAction(() => {
         this.isTracking = true;
         this.error = null;
       });
       
-      console.log('🧭 Heading tracking ready');
       
     } catch (error) {
-      console.error('🧭 Failed to start heading tracking:', error);
       runInAction(() => {
         this.error = `Failed to start tracking: ${error}`;
         this.isTracking = false;
@@ -86,7 +82,6 @@ export class UserHeadingViewModel {
       return;
     }
     
-    console.log('🧭 Stopping heading tracking...');
     
     if (this.trackingInterval) {
       clearInterval(this.trackingInterval);
@@ -141,7 +136,6 @@ export class UserHeadingViewModel {
    * Cleanup resources
    */
   cleanup(): void {
-    console.log('🧭 UserHeadingViewModel cleanup');
     this.stopTracking();
   }
 }

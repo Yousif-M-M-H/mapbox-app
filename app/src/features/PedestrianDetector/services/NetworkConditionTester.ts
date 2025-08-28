@@ -10,37 +10,30 @@ export class NetworkConditionTester {
   private readonly MAX_RETRIES = 3;
   
   constructor() {
-    console.log('🌐 Network Condition Tester initialized');
   }
   
   /**
    * Run comprehensive network condition testing
    */
   async runNetworkConditionTests(): Promise<void> {
-    console.log('🌐 Starting Network Condition Testing...');
     
     try {
       // Test 1: Normal Network Conditions
-      console.log('\n📡 Test 1: Normal Network Conditions');
       const normalConditions = await this.testNormalNetworkConditions();
       
       // Test 2: Network Timeout Behavior
-      console.log('\n⏱️ Test 2: Network Timeout Behavior');
       const timeoutBehavior = await this.testTimeoutBehavior();
       
       // Test 3: Complete Network Failure
-      console.log('\n❌ Test 3: Complete Network Failure');
       const failureBehavior = await this.testNetworkFailure();
       
       // Test 4: Error Handling Analysis
-      console.log('\n🔧 Test 4: Error Handling Analysis');
       const errorHandling = this.analyzeErrorHandling(normalConditions, timeoutBehavior, failureBehavior);
       
       // Final Results Summary
       this.logFinalResults(normalConditions, errorHandling);
       
     } catch (error) {
-      console.error('❌ Network condition testing failed:', error);
     }
   }
   
@@ -51,7 +44,6 @@ export class NetworkConditionTester {
     const coldStartBegin = performance.now();
     
     try {
-      console.log('   🔄 Testing normal API call...');
       
       // Measure API call time
       const apiStartTime = performance.now();
@@ -73,7 +65,6 @@ export class NetworkConditionTester {
         pedestrianCount: pedestrians.length
       };
       
-      console.log(`   ✅ Success: ${apiCallTime.toFixed(2)}ms API call, ${pedestrians.length} pedestrians found`);
       return metrics;
       
     } catch (error) {
@@ -91,7 +82,6 @@ export class NetworkConditionTester {
         pedestrianCount: 0
       };
       
-      console.log(`   ❌ Failed: ${metrics.errorType} - ${metrics.errorMessage}`);
       return metrics;
     }
   }
@@ -103,7 +93,6 @@ export class NetworkConditionTester {
     const coldStartBegin = performance.now();
     
     try {
-      console.log('   ⏱️ Testing with 100ms timeout...');
       
       const apiStartTime = performance.now();
       const rawData = await this.makeAPICall(this.API_URL, 100); // Very short timeout
@@ -123,7 +112,6 @@ export class NetworkConditionTester {
         pedestrianCount: pedestrians.length
       };
       
-      console.log(`   ✅ Unexpectedly fast: ${apiCallTime.toFixed(2)}ms (faster than timeout)`);
       return metrics;
       
     } catch (error) {
@@ -141,7 +129,6 @@ export class NetworkConditionTester {
         pedestrianCount: 0
       };
       
-      console.log(`   ⏱️ Timeout occurred: ${metrics.errorType} after ${coldStartTotalTime.toFixed(2)}ms`);
       return metrics;
     }
   }
@@ -154,7 +141,6 @@ export class NetworkConditionTester {
     const invalidUrl = 'http://invalid.nonexistent.domain/api/test';
     
     try {
-      console.log('   ❌ Testing with invalid URL...');
       
       const apiStartTime = performance.now();
       const rawData = await this.makeAPICallWithRetries(invalidUrl, this.TIMEOUT_MS, this.MAX_RETRIES);
@@ -172,7 +158,6 @@ export class NetworkConditionTester {
         pedestrianCount: 0
       };
       
-      console.log(`   ⚠️ Unexpected success with invalid URL`);
       return metrics;
       
     } catch (error) {
@@ -190,7 +175,6 @@ export class NetworkConditionTester {
         pedestrianCount: 0
       };
       
-      console.log(`   ❌ Expected failure: ${metrics.errorType} after ${this.MAX_RETRIES} retries`);
       return metrics;
     }
   }
@@ -235,11 +219,9 @@ export class NetworkConditionTester {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`      Attempt ${attempt}/${maxRetries}...`);
         return await this.makeAPICall(url, timeoutMs);
       } catch (error) {
         lastError = error;
-        console.log(`      Attempt ${attempt} failed: ${this.getErrorType(error)}`);
         
         // Wait before retry (except for last attempt)
         if (attempt < maxRetries) {
@@ -330,33 +312,15 @@ export class NetworkConditionTester {
    * Log final test results
    */
   private logFinalResults(normal: NetworkConditionMetrics, errorHandling: NetworkErrorHandlingResult): void {
-    console.log('\n🌐 NETWORK CONDITION TEST RESULTS:');
-    console.log('===================================');
     
     // Cold Start Performance
-    console.log(`Cold Start Total Time: ${normal.coldStartTotalTime.toFixed(2)}ms`);
-    console.log(`API Call Time: ${normal.apiCallTime.toFixed(2)}ms`);
-    console.log(`API Success Rate: ${normal.success ? '100%' : '0%'}`);
-    console.log(`Pedestrians Detected: ${normal.pedestrianCount}`);
     
     // Error Handling Analysis
-    console.log('\nError Handling Behavior:');
-    console.log(`Timeout Handling: ${errorHandling.timeoutBehavior}`);
-    console.log(`Retry Logic: ${errorHandling.retryBehavior}`);
-    console.log(`Failure Recovery: ${errorHandling.failureBehavior}`);
-    console.log(`Graceful Degradation: ${errorHandling.gracefulDegradation ? 'Yes' : 'No'}`);
     
     // Performance Analysis
     if (normal.success && normal.apiCallTime > 0) {
       const networkPercent = (normal.apiCallTime / normal.coldStartTotalTime * 100).toFixed(1);
-      console.log('\nPerformance Breakdown:');
-      console.log(`Network Time: ${networkPercent}% of total cold start`);
-      console.log(`Processing Time: ${(100 - parseFloat(networkPercent)).toFixed(1)}% of total cold start`);
     }
     
-    console.log('===================================');
-    console.log('🎯 Network condition testing complete');
-    console.log('   Ready for TRB research analysis');
-    console.log('===================================\n');
   }
 }

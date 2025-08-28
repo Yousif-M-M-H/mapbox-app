@@ -13,7 +13,6 @@ export class SpatApiService {
    */
   public static async fetchSpatData(): Promise<SpatData> {
     try {
-      // console.log('🚦 Fetching SPaT data from API...');
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT);
@@ -34,7 +33,6 @@ export class SpatApiService {
       }
       
       const rawData = await response.json();
-      // console.log('✅ SPaT data received successfully');
       
       return rawData;
       
@@ -49,10 +47,8 @@ export class SpatApiService {
   public static async testConnection(): Promise<boolean> {
     try {
       await this.fetchSpatData();
-      console.log('✅ SPaT API connection successful');
       return true;
     } catch (error: unknown) {
-      console.error('❌ SPaT API connection failed:', SpatErrorHandler.getErrorMessage(error));
       return false;
     }
   }

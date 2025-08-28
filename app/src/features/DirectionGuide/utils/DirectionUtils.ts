@@ -99,10 +99,4 @@ export const logDirectionDetails = (
   const headingDirection = headingToDirection(heading);
   const approachDirection = determineApproachDirection(carPosition, intersectionPosition);
   
-  console.log('Direction Calculation:');
-  console.log(`Car Position: [${carPosition[0]}, ${carPosition[1]}]`);
-  console.log(`Intersection Position: [${intersectionPosition[0]}, ${intersectionPosition[1]}]`);
-  console.log(`Heading: ${heading.toFixed(2)}°`);
-  console.log(`Heading Direction: ${headingDirection}`);
-  console.log(`Approach Direction: ${approachDirection}`);
 };

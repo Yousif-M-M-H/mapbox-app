@@ -19,13 +19,8 @@ export const TESTING_UI_CONFIG = {
  */
 export const checkTestingUIAvailable = (): boolean => {
   try {
-    console.log('🧪 Testing UI Components Available:');
-    console.log(`  - Feature: ${TESTING_UI_CONFIG.FEATURE_NAME}`);
-    console.log(`  - Version: ${TESTING_UI_CONFIG.VERSION}`);
-    console.log(`  - Status: ✅ Ready for use`);
     return true;
   } catch (error) {
-    console.error('🧪 Testing UI Check Failed:', error);
     return false;
   }
 };

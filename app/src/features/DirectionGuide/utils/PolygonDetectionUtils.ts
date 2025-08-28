@@ -38,39 +38,29 @@
 // export const detectApproachPolygon = (
 //   vehiclePosition: [number, number]
 // ): ApproachPolygon | null => {
-//   console.log(`🔍 Testing GPS [${vehiclePosition[0].toFixed(6)}, ${vehiclePosition[1].toFixed(6)}] against ${MLK_APPROACH_POLYGONS.length} approach polygons...`);
   
 //   // Validate input
 //   if (!vehiclePosition || vehiclePosition.length !== 2 || 
 //       vehiclePosition[0] === 0 || vehiclePosition[1] === 0) {
-//     console.warn('🔍 Invalid vehicle position provided');
 //     return null;
 //   }
   
 //   for (const polygon of MLK_APPROACH_POLYGONS) {
 //     // Validate polygon configuration
 //     if (!validateApproachPolygon(polygon)) {
-//       console.warn(`🔍 Invalid polygon configuration: ${polygon.id}`);
 //       continue;
 //     }
     
-//     console.log(`🔍 Testing against ${polygon.name} (Lanes ${polygon.lanes.join(', ')})...`);
     
 //     // Log polygon bounds for debugging
 //     const bounds = getPolygonBounds(polygon.detectionZone);
-//     console.log(`🔍 Polygon bounds: lat [${bounds.minLat.toFixed(6)} to ${bounds.maxLat.toFixed(6)}], lng [${bounds.minLng.toFixed(6)} to ${bounds.maxLng.toFixed(6)}]`);
     
 //     if (isPointInPolygon(vehiclePosition, polygon.detectionZone)) {
-//       console.log(`✅ Vehicle detected in ${polygon.name}!`);
-//       console.log(`📍 Lanes: ${polygon.lanes.join(', ')}`);
-//       console.log(`📶 Signal Groups: ${polygon.signalGroups.length > 0 ? polygon.signalGroups.join(', ') : 'None'}`);
 //       return polygon;
 //     } else {
-//       console.log(`❌ Vehicle outside ${polygon.name}`);
 //     }
 //   }
   
-//   console.log('❌ Vehicle not detected in any approach polygon');
 //   return null;
 // };
 

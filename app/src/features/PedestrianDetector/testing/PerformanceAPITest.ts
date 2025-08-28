@@ -9,18 +9,13 @@ export class PerformanceAPITest {
   
   constructor() {
     this.simplePerformanceTester = new SimplePerformanceTester();
-    console.log('📊 PerformanceAPITest initialized for TRB research');
   }
   
   /**
    * Run comprehensive API performance testing for TRB research
    */
   async runTRBPerformanceTest(): Promise<void> {
-    console.log('\n🔬 === TRB RESEARCH: API PERFORMANCE TEST ===');
-    // Log SDSM API latency testing initiation for TRB research documentation
-    // Critical for measuring real-world V2X communication performance metrics
-    console.log('📊 Testing SDSM API latency for research paper');
-    console.log('🎯 Target: Measure real-world V2X communication delays');
+    // Removed API latency testing log to reduce noise
     
     try {
       // Run multiple measurements for statistical analysis
@@ -30,7 +25,6 @@ export class PerformanceAPITest {
       this.generateTRBSummary();
       
     } catch (error) {
-      console.error('❌ TRB Performance Test failed:', error);
     }
   }
   
@@ -38,23 +32,19 @@ export class PerformanceAPITest {
    * Run multiple API measurements for statistical analysis
    */
   private async runMultipleMeasurements(count: number): Promise<void> {
-    console.log(`\n📈 Running ${count} API measurements...`);
     
     for (let i = 1; i <= count; i++) {
       try {
-        console.log(`\n📊 Measurement ${i}/${count}`);
         
         const metrics = await this.simplePerformanceTester.testPerformanceAPI();
         this.measurements.push(metrics);
         
         // Brief pause between measurements
         if (i < count) {
-          console.log('   ⏳ Waiting 2 seconds...');
           await this.wait(2000);
         }
         
       } catch (error) {
-        console.warn(`⚠️ Measurement ${i} failed:`, error);
       }
     }
   }
@@ -64,45 +54,21 @@ export class PerformanceAPITest {
    */
   private generateTRBSummary(): void {
     if (this.measurements.length === 0) {
-      console.log('❌ No successful measurements for analysis');
       return;
     }
     
-    console.log('\n📊 === TRB RESEARCH SUMMARY ===');
-    console.log(`📈 Total Measurements: ${this.measurements.length}`);
     
     // Calculate statistics
     const stats = this.calculateStatistics();
     
     // Log research-grade results
-    console.log('\n🎯 API LATENCY RESULTS:');
-    console.log(`├─ Average Total Time: ${stats.avgTotal.toFixed(2)}ms`);
-    console.log(`├─ Minimum Time: ${stats.minTotal.toFixed(2)}ms`);
-    console.log(`├─ Maximum Time: ${stats.maxTotal.toFixed(2)}ms`);
-    console.log(`├─ Standard Deviation: ${stats.stdDev.toFixed(2)}ms`);
-    console.log(`└─ 95th Percentile: ${stats.p95.toFixed(2)}ms`);
     
-    console.log('\n🌐 NETWORK BREAKDOWN:');
-    console.log(`├─ Avg Time to First Byte: ${stats.avgTTFB.toFixed(2)}ms`);
-    console.log(`├─ Avg Download Time: ${stats.avgDownload.toFixed(2)}ms`);
-    console.log(`├─ Avg JSON Parse Time: ${stats.avgParse.toFixed(2)}ms`);
-    console.log(`└─ Avg Response Size: ${stats.avgSize.toFixed(2)}KB`);
     
-    console.log('\n📝 TRB RESEARCH NOTES:');
-    console.log('├─ Test Environment: React Native + Expo');
-    // Log SDSM API endpoint details for research methodology documentation
-    // Important for understanding V2X standard compliance and data source specifications
-    console.log('├─ API Endpoint: SDSM Events (V2X Standard)');
-    console.log('├─ Network: Mobile/WiFi Connection');
-    console.log('├─ Measurement Method: JavaScript Performance API');
-    console.log('└─ Statistical Analysis: 10 samples with 2s intervals');
+    // Removed API endpoint log to reduce noise
     
     // Performance assessment
     this.assessPerformance(stats);
     
-    console.log('\n✅ TRB Performance Test Complete');
-    console.log('📄 Data ready for research paper analysis');
-    console.log('========================================\n');
   }
   
   /**
@@ -132,22 +98,15 @@ export class PerformanceAPITest {
    * Assess performance for research context
    */
   private assessPerformance(stats: any): void {
-    console.log('\n🎯 PERFORMANCE ASSESSMENT:');
     
     if (stats.avgTotal < 100) {
-      console.log('✅ Excellent: Avg latency < 100ms (Real-time capable)');
     } else if (stats.avgTotal < 500) {
-      console.log('✅ Good: Avg latency < 500ms (Suitable for V2X safety)');
     } else if (stats.avgTotal < 1000) {
-      console.log('⚠️ Moderate: Avg latency < 1000ms (May impact real-time safety)');
     } else {
-      console.log('❌ Poor: Avg latency > 1000ms (Not suitable for real-time V2X)');
     }
     
     if (stats.stdDev < stats.avgTotal * 0.2) {
-      console.log('✅ Consistent: Low latency variation (Reliable for safety apps)');
     } else {
-      console.log('⚠️ Variable: High latency variation (May cause inconsistent UX)');
     }
   }
   
@@ -177,7 +136,6 @@ export class PerformanceAPITest {
    */
   clearResults(): void {
     this.measurements = [];
-    console.log('🗑️ Performance measurements cleared');
   }
   
   // ========================================

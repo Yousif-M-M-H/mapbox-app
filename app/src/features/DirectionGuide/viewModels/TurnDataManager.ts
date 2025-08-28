@@ -54,10 +54,8 @@ export class TurnDataManager {
         this.error = null;
       });
       
-      console.log('🛣️ Turn data loaded successfully');
       
     } catch (error) {
-      console.error('❌ Failed to load turn data:', error);
       runInAction(() => {
         this.error = error instanceof Error ? error.message : 'Load failed';
         this.intersectionData = null;

@@ -10,7 +10,6 @@ export class SimplePerformanceTester {
   async testPerformanceAPI(): Promise<SimplePerformanceMetrics> {
     const apiUrl = 'http://10.199.1.11:9095/latest/sdsm_events';
     
-    console.log('🧪 Testing Native JavaScript Performance API...');
     
     // Start timing
     const startTime = performance.now();
@@ -55,7 +54,6 @@ export class SimplePerformanceTester {
       return metrics;
       
     } catch (error) {
-      console.error('❌ Performance API test failed:', error);
       throw error;
     }
   }
@@ -64,27 +62,14 @@ export class SimplePerformanceTester {
    * Log test results in a clean format
    */
   private logResults(metrics: SimplePerformanceMetrics, data: any): void {
-    console.log('\n📊 PERFORMANCE API TEST RESULTS:');
-    console.log('================================');
-    console.log(`Total Time: ${metrics.totalRequestTime.toFixed(2)}ms`);
-    console.log(`Time to First Byte: ${metrics.timeToFirstByte.toFixed(2)}ms`);
-    console.log(`Download Time: ${metrics.downloadTime.toFixed(2)}ms`);
-    console.log(`JSON Parse Time: ${metrics.jsonParseTime.toFixed(2)}ms`);
-    console.log(`Response Size: ${(metrics.responseSize / 1024).toFixed(2)}KB`);
     
     // Check for pedestrian data
     const pedestrianCount = data?.objects?.filter((obj: any) => obj.type === 'vru').length || 0;
-    console.log(`Pedestrians Found: ${pedestrianCount}`);
     
     // Performance breakdown
     const networkPercent = (metrics.timeToFirstByte / metrics.totalRequestTime * 100).toFixed(1);
     const downloadPercent = (metrics.downloadTime / metrics.totalRequestTime * 100).toFixed(1);
     const parsePercent = (metrics.jsonParseTime / metrics.totalRequestTime * 100).toFixed(1);
     
-    console.log('\nPerformance Breakdown:');
-    console.log(`Network: ${networkPercent}%`);
-    console.log(`Download: ${downloadPercent}%`);
-    console.log(`Parse: ${parsePercent}%`);
-    console.log('================================\n');
   }
 }

@@ -67,7 +67,6 @@ export class VehiclePositionViewModel {
     
     // Log position updates periodically (every 10th update to avoid spam)
     if (this._lastUpdateTime % 10 === 1) {
-      console.log(`🚗 Vehicle Position: [${position[0].toFixed(6)}, ${position[1].toFixed(6)}]`);
     }
     
     // Notify callbacks of position change
@@ -209,7 +208,6 @@ export class VehiclePositionViewModel {
       try {
         callback(position);
       } catch (error) {
-        console.error('Error in position change callback:', error);
       }
     });
   }

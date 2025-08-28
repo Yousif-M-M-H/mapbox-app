@@ -8,7 +8,6 @@ export class LocationService {
       const { status } = await Location.requestForegroundPermissionsAsync();
       return status === 'granted';
     } catch (error) {
-      console.error('Error requesting location permission:', error);
       return false;
     }
   }
@@ -25,7 +24,6 @@ export class LocationService {
         heading: location.coords.heading !== null ? location.coords.heading : undefined
       };
     } catch (error) {
-      console.error('Error getting current location:', error);
       return null;
     }
   }
@@ -36,7 +34,6 @@ export class LocationService {
       // Check if heading is available
       const isAvailable = await Location.hasServicesEnabledAsync();
       if (!isAvailable) {
-        console.warn('Location services not enabled');
         return 0;
       }
 
@@ -44,7 +41,6 @@ export class LocationService {
       const headingData = await Location.getHeadingAsync();
       return headingData?.magHeading || 0;
     } catch (error) {
-      console.error('Error getting device heading:', error);
       return 0;
     }
   }

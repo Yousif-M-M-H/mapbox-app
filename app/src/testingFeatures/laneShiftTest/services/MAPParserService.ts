@@ -8,7 +8,6 @@ export class MAPParserService {
    * Simple test - just return hardcoded coordinates for a line
    */
   static parseTestLane(): TestLaneData {
-    console.log('🛣️ SIMPLE LINE TEST: Creating line between two points');
     
     // Hardcoded coordinates - Mapbox format [longitude, latitude]
     const coordinates: [number, number][] = [
@@ -16,8 +15,6 @@ export class MAPParserService {
       [-85.3132786, 35.0448121]  // Point 2
     ];
     
-    console.log('🛣️ Point 1:', coordinates[0]);
-    console.log('🛣️ Point 2:', coordinates[1]);
     
     const parsedLane: ParsedLane = {
       laneID: 17,
@@ -27,7 +24,6 @@ export class MAPParserService {
       rawData: 'simple_test'
     };
     
-    console.log('✅ Simple line data created successfully');
     
     return {
       selectedLane: parsedLane,
@@ -41,7 +37,6 @@ export class MAPParserService {
    * Get a GeoJSON LineString for the parsed lane
    */
   static getLaneAsGeoJSON(lane: ParsedLane): any {
-    console.log('🛣️ Creating GeoJSON for line rendering');
     
     const geoJSON = {
       type: 'Feature',
@@ -54,7 +49,6 @@ export class MAPParserService {
       }
     };
     
-    console.log('🛣️ GeoJSON created:', JSON.stringify(geoJSON, null, 2));
     return geoJSON;
   }
 }

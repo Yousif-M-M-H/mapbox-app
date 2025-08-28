@@ -36,7 +36,6 @@ export class CountdownTimerManager {
     
     // Log for debugging
     if (freshCountdown.hasCountdown) {
-      console.log(`🕐 New countdown: ${freshCountdown.remainingSeconds}s for phases [${signalGroups.join(',')}]`);
     }
   }
   
@@ -105,7 +104,6 @@ export class CountdownTimerManager {
     
     // Log every 5 seconds for debugging
     if (elapsedSeconds % 5 === 0) {
-      console.log(`🕐 Countdown: ${calculatedRemaining}s (${this.formatTime(calculatedRemaining)})`);
     }
   }
   

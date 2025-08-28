@@ -22,7 +22,6 @@ export class AlertLatencyTester {
     const triggerTime = performance.now();
     this.pendingTriggers.set(pedestrianId, triggerTime);
     
-    console.log(`⏱️ LATENCY TEST: Alert triggered for pedestrian ${pedestrianId} at ${triggerTime.toFixed(2)}ms`);
   }
   
   /**
@@ -35,7 +34,6 @@ export class AlertLatencyTester {
     const triggerTime = this.pendingTriggers.get(pedestrianId);
     
     if (triggerTime === undefined) {
-      console.warn(`⏱️ LATENCY TEST: No trigger recorded for pedestrian ${pedestrianId}`);
       return;
     }
     
@@ -60,11 +58,6 @@ export class AlertLatencyTester {
    * Log a single latency measurement
    */
   private logLatencyMeasurement(measurement: LatencyMeasurement): void {
-    console.log(`⏱️ LATENCY RESULT: Pedestrian ${measurement.pedestrianId}`);
-    console.log(`   Trigger Time: ${measurement.triggerTime.toFixed(2)}ms`);
-    console.log(`   Display Time: ${measurement.displayTime.toFixed(2)}ms`);
-    console.log(`   🎯 LATENCY: ${measurement.latencyMs.toFixed(2)}ms`);
-    console.log(`   Timestamp: ${measurement.timestamp}`);
   }
   
   /**
@@ -104,24 +97,15 @@ export class AlertLatencyTester {
   logSummaryStats(): void {
     const stats = this.getSummaryStats();
     
-    console.log('\n⏱️ === ALERT LATENCY SUMMARY ===');
-    console.log(`Total Measurements: ${stats.count}`);
     
     if (stats.count > 0) {
-      console.log(`Average Latency: ${stats.averageLatency.toFixed(2)}ms`);
-      console.log(`Fastest Alert: ${stats.minLatency.toFixed(2)}ms`);
-      console.log(`Slowest Alert: ${stats.maxLatency.toFixed(2)}ms`);
       
       // Show all individual measurements
-      console.log('\nAll Measurements:');
       stats.allMeasurements.forEach((measurement, index) => {
-        console.log(`  ${index + 1}. Pedestrian ${measurement.pedestrianId}: ${measurement.latencyMs.toFixed(2)}ms`);
       });
     } else {
-      console.log('No measurements recorded yet');
     }
     
-    console.log('=== END SUMMARY ===\n');
   }
   
   /**
@@ -130,7 +114,6 @@ export class AlertLatencyTester {
   reset(): void {
     this.measurements = [];
     this.pendingTriggers.clear();
-    console.log('⏱️ LATENCY TEST: Measurements reset');
   }
   
   /**
@@ -138,7 +121,6 @@ export class AlertLatencyTester {
    */
   setEnabled(enabled: boolean): void {
     this.isEnabled = enabled;
-    console.log(`⏱️ LATENCY TEST: ${enabled ? 'ENABLED' : 'DISABLED'}`);
   }
   
   /**

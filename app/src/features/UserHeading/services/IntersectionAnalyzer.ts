@@ -21,7 +21,6 @@ export class IntersectionAnalyzer {
   
   constructor(intersectionA: Intersection, intersectionB: Intersection) {
     this.intersections = { A: intersectionA, B: intersectionB };
-    console.log('🛣️ IntersectionAnalyzer initialized');
   }
   
   /**

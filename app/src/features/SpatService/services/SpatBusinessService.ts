@@ -205,7 +205,6 @@ export class SpatBusinessService {
     const maxAge = 10 * 1000; // 10 seconds
     
     if (dataAge > maxAge) {
-      console.warn(`⚠️ SPaT data is stale: ${dataAge}ms old`);
       return false;
     }
     
@@ -216,7 +215,6 @@ export class SpatBusinessService {
       spatData.phaseStatusGroupReds.length > 0;
     
     if (!hasSignalData) {
-      console.warn('⚠️ SPaT data has no signal states');
       return false;
     }
     
@@ -255,25 +253,17 @@ export class SpatBusinessService {
     lanesData: any[],
     spatData: SpatData
   ): void {
-    console.log(`🚦 === SPaT Debug: ${approachName} ===`);
-    console.log(`🚦 Lanes: ${laneIds.join(', ')}`);
-    console.log(`🚦 Intersection: ${spatData.intersection}`);
-    console.log(`🚦 Timestamp: ${spatData.timestamp} (${new Date(spatData.timestamp).toLocaleTimeString()})`);
-    console.log(`🚦 Signal Summary: ${this.getSignalSummary(spatData)}`);
     
     const laneStatuses = this.getLaneSignalStatuses(lanesData, laneIds, spatData);
     laneStatuses.forEach(status => {
-      console.log(`🚦 Lane ${status.laneId}: ${status.signalState} (Groups: ${status.signalGroups.join(', ')})`);
       if (status.timingInfo && status.timingInfo.length > 0) {
         status.timingInfo.forEach(timing => {
           if (timing.vehMaxTimeToChange > 0) {
-            console.log(`    ⏱️ Phase ${timing.phaseId}: ${timing.vehMinTimeToChange}-${timing.vehMaxTimeToChange}s to change`);
           }
         });
       }
     });
     
     const approachStatus = this.createApproachSignalStatus('debug', approachName, laneIds, lanesData, spatData);
-    console.log(`🚦 Overall: ${approachStatus.overallSignalState} (Est. ${approachStatus.estimatedTimeToChange}s to change)`);
   }
 }

@@ -82,7 +82,6 @@ export class SignalStateService {
     const maxAge = 10 * 1000; // 10 seconds
     
     if (dataAge > maxAge) {
-      console.warn(`⚠️ SPaT data is stale: ${dataAge}ms old`);
       return false;
     }
     
@@ -93,7 +92,6 @@ export class SignalStateService {
       spatData.phaseStatusGroupReds.length > 0;
     
     if (!hasSignalData) {
-      console.warn('⚠️ SPaT data has no signal states');
       return false;
     }
     

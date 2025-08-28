@@ -31,13 +31,11 @@ export class CoordinateConverter {
   ): [number, number][] {
     const [refLon, refLat] = this.convertRefPointToDecimal(refPoint);
     
-    console.log(`📍 Reference Point: [${refLon}, ${refLat}]`);
     
     return offsetCoordinates.map(([offsetLon, offsetLat]) => {
       const realLon = refLon + offsetLon;
       const realLat = refLat + offsetLat;
       
-      console.log(`📍 Offset [${offsetLon}, ${offsetLat}] → Real [${realLon}, ${realLat}]`);
       
       return [realLon, realLat]; // [longitude, latitude] for Mapbox
     });

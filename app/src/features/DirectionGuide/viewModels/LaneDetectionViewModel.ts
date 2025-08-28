@@ -70,9 +70,7 @@ export class LaneDetectionViewModel {
     try {
       // Pre-cache intersection data
       this.lanesDataCache = await MapDataService.fetchAllLanesData();
-      console.log('🛣️ Lane detection initialized with cached data');
     } catch (error) {
-      console.error('❌ Lane detection initialization failed:', error);
       throw error;
     }
   }
@@ -186,7 +184,6 @@ export class LaneDetectionViewModel {
           };
         });
         
-        console.log(`🛣️ Lane detection: ${isInAnyLane ? `Entered lanes ${detectedLanes.join(', ')}` : 'Left all lanes'}`);
         return true; // Detection changed
       }
       
@@ -197,7 +194,6 @@ export class LaneDetectionViewModel {
       
       return false; // No change in detection
     } catch (error) {
-      console.error('❌ Lane detection failed:', error);
       return false;
     }
   }

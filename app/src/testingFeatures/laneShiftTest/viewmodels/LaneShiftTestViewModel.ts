@@ -16,7 +16,6 @@ export class LaneShiftTestViewModel {
   
   constructor() {
     makeAutoObservable(this);
-    console.log('🛣️ LaneShiftTestViewModel: Created');
   }
   
   // Getters
@@ -36,7 +35,6 @@ export class LaneShiftTestViewModel {
    * Initialize the test
    */
   initializeTest = (): void => {
-    console.log('🛣️ SIMPLE LINE TEST: Initializing...');
     
     try {
       const parsedData = MAPParserService.parseTestLane();
@@ -46,14 +44,10 @@ export class LaneShiftTestViewModel {
       });
       
       if (parsedData.testStatus === 'success') {
-        console.log('✅ SIMPLE LINE TEST: Ready to draw line');
-        console.log('🛣️ Tap the Lane Test button to show the line');
       } else {
-        console.log('❌ SIMPLE LINE TEST: Failed');
       }
       
     } catch (error) {
-      console.error('❌ SIMPLE LINE TEST: Error:', error);
     }
   };
   
@@ -62,10 +56,8 @@ export class LaneShiftTestViewModel {
    */
   toggleTest = (): boolean => {
     this.isTestEnabled = !this.isTestEnabled;
-    console.log(`🛣️ SIMPLE LINE TEST: ${this.isTestEnabled ? 'SHOWING LINE' : 'HIDING LINE'}`);
     
     if (this.isTestEnabled) {
-      console.log('🛣️ Blue line should appear between:', this.laneCoordinates);
     }
     
     return this.isTestEnabled;
@@ -76,11 +68,9 @@ export class LaneShiftTestViewModel {
    */
   getLaneGeoJSON(): any | null {
     if (!this.hasValidLane || !this.selectedLane) {
-      console.log('🛣️ No lane data available for rendering');
       return null;
     }
     
-    console.log('🛣️ Getting GeoJSON for line rendering');
     return MAPParserService.getLaneAsGeoJSON(this.selectedLane);
   }
   
@@ -99,7 +89,6 @@ export class LaneShiftTestViewModel {
     const centerLon = (lon1 + lon2) / 2;
     const centerLat = (lat1 + lat2) / 2;
     
-    console.log(`🛣️ Camera center: [${centerLon.toFixed(7)}, ${centerLat.toFixed(7)}]`);
     return [centerLon, centerLat];
   }
   
@@ -115,7 +104,6 @@ export class LaneShiftTestViewModel {
   }
   
   cleanup(): void {
-    console.log('🛣️ SIMPLE LINE TEST: Cleanup');
     runInAction(() => {
       this.isTestEnabled = false;
     });

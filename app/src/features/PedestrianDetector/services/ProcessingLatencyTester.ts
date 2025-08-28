@@ -8,16 +8,12 @@ export class ProcessingLatencyTester {
   private measurements: ProcessingLatencyMetrics[] = [];
   
   constructor() {
-    console.log('⚙️ ProcessingLatencyTester initialized for TRB research');
   }
   
   /**
    * Run comprehensive processing latency test for TRB research
    */
   async runTRBProcessingLatencyTest(): Promise<void> {
-    console.log('\n🔬 === TRB RESEARCH: PROCESSING LATENCY TEST ===');
-    console.log('⚙️ Testing pedestrian detection processing times');
-    console.log('🎯 Target: Measure real-time processing capabilities');
     
     try {
       // Run multiple measurements for statistical analysis
@@ -27,7 +23,6 @@ export class ProcessingLatencyTester {
       this.generateTRBProcessingSummary();
       
     } catch (error) {
-      console.error('❌ TRB Processing Latency Test failed:', error);
     }
   }
   
@@ -35,23 +30,19 @@ export class ProcessingLatencyTester {
    * Run multiple processing measurements for statistical analysis
    */
   private async runMultipleProcessingTests(count: number): Promise<void> {
-    console.log(`\n📈 Running ${count} processing measurements...`);
     
     for (let i = 1; i <= count; i++) {
       try {
-        console.log(`\n⚙️ Processing Test ${i}/${count}`);
         
         const metrics = await this.testSingleProcessingCycle();
         this.measurements.push(metrics);
         
         // Brief pause between measurements
         if (i < count) {
-          console.log('   ⏳ Waiting 1 second...');
           await this.wait(1000);
         }
         
       } catch (error) {
-        console.warn(`⚠️ Processing test ${i} failed:`, error);
       }
     }
   }
@@ -62,7 +53,6 @@ export class ProcessingLatencyTester {
   async testSingleProcessingCycle(): Promise<ProcessingLatencyMetrics> {
     // Log SDSM data fetch operation during processing latency testing
     // Essential for measuring data retrieval time in performance analysis
-    console.log('   📡 Fetching fresh SDSM data...');
     
     try {
       // Get sample SDSM data from API
@@ -93,12 +83,10 @@ export class ProcessingLatencyTester {
         pedestrianCount: pedestrians.length
       };
       
-      console.log(`   ✅ Total processing: ${totalProcessingTime.toFixed(2)}ms (${pedestrians.length} pedestrians)`);
       
       return metrics;
       
     } catch (error) {
-      console.error('   ❌ Processing test failed:', error);
       throw error;
     }
   }
@@ -136,7 +124,6 @@ export class ProcessingLatencyTester {
     const endTime = performance.now();
     const parseTime = endTime - startTime;
     
-    console.log(`   📄 JSON Parse: ${parseTime.toFixed(2)}ms`);
     return parseTime;
   }
   
@@ -154,7 +141,6 @@ export class ProcessingLatencyTester {
     const endTime = performance.now();
     const extractionTime = endTime - startTime;
     
-    console.log(`   🔍 Data Extract: ${extractionTime.toFixed(2)}ms (${pedestrians.length} VRUs found)`);
     
     return {
       dataExtractionTime: extractionTime,
@@ -167,7 +153,6 @@ export class ProcessingLatencyTester {
    */
   private measureCrosswalkDetection(pedestrians: any[]): number {
     if (pedestrians.length === 0) {
-      console.log('   🚶 Crosswalk Check: 0.00ms (no pedestrians)');
       return 0;
     }
     
@@ -184,7 +169,6 @@ export class ProcessingLatencyTester {
     const endTime = performance.now();
     const detectionTime = endTime - startTime;
     
-    console.log(`   🚶 Crosswalk Check: ${detectionTime.toFixed(2)}ms (${pedestriansInCrosswalk}/${pedestrians.length} in crosswalk)`);
     return detectionTime;
   }
   
@@ -193,7 +177,6 @@ export class ProcessingLatencyTester {
    */
   private measureProximityDetection(pedestrians: any[]): number {
     if (pedestrians.length === 0) {
-      console.log('   📏 Proximity Check: 0.00ms (no pedestrians)');
       return 0;
     }
     
@@ -213,7 +196,6 @@ export class ProcessingLatencyTester {
     const endTime = performance.now();
     const proximityTime = endTime - startTime;
     
-    console.log(`   📏 Proximity Check: ${proximityTime.toFixed(2)}ms (${nearbyPedestrians}/${pedestrians.length} nearby)`);
     return proximityTime;
   }
   
@@ -242,50 +224,22 @@ export class ProcessingLatencyTester {
    */
   private generateTRBProcessingSummary(): void {
     if (this.measurements.length === 0) {
-      console.log('❌ No successful processing measurements for analysis');
       return;
     }
     
-    console.log('\n⚙️ === TRB PROCESSING LATENCY SUMMARY ===');
-    console.log(`📈 Total Measurements: ${this.measurements.length}`);
     
     // Calculate statistics
     const stats = this.calculateProcessingStatistics();
     
     // Log research-grade results
-    console.log('\n🎯 PROCESSING LATENCY RESULTS:');
-    console.log(`├─ Average Total Processing: ${stats.avgTotal.toFixed(2)}ms`);
-    console.log(`├─ Minimum Processing: ${stats.minTotal.toFixed(2)}ms`);
-    console.log(`├─ Maximum Processing: ${stats.maxTotal.toFixed(2)}ms`);
-    console.log(`├─ Standard Deviation: ${stats.stdDev.toFixed(2)}ms`);
-    console.log(`└─ 95th Percentile: ${stats.p95.toFixed(2)}ms`);
     
-    console.log('\n⚙️ PROCESSING BREAKDOWN:');
-    console.log(`├─ Avg JSON Parsing: ${stats.avgJsonParse.toFixed(2)}ms (${stats.jsonParsePercent.toFixed(1)}%)`);
-    console.log(`├─ Avg Data Extraction: ${stats.avgDataExtract.toFixed(2)}ms (${stats.dataExtractPercent.toFixed(1)}%)`);
-    console.log(`├─ Avg Crosswalk Detection: ${stats.avgCrosswalk.toFixed(2)}ms (${stats.crosswalkPercent.toFixed(1)}%)`);
-    console.log(`└─ Avg Proximity Detection: ${stats.avgProximity.toFixed(2)}ms (${stats.proximityPercent.toFixed(1)}%)`);
     
-    console.log('\n📊 PROCESSING EFFICIENCY:');
-    console.log(`├─ Avg Pedestrians Processed: ${stats.avgPedestrians.toFixed(1)}`);
-    console.log(`├─ Processing Rate: ${stats.processingRate.toFixed(1)} pedestrians/ms`);
-    console.log(`└─ Efficiency Score: ${stats.efficiencyScore.toFixed(2)} (lower is better)`);
     
     // Performance assessment
     this.assessProcessingPerformance(stats);
     
-    console.log('\n📝 TRB RESEARCH NOTES:');
-    console.log('├─ Processing Environment: React Native + JavaScript');
-    console.log('├─ Detection Algorithms: Point-in-polygon + distance calc');
-    // Log SDSM data format specification for research documentation
-    // Important for understanding the V2X standard compliance in performance studies
-    console.log('├─ Data Format: SDSM V2X Standard');
-    console.log('├─ Measurement Method: Performance.now() API');
-    console.log('└─ Statistical Analysis: 10 samples with 1s intervals');
+    // Removed data format log to reduce noise
     
-    console.log('\n✅ TRB Processing Latency Test Complete');
-    console.log('📄 Processing data ready for research paper analysis');
-    console.log('===============================================\n');
   }
   
   /**
@@ -330,22 +284,15 @@ export class ProcessingLatencyTester {
    * Assess processing performance for research context
    */
   private assessProcessingPerformance(stats: any): void {
-    console.log('\n🎯 PROCESSING PERFORMANCE ASSESSMENT:');
     
     if (stats.avgTotal < 10) {
-      console.log('✅ Excellent: Avg processing < 10ms (Real-time capable)');
     } else if (stats.avgTotal < 50) {
-      console.log('✅ Good: Avg processing < 50ms (Suitable for safety apps)');
     } else if (stats.avgTotal < 100) {
-      console.log('⚠️ Moderate: Avg processing < 100ms (May impact responsiveness)');
     } else {
-      console.log('❌ Poor: Avg processing > 100ms (Too slow for real-time safety)');
     }
     
     if (stats.efficiencyScore < 2) {
-      console.log('✅ Efficient: Good processing rate per pedestrian');
     } else {
-      console.log('⚠️ Inefficient: High processing time per pedestrian');
     }
   }
   
@@ -375,7 +322,6 @@ export class ProcessingLatencyTester {
    */
   clearResults(): void {
     this.measurements = [];
-    console.log('🗑️ Processing measurements cleared');
   }
   
   // ========================================

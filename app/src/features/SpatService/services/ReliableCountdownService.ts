@@ -95,7 +95,6 @@ export class ReliableCountdownService {
     const timeValue = spatData[fieldName] as number;
     
     // Log for debugging
-    console.log(`🕐 Phase ${phaseId}: MaxTimeToChange = ${timeValue}s`);
     
     return Math.max(0, timeValue || 0);
   }
@@ -121,10 +120,6 @@ export class ReliableCountdownService {
    * Log debug info for troubleshooting
    */
   static debugSignalTiming(spatData: SpatData): void {
-    console.log('🔍 SPAT TIMING DEBUG:');
-    console.log('Greens:', spatData.phaseStatusGroupGreens);
-    console.log('Reds:', spatData.phaseStatusGroupReds);
-    console.log('Yellows:', spatData.phaseStatusGroupYellows);
     
     // Log timing for active phases
     const activePhases = [
@@ -136,7 +131,6 @@ export class ReliableCountdownService {
     activePhases.forEach(phase => {
       const maxTime = spatData[`spatVehMaxTimeToChange${phase}` as keyof SpatData] as number;
       const minTime = spatData[`spatVehMinTimeToChange${phase}` as keyof SpatData] as number;
-      console.log(`Phase ${phase}: Min=${minTime}s, Max=${maxTime}s`);
     });
   }
 }

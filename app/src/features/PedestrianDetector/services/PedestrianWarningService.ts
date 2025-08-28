@@ -16,7 +16,6 @@ export class PedestrianWarningService {
    * Log a simple warning about pedestrians in the crosswalk
    */
   static logPedestrianWarning(pedestrianCount: number): void {
-    console.warn(`⚠️ WARNING: ${pedestrianCount} pedestrian(s) detected in crosswalk!`);
   }
   
   /**
@@ -28,18 +27,6 @@ export class PedestrianWarningService {
     const distanceText = alert.distanceToNearestPedestrian 
       ? `${alert.distanceToNearestPedestrian.toFixed(2)}m` 
       : 'N/A';
-    
-    console.warn(`
-      ⚠️ PEDESTRIAN ALERT
-      -------------------------------------
-      Time: ${timeString}
-      Pedestrians in crosswalk: ${alert.pedestrianCount}
-      Pedestrian IDs: ${alert.pedestrianIds.join(', ')}
-      Vehicle approaching: ${approachingText}
-      Vehicle position: [${alert.vehiclePosition[0].toFixed(6)}, ${alert.vehiclePosition[1].toFixed(6)}]
-      Distance to nearest: ${distanceText}
-      -------------------------------------
-    `);
   }
   
   /**
@@ -51,9 +38,7 @@ export class PedestrianWarningService {
     vehiclePosition: [number, number],
     pedestrianPosition: [number, number]
   ): void {
-    console.error(`
-     
-    `);
+    // Critical warning logic would go here
   }
   
   /**
@@ -115,7 +100,6 @@ export class PedestrianWarningService {
         // No warning needed
         break;
       case 'low':
-        console.log(`🚶 ${alert.pedestrianCount} pedestrian(s) in crosswalk (vehicle not approaching)`);
         break;
       case 'medium':
       case 'high':

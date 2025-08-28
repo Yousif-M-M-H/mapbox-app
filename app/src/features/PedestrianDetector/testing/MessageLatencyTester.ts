@@ -20,7 +20,6 @@ export class MessageLatencyTester {
   private metrics: MessageLatencyMetrics[] = [];
   
   constructor() {
-    console.log('⏱️ MessageLatencyTester: Initialized');
   }
   
   /**
@@ -33,10 +32,6 @@ export class MessageLatencyTester {
       this.conditionMetTimestamp = performance.now();
       this.testCounter++;
       
-      console.log(`⏱️ [Test #${this.testCounter}] CONDITIONS MET at ${this.conditionMetTimestamp.toFixed(2)}ms`);
-      console.log(`    📍 Vehicle: [${vehiclePosition[0].toFixed(6)}, ${vehiclePosition[1].toFixed(6)}]`);
-      console.log(`    🚶 Pedestrians in crosswalk: ${pedestrianCount}`);
-      console.log(`    ⏳ Waiting for UI message display...`);
     }
   }
   
@@ -60,9 +55,6 @@ export class MessageLatencyTester {
       this.metrics.push(metrics);
       this.isCurrentlyShowingMessage = true;
       
-      console.log(`⏱️ [Test #${this.testCounter}] MESSAGE DISPLAYED at ${messageDisplayedTimestamp.toFixed(2)}ms`);
-      console.log(`    🎯 LATENCY: ${latencyMs.toFixed(2)}ms`);
-      console.log(`    ✅ Alert message successfully rendered`);
       
       this.logLatencyResults(metrics);
       
@@ -77,7 +69,6 @@ export class MessageLatencyTester {
   onMessageHidden(): void {
     if (this.isCurrentlyShowingMessage) {
       this.isCurrentlyShowingMessage = false;
-      console.log(`⏱️ [Test #${this.testCounter}] MESSAGE HIDDEN - Ready for next test`);
     }
   }
   
@@ -118,18 +109,10 @@ export class MessageLatencyTester {
    * Log detailed latency results
    */
   private logLatencyResults(metrics: MessageLatencyMetrics): void {
-    console.log('\n⏱️ MESSAGE LATENCY TEST RESULTS:');
-    console.log('================================');
-    console.log(`Test ID: ${metrics.testId}`);
-    console.log(`Condition Met: ${new Date(Date.now() - performance.now() + metrics.conditionMetTime).toISOString()}`);
-    console.log(`Message Displayed: ${new Date(Date.now() - performance.now() + metrics.messageDisplayedTime).toISOString()}`);
-    console.log(`Latency: ${metrics.latencyMs.toFixed(2)}ms`);
     
     if (this.metrics.length > 1) {
       const avgLatency = this.getAverageLatency();
-      console.log(`Average Latency (${this.metrics.length} tests): ${avgLatency.toFixed(2)}ms`);
     }
-    console.log('================================\n');
   }
   
   /**
@@ -154,7 +137,6 @@ export class MessageLatencyTester {
     this.isCurrentlyShowingMessage = false;
     this.testCounter = 0;
     this.metrics = [];
-    console.log('⏱️ MessageLatencyTester: Reset complete');
   }
   
   /**
@@ -162,6 +144,5 @@ export class MessageLatencyTester {
    */
   cleanup(): void {
     this.reset();
-    console.log('⏱️ MessageLatencyTester: Cleaned up');
   }
 }

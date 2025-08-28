@@ -163,6 +163,5 @@ export class ProximityDetectionService {
     pedestrianId: number
   ): void {
     const distance = this.getDistanceInMeters(vehiclePosition, pedestrianPosition);
-    console.log(`🚗 Vehicle is ${distance.toFixed(2)}m from pedestrian ${pedestrianId}`);
   }
 }

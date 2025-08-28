@@ -1,7 +1,6 @@
 import { Alert, Platform } from 'react-native';
 
 export const showDebugAlert = (title: string, message: string) => {
-  console.log(`DEBUG ALERT - ${title}: ${message}`);
   Alert.alert(
     `DEBUG: ${title}`,
     message,
@@ -12,7 +11,6 @@ export const showDebugAlert = (title: string, message: string) => {
 
 export const checkServerConnection = async (url: string): Promise<boolean> => {
   try {
-    console.log(`Checking server connectivity at: ${url}`);
     
     // Set a timeout for the fetch request
     const controller = new AbortController();
@@ -29,10 +27,8 @@ export const checkServerConnection = async (url: string): Promise<boolean> => {
     
     clearTimeout(timeoutId);
     
-    console.log(`Server response status: ${response.status}`);
     return response.ok;
   } catch (error) {
-    console.error(`Server connection check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return false;
   }
 };

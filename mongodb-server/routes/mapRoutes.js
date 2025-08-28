@@ -40,7 +40,6 @@ router.get('/all', async (req, res) => {
       data: mapEvents
     });
   } catch (error) {
-    console.error('Error fetching map events:', error);
     return res.status(500).json({
       success: false,
       message: 'Server error',
