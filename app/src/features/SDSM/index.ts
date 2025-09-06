@@ -7,6 +7,9 @@ import { VehicleDisplayViewModel } from './viewmodels/VehicleDisplayViewModel';
 // ========================================
 // Main ViewModel (Primary Interface)
 // ========================================
+export { useVehicles } from './hooks/useVehicles';
+export { VehicleStore } from './stores/VehicleStore';
+export type { VehicleData } from './models/SDSMTypes';
 export { VehicleDisplayViewModel } from './viewmodels/VehicleDisplayViewModel';
 
 // ========================================
