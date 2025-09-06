@@ -90,6 +90,27 @@ export class PedestrianDetectorViewModel {
       this.pedestrians
     );
   }
+
+  /**
+   * Improved logic: Check if vehicle is within 20m of pedestrians that are IN crosswalk
+   * Only returns true when there are VRU pedestrians in crosswalk AND vehicle is close to them
+   */
+  get isVehicleNearPedestrianInCrosswalk(): boolean {
+    // Get pedestrians currently in crosswalk
+    const pedestriansInCrosswalk = this.getPedestriansInCrosswalk();
+    
+    if (pedestriansInCrosswalk.length === 0) {
+      return false; // No pedestrians in crosswalk
+    }
+    
+    // Check if vehicle is within 20m of ANY pedestrian that is in crosswalk
+    return pedestriansInCrosswalk.some(pedestrian => 
+      ProximityDetectionService.isVehicleCloseToPosition(
+        this._vehiclePosition,
+        pedestrian.coordinates
+      )
+    );
+  }
   
   // ========================================
   // Public API - Monitoring

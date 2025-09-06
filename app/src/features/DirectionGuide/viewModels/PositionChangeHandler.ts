@@ -28,21 +28,22 @@ export class PositionChangeHandler {
       // Step 1: Update lane detection
       const laneDetectionChanged = this.laneDetection.setVehiclePosition(position);
       
-      if (!laneDetectionChanged) {
-        return this.laneDetection.isInAnyLane; // No change, return current state
-      }
-      
       // Step 2: Check if vehicle entered or left lanes
       const isInAnyLane = this.laneDetection.isInAnyLane;
+      const wasInLane = this.spatStateManager.isMonitoring;
       
-      if (isInAnyLane) {
-        // Vehicle entered lanes - load data
+      if (isInAnyLane && !wasInLane) {
+        // Vehicle entered lanes - start monitoring immediately
         await this.handleEnteredLanes();
-      } else {
+      } else if (isInAnyLane && laneDetectionChanged) {
+        // Still in lanes but detection changed - update monitoring
+        await this.updateSpatMonitoringForCurrentLanes();
+      } else if (!isInAnyLane && wasInLane) {
         // Vehicle left lanes - clear data
         this.handleLeftLanes();
       }
       
+      // Always return current lane state (don't wait for detection change)
       return isInAnyLane;
       
     } catch (error) {
@@ -121,10 +122,24 @@ export class PositionChangeHandler {
       
       if (signalGroups.length > 0) {
         await this.spatStateManager.startMonitoring(signalGroups);
-      } else {
       }
       
     } catch (error) {
+      // SPaT monitoring failed, but continue
+    }
+  }
+  
+  /**
+   * Update SPaT monitoring when lane detection changes
+   */
+  private async updateSpatMonitoringForCurrentLanes(): Promise<void> {
+    try {
+      // Stop current monitoring and restart with new lane data
+      this.spatStateManager.stopMonitoring();
+      await this.startSpatMonitoringForCurrentLanes();
+      
+    } catch (error) {
+      // SPaT monitoring update failed, but continue
     }
   }
   

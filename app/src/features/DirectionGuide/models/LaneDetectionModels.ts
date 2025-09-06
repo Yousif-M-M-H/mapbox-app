@@ -30,7 +30,7 @@ export interface LaneGroup {
 }
 
 export const DEFAULT_LANE_DETECTION_CONFIG: LaneDetectionConfig = {
-  detectionThrottleMs: 500,
-  laneWidthThreshold: 3.5 * 0.000009, // 3.5 meters converted to coordinate units
+  detectionThrottleMs: 250, // Reduced from 500ms to 250ms for faster SPaT response
+  laneWidthThreshold: 4.0 * 0.000009, // Increased from 3.5m to 4m for earlier detection
   metersToCoordRatio: 0.000009
 };

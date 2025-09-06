@@ -4,8 +4,8 @@
 import { PedestrianErrorHandler } from '../errorHandling/PedestrianErrorHandler';
 
 export class ProximityDetectionService {
-  // Distance threshold in coordinate units (approximately 10 meters)
-  private static readonly PROXIMITY_WARNING_DISTANCE = 0.0003;
+  // Distance threshold in coordinate units (approximately 20 meters)
+  private static readonly PROXIMITY_WARNING_DISTANCE = 0.0006;
   
   /**
    * Check if vehicle is close to a specific pedestrian position

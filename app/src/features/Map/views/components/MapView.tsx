@@ -51,6 +51,13 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   // State for GPS heading (independent of camera)
   const [gpsHeading, setGpsHeading] = useState<number | null>(null);
   const [lastKnownHeading, setLastKnownHeading] = useState<number | null>(null);
+  
+  // State for smooth location tracking - initialize with user's current location
+  const [smoothedLocation, setSmoothedLocation] = useState<[number, number]>([
+    mapViewModel.userLocation.latitude, 
+    mapViewModel.userLocation.longitude
+  ]);
+  const locationHistory = useRef<Array<{coords: [number, number], timestamp: number}>>([]);
 
   // Get the active detector based on mode
   const activeDetector = isTestingMode ? testingPedestrianDetectorViewModel : pedestrianDetectorViewModel;
@@ -95,36 +102,38 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         locationSubscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.BestForNavigation,
-            distanceInterval: 1, // Update every meter
-            timeInterval: 1000 // Update every second
+            distanceInterval: 0.5, // Update every half meter for smoother tracking  
+            timeInterval: 250 // Update every 250ms to sync with lane detection throttle
           },
           (location) => {
             updateCount++;
-            const { latitude, longitude, heading } = location.coords;
+            const { latitude, longitude, heading, accuracy } = location.coords;
 
             // Capture GPS heading independently
             if (heading !== null && heading !== undefined) {
               setGpsHeading(heading);
               setLastKnownHeading(heading);
-
-              // Removed heading update logs
             }
 
-            // Removed GPS update logs
+            // Apply coordinate smoothing for better lane alignment
+            const newCoords: [number, number] = [latitude, longitude];
+            const smoothedCoords = applySmoothingFilter(newCoords, accuracy || 10);
+            
+            setSmoothedLocation(smoothedCoords);
 
-            // Update DirectionGuide with live GPS
-            directionGuideViewModel.setVehiclePosition([latitude, longitude]);
+            // Update DirectionGuide with smoothed coordinates
+            directionGuideViewModel.setVehiclePosition(smoothedCoords);
 
-            // Update other components
+            // Update other components with smoothed coordinates
             if (activeDetector && 'setVehiclePosition' in activeDetector) {
-              activeDetector.setVehiclePosition([latitude, longitude]);
+              activeDetector.setVehiclePosition(smoothedCoords);
             }
 
-            // Update map for blue marker (without heading to avoid conflicts)
+            // Update map for blue marker with smoothed coordinates
             mapViewModel.setUserLocation({
-              latitude,
-              longitude,
-              heading: undefined // Don't pass heading to avoid map-based rotation
+              latitude: smoothedCoords[0],
+              longitude: smoothedCoords[1],
+              heading: undefined
             });
           }
         );
@@ -153,10 +162,47 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 
   // Get detector data
   const pedestrians = activeDetector?.pedestrians || [];
-  const vehiclePosition = activeDetector?.vehiclePosition || [0, 0];
   const pedestriansInCrosswalk = activeDetector?.pedestriansInCrosswalk || 0;
-  const isVehicleNearPedestrian = activeDetector?.isVehicleNearPedestrian || false;
+  
+  // Improved logic: Check if vehicle is near pedestrians specifically IN crosswalk (20m range)
+  const isVehicleNearPedestrianInCrosswalk = activeDetector?.isVehicleNearPedestrianInCrosswalk || false;
   const userLocationCoordinate = mapViewModel.userLocationCoordinate;
+
+  // Coordinate smoothing function for better lane alignment
+  const applySmoothingFilter = (newCoords: [number, number], accuracy: number): [number, number] => {
+    const now = Date.now();
+    const history = locationHistory.current;
+    
+    // Add new coordinates to history
+    history.push({ coords: newCoords, timestamp: now });
+    
+    // Keep only last 5 seconds of data
+    locationHistory.current = history.filter(item => now - item.timestamp < 5000);
+    
+    // If accuracy is good (< 5 meters), use coordinates directly
+    if (accuracy < 5) {
+      return newCoords;
+    }
+    
+    // For poor accuracy, apply weighted average with recent history
+    if (locationHistory.current.length < 2) {
+      return newCoords;
+    }
+    
+    const recentHistory = locationHistory.current.slice(-3); // Last 3 points
+    let totalWeight = 0;
+    let weightedLat = 0;
+    let weightedLng = 0;
+    
+    recentHistory.forEach((point, index) => {
+      const weight = index + 1; // More recent points have higher weight
+      weightedLat += point.coords[0] * weight;
+      weightedLng += point.coords[1] * weight;
+      totalWeight += weight;
+    });
+    
+    return [weightedLat / totalWeight, weightedLng / totalWeight];
+  };
 
   // Use GPS heading (camera-independent)
   const displayHeading = gpsHeading || lastKnownHeading;
@@ -176,15 +222,15 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           ref={cameraRef}
           centerCoordinate={userLocationCoordinate}
           zoomLevel={18}
-          animationDuration={1000}
+          animationDuration={300}
         // Don't set bearing - let user control map rotation independently
         />
 
-        {/* User Location Marker with Fixed GPS Heading */}
-        {userLocationCoordinate[0] !== 0 && userLocationCoordinate[1] !== 0 && (
+        {/* User Location Marker with Fixed GPS Heading - Using smoothed coordinates */}
+        {smoothedLocation[0] !== 0 && smoothedLocation[1] !== 0 && (
           <MapboxGL.PointAnnotation
             id="vehicle-position"
-            coordinate={userLocationCoordinate}
+            coordinate={[smoothedLocation[1], smoothedLocation[0]]} // [lng, lat] for Mapbox
             anchor={{ x: 0.5, y: 0.5 }}
           >
             {displayHeading !== null ? (
@@ -361,8 +407,8 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         </View>
       )}
 
-      {/* Pedestrian warning */}
-      {pedestriansInCrosswalk > 0 && isVehicleNearPedestrian && (
+      {/* Pedestrian warning - Improved Logic */}
+      {pedestriansInCrosswalk > 0 && isVehicleNearPedestrianInCrosswalk && (
         <View style={styles.warningContainer}>
           <Text style={styles.warningText}>
             Pedestrian crossing detected!

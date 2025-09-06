@@ -3,7 +3,7 @@ import { makeAutoObservable, action, runInAction } from 'mobx';
 import { CROSSWALK_POLYGONS } from '../../../features/Crosswalk/constants/CrosswalkCoordinates';
 import { TESTING_CONFIG } from '../../TestingConfig';
 
-const TESTING_PROXIMITY_WARNING_DISTANCE = 0.0003; // ~30 meters for testing
+const TESTING_PROXIMITY_WARNING_DISTANCE = 0.0006; // ~20 meters for testing (matches main logic)
 
 export interface TestingPedestrianData {
   id: number;
@@ -49,6 +49,22 @@ export class TestingPedestrianDetectorViewModel {
 
   get isVehicleNearPedestrian(): boolean {
     return this.pedestrians.some(pedestrian =>
+      this.isVehicleCloseToPosition(pedestrian.coordinates)
+    );
+  }
+
+  get isVehicleNearPedestrianInCrosswalk(): boolean {
+    // Get pedestrians currently in crosswalk
+    const pedestriansInCrosswalk = this.pedestrians.filter(pedestrian =>
+      this.isPointInAnyCrosswalk(pedestrian.coordinates)
+    );
+    
+    if (pedestriansInCrosswalk.length === 0) {
+      return false; // No pedestrians in crosswalk
+    }
+    
+    // Check if vehicle is within range of ANY pedestrian that is in crosswalk
+    return pedestriansInCrosswalk.some(pedestrian => 
       this.isVehicleCloseToPosition(pedestrian.coordinates)
     );
   }
