@@ -4,7 +4,6 @@ import { View, StyleSheet } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import { observer } from 'mobx-react-lite';
 import { VehicleDisplayViewModel } from '../viewmodels/VehicleDisplayViewModel';
-import { SDSMLatencyTracker } from '../services/SDSMLatencyTracker';
 import Icon from '@expo/vector-icons/FontAwesome';
 
 interface OptimizedVehicleMarkersProps {
@@ -58,7 +57,6 @@ const VehicleMarker = React.memo<{
 });
 
 export const OptimizedVehicleMarkers: React.FC<OptimizedVehicleMarkersProps> = observer(({ viewModel }) => {
-  const latencyTracker = useMemo(() => SDSMLatencyTracker.getInstance(), []);
   
   // Memoize the coordinate conversion function
   const getMapboxCoordinates = useCallback((vehicle: any) => {
@@ -78,9 +76,7 @@ export const OptimizedVehicleMarkers: React.FC<OptimizedVehicleMarkersProps> = o
         <VehicleMarker
           key={vehicle.id}
           vehicle={vehicle}
-          getMapboxCoordinates={getMapboxCoordinates}
-          latencyTracker={latencyTracker}
-        />
+          getMapboxCoordinates={getMapboxCoordinates} latencyTracker={undefined}        />
       ))}
     </>
   );

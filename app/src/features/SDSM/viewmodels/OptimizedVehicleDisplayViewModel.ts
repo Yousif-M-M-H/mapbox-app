@@ -1,7 +1,6 @@
 // app/src/features/SDSM/viewmodels/OptimizedVehicleDisplayViewModel.ts
 import { makeAutoObservable, runInAction, observable, computed, action } from 'mobx';
 import { VehicleInfo } from '../models/SDSMData';
-import { SDSMLatencyTracker } from '../services/SDSMLatencyTracker';
 
 export class OptimizedVehicleDisplayViewModel {
   // Observable state with more granular observability
@@ -18,7 +17,6 @@ export class OptimizedVehicleDisplayViewModel {
   private readonly REQUEST_TIMEOUT = 1500; // Reduced timeout for faster error handling
   private lastMessageTimestamp: string | null = null;
   private vehicleMap: Map<number, VehicleInfo> = new Map();
-  private latencyTracker: SDSMLatencyTracker;
   
   // Performance optimization: batch updates
   private pendingUpdates: Set<number> = new Set();
@@ -29,7 +27,6 @@ export class OptimizedVehicleDisplayViewModel {
   
   constructor() {
     makeAutoObservable(this);
-    this.latencyTracker = SDSMLatencyTracker.getInstance();
   }
   
   @computed get vehicleCount(): number {
@@ -151,7 +148,6 @@ export class OptimizedVehicleDisplayViewModel {
       
       if (!existing) {
         // New vehicle
-        this.latencyTracker.recordObjectCreation(vehicle.id, 'vehicle');
         this.vehicleMap.set(vehicle.id, vehicle);
         this.pendingUpdates.add(vehicle.id);
         hasChanges = true;
@@ -253,6 +249,5 @@ export class OptimizedVehicleDisplayViewModel {
   
   cleanup(): void {
     this.stop();
-    this.latencyTracker.cleanup();
   }
 }

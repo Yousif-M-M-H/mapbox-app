@@ -3,7 +3,6 @@
 
 import { makeAutoObservable, runInAction } from 'mobx';
 import { PedestrianErrorHandler } from '../errorHandling/PedestrianErrorHandler';
-import { SDSMLatencyTracker } from '../../SDSM/services/SDSMLatencyTracker';
 
 export interface PedestrianData {
   id: number;
@@ -48,11 +47,9 @@ export class PedestrianDataManager {
   // State preservation
   private lastMessageTimestamp: string | null = null;
   private pedestrianMap: Map<number, PedestrianData> = new Map();
-  private latencyTracker: SDSMLatencyTracker;
   
   constructor() {
     makeAutoObservable(this);
-    this.latencyTracker = SDSMLatencyTracker.getInstance();
   }
   
   // ========================================
@@ -104,7 +101,6 @@ export class PedestrianDataManager {
       const existingPedestrian = this.pedestrianMap.get(pedestrian.id);
       if (!existingPedestrian) {
         // This is a new pedestrian, record its creation time
-        this.latencyTracker.recordObjectCreation(pedestrian.id, 'vru');
       }
       this.pedestrianMap.set(pedestrian.id, pedestrian);
     });
@@ -126,7 +122,6 @@ export class PedestrianDataManager {
       
       // Record overlay time for all current pedestrians since they are now "displayed" in the system
       this.pedestrians.forEach(pedestrian => {
-        this.latencyTracker.recordObjectOverlay(pedestrian.id, 'vru');
       });
     });
   }

@@ -18,7 +18,6 @@ export { VehicleMarkers } from './views/VehicleMarkers';
 // Services
 // ========================================
 export { SDSMService } from './services/SDSMService';
-export { SDSMFrequencyMonitor } from './services/SDSMFrequencyMonitor';
 
 // ========================================
 // Models and Types
@@ -75,27 +74,3 @@ export const testSDSMConnection = async (): Promise<boolean> => {
   }
 };
 
-/**
- * Usage Guide:
- * 
- * Basic usage in MainViewModel:
- * ```typescript
- * import { VehicleDisplayViewModel } from '@/src/features/SDSM';
- * 
- * // In constructor:
- * this.vehicleDisplayViewModel = new VehicleDisplayViewModel();
- * this.vehicleDisplayViewModel.start(); // Starts 10Hz updates
- * 
- * // In cleanup:
- * this.vehicleDisplayViewModel.cleanup();
- * ```
- * 
- * Usage in MapView component:
- * ```typescript
- * import { VehicleMarkers, VehicleStatusDisplay } from '@/src/features/SDSM';
- * 
- * // In render:
- * <VehicleMarkers viewModel={mainViewModel.vehicleDisplayViewModel} />
- * <VehicleStatusDisplay viewModel={mainViewModel.vehicleDisplayViewModel} />
- * ```
- */

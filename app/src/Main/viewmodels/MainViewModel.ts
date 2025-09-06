@@ -12,8 +12,7 @@ import { UserHeadingViewModel } from '../../features/UserHeading/viewmodels/User
 
 // Import SDSM Vehicle Display
 import { VehicleDisplayViewModel } from '../../features/SDSM/viewmodels/VehicleDisplayViewModel';
-import { SDSMLatencyTracker } from '../../features/SDSM/services/SDSMLatencyTracker';
-import { SDSMFrequencyMonitor } from '../../features/SDSM/services/SDSMFrequencyMonitor';
+
 
 export class MainViewModel {
   mapViewModel: MapViewModel;
@@ -87,13 +86,10 @@ export class MainViewModel {
    */
   private startSDSMLatencyTracking(): void {
     try {
-      const latencyTracker = SDSMLatencyTracker.getInstance();
       
       // Start automatic logging every 10 seconds
-      latencyTracker.startAutomaticLogging(10000);
       
       // Schedule detailed logging after 5 seconds from app start
-      latencyTracker.scheduleDetailedLogging();
       
       // Removed latency tracking initialization logs to reduce noise
       
@@ -107,10 +103,8 @@ export class MainViewModel {
    */
   private startSDSMFrequencyMonitoring(): void {
     try {
-      const frequencyMonitor = SDSMFrequencyMonitor.getInstance();
       
       // Start frequency monitoring with automatic analysis after 1 minute
-      frequencyMonitor.startMonitoring();
       
       // Removed frequency monitoring initialization logs to reduce noise
       
