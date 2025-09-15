@@ -16,12 +16,39 @@ export class VehicleDisplayViewModel {
   updateCount: number = 0;
   error: string | null = null;
   
+  // NEW: Traffic monitoring
+  currentTrafficLevel: 'low' | 'medium' | 'high' = 'low';
+  
   // Private properties
   private updateInterval: NodeJS.Timeout | null = null;
   private readonly API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events';
-  private readonly POLL_FREQUENCY = 50; // 50ms (20Hz) to catch all 10Hz updates
-  private readonly REQUEST_TIMEOUT = 200; // Very short timeout - we'll get fresh data soon anyway
-  private readonly MAX_CONCURRENT_REQUESTS = 2; // Allow up to 2 parallel requests
+  
+  // ADAPTIVE PARAMETERS - Change based on traffic
+  private adaptiveConfig = {
+    low: {
+      pollFrequency: 150,        // 150ms (6.7Hz) - Less aggressive than original 50ms
+      maxConcurrentRequests: 1,  // Single request stream instead of 2
+      staleThreshold: 5000,      // 5 seconds instead of 2 seconds
+      requestTimeout: 300        // 300ms timeout
+    },
+    medium: {
+      pollFrequency: 250,        // 250ms (4Hz) - More conservative
+      maxConcurrentRequests: 1,  // Still single stream
+      staleThreshold: 7000,      // 7 seconds - More patience
+      requestTimeout: 500        // 500ms timeout
+    },
+    high: {
+      pollFrequency: 500,        // 500ms (2Hz) - Much slower during heavy traffic
+      maxConcurrentRequests: 1,  // Definitely single stream
+      staleThreshold: 10000,     // 10 seconds - Very patient
+      requestTimeout: 1000       // 1 second timeout
+    }
+  };
+  
+  // Get current configuration based on traffic level
+  private get currentConfig() {
+    return this.adaptiveConfig[this.currentTrafficLevel];
+  }
   
   // Track message sequence
   private lastProcessedSequence: number = -1;
@@ -32,21 +59,24 @@ export class VehicleDisplayViewModel {
   private responseQueue: QueuedResponse[] = [];
   private processingInterval: NodeJS.Timeout | null = null;
   
-  // Track vehicles with lastSeen for stale removal
+  // Track vehicles with lastSeen for stale removal (now adaptive)
   private vehicleMap: Map<number, { vehicle: VehicleInfo, lastSeen: number }> = new Map();
-  private readonly VEHICLE_STALE_THRESHOLD = 2000; // Remove vehicles not seen for 2 seconds
   
   // Performance tracking
   private requestCounter: number = 0;
   private successfulRequests: number = 0;
   private failedRequests: number = 0;
   
+  // NEW: Traffic monitoring variables
+  private trafficHistory: number[] = [];
+  private lastTrafficCheck: number = 0;
+  
   constructor() {
     makeAutoObservable(this);
   }
   
   /**
-   * Start real-time vehicle tracking
+   * Start real-time vehicle tracking with adaptive management
    */
   start(): void {
     if (this.isActive) return;
@@ -63,34 +93,96 @@ export class VehicleDisplayViewModel {
       this.requestCounter = 0;
       this.successfulRequests = 0;
       this.failedRequests = 0;
+      this.currentTrafficLevel = 'low'; // Start conservative
+      this.trafficHistory = [];
+      this.lastTrafficCheck = 0;
     });
     
-    // Start the async pipeline
-    this.startAsyncPipeline();
+    // Start the adaptive pipeline
+    this.startAdaptivePipeline();
   }
   
   /**
-   * Start async pipeline with parallel fetching and sequential processing
+   * Start adaptive pipeline that adjusts to traffic conditions
    */
-  private startAsyncPipeline(): void {
-    // 1. Start fetching loop - fires requests without waiting
-    this.updateInterval = setInterval(() => {
-      if (this.activeRequests.size < this.MAX_CONCURRENT_REQUESTS) {
-        this.fireAsyncRequest();
-      }
-    }, this.POLL_FREQUENCY);
+  private startAdaptivePipeline(): void {
+    // 1. Start fetching loop with adaptive frequency
+    this.updateFetchingInterval();
     
-    // 2. Start processing loop - processes responses in order
+    // 2. Start processing loop - Always fast for smooth updates
     this.processingInterval = setInterval(() => {
       this.processResponseQueue();
-    }, 16); // Process at 60fps for smooth updates
+      this.updateTrafficLevel(); // Monitor traffic every processing cycle
+    }, 16); // Keep processing at 60fps for smooth updates
     
-    // Fire initial requests
+    // Fire initial request
     this.fireAsyncRequest();
   }
   
   /**
-   * Fire an async request without blocking
+   * Update fetching interval based on current traffic level
+   */
+  private updateFetchingInterval(): void {
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+    }
+    
+    const config = this.currentConfig;
+    
+    this.updateInterval = setInterval(() => {
+      if (this.activeRequests.size < config.maxConcurrentRequests) {
+        this.fireAsyncRequest();
+      }
+    }, config.pollFrequency);
+    
+    console.log(`🚦 Traffic Level: ${this.currentTrafficLevel}, Poll Rate: ${config.pollFrequency}ms, Stale Threshold: ${config.staleThreshold}ms`);
+  }
+  
+  /**
+   * Monitor traffic levels and adapt accordingly
+   */
+  private updateTrafficLevel(): void {
+    const now = Date.now();
+    
+    // Check traffic every 5 seconds
+    if (now - this.lastTrafficCheck < 5000) return;
+    this.lastTrafficCheck = now;
+    
+    const vehicleCount = this.vehicles.length;
+    
+    // Add to traffic history (keep last 6 measurements = 30 seconds)
+    this.trafficHistory.push(vehicleCount);
+    if (this.trafficHistory.length > 6) {
+      this.trafficHistory.shift();
+    }
+    
+    // Calculate average traffic over the period
+    const avgTraffic = this.trafficHistory.reduce((a, b) => a + b, 0) / this.trafficHistory.length;
+    
+    // Determine traffic level with hysteresis to prevent oscillation
+    let newTrafficLevel: 'low' | 'medium' | 'high';
+    
+    if (avgTraffic <= 3) {
+      newTrafficLevel = 'low';
+    } else if (avgTraffic <= 8) {
+      newTrafficLevel = 'medium';
+    } else {
+      newTrafficLevel = 'high';
+    }
+    
+    // Only change if it's different and update fetching rate
+    if (newTrafficLevel !== this.currentTrafficLevel) {
+      runInAction(() => {
+        this.currentTrafficLevel = newTrafficLevel;
+      });
+      
+      this.updateFetchingInterval(); // Adjust polling rate
+      console.log(`🚦 Traffic adapted: ${avgTraffic.toFixed(1)} vehicles → ${newTrafficLevel} mode`);
+    }
+  }
+  
+  /**
+   * Fire an async request with adaptive timeout
    */
   private fireAsyncRequest(): void {
     if (!this.isActive) return;
@@ -99,10 +191,12 @@ export class VehicleDisplayViewModel {
     this.activeRequests.add(controller);
     this.requestCounter++;
     
-    // Set a very short timeout - we don't want to wait long
+    const config = this.currentConfig;
+    
+    // Set adaptive timeout based on traffic level
     const timeoutId = setTimeout(() => {
       controller.abort();
-    }, this.REQUEST_TIMEOUT);
+    }, config.requestTimeout);
     
     // Fire the request without awaiting
     fetch(this.API_URL, {
@@ -131,16 +225,24 @@ export class VehicleDisplayViewModel {
       });
       this.successfulRequests++;
       
-      // Keep queue size reasonable (last 10 responses)
-      if (this.responseQueue.length > 10) {
+      // Keep queue size reasonable (last 5 responses during heavy traffic)
+      const maxQueueSize = this.currentTrafficLevel === 'high' ? 3 : 5;
+      if (this.responseQueue.length > maxQueueSize) {
         this.responseQueue.shift();
       }
     })
     .catch(error => {
-      // Silently ignore aborts and timeouts - we'll get fresh data soon
+      // Silently ignore aborts and timeouts during high traffic
       if (error.name !== 'AbortError') {
         this.failedRequests++;
-        // Don't set error state for individual failures
+        
+        // Only set error state if we're consistently failing
+        const failureRate = this.failedRequests / (this.requestCounter || 1);
+        if (failureRate > 0.7 && this.requestCounter > 10) {
+          runInAction(() => {
+            this.error = `High failure rate during ${this.currentTrafficLevel} traffic`;
+          });
+        }
       }
     })
     .finally(() => {
@@ -174,7 +276,7 @@ export class VehicleDisplayViewModel {
       }
     }
     
-    // Always clean up stale vehicles
+    // Always clean up stale vehicles with adaptive threshold
     this.removeStaleVehicles();
   }
   
@@ -295,14 +397,15 @@ export class VehicleDisplayViewModel {
   }
   
   /**
-   * Remove vehicles that haven't been seen recently
+   * Remove vehicles that haven't been seen recently (adaptive threshold)
    */
   private removeStaleVehicles(): void {
     const now = Date.now();
+    const config = this.currentConfig;
     const vehiclesToRemove: number[] = [];
     
     this.vehicleMap.forEach((value, id) => {
-      if (now - value.lastSeen > this.VEHICLE_STALE_THRESHOLD) {
+      if (now - value.lastSeen > config.staleThreshold) {
         vehiclesToRemove.push(id);
       }
     });
@@ -316,6 +419,11 @@ export class VehicleDisplayViewModel {
       runInAction(() => {
         this.vehicles = Array.from(this.vehicleMap.values()).map(v => v.vehicle);
       });
+      
+      // Optional: Log vehicle removal (can be commented out in production)
+      if (this.currentTrafficLevel === 'high' && vehiclesToRemove.length > 3) {
+        console.log(`🗑️ Removed ${vehiclesToRemove.length} stale vehicles (${config.staleThreshold}ms threshold, ${this.currentTrafficLevel} traffic)`);
+      }
     }
   }
   
@@ -377,10 +485,15 @@ export class VehicleDisplayViewModel {
   }
   
   /**
-   * Get performance metrics
+   * Get performance metrics including traffic info
    */
   get performanceMetrics() {
+    const config = this.currentConfig;
     return {
+      trafficLevel: this.currentTrafficLevel,
+      pollFrequency: config.pollFrequency,
+      staleThreshold: config.staleThreshold,
+      requestTimeout: config.requestTimeout,
       activeRequests: this.activeRequests.size,
       queuedResponses: this.responseQueue.length,
       totalRequests: this.requestCounter,
@@ -388,8 +501,36 @@ export class VehicleDisplayViewModel {
       failedRequests: this.failedRequests,
       successRate: this.requestCounter > 0 
         ? (this.successfulRequests / this.requestCounter * 100).toFixed(1) + '%'
-        : '0%'
+        : '0%',
+      avgTraffic: this.trafficHistory.length > 0
+        ? (this.trafficHistory.reduce((a, b) => a + b, 0) / this.trafficHistory.length).toFixed(1)
+        : '0'
     };
+  }
+  
+  /**
+   * Get current adaptive configuration (for debugging)
+   */
+  get currentAdaptiveConfig() {
+    return {
+      level: this.currentTrafficLevel,
+      config: this.currentConfig,
+      vehicleCount: this.vehicles.length,
+      trafficHistory: this.trafficHistory
+    };
+  }
+  
+  /**
+   * Manual traffic level override (for testing)
+   */
+  setTrafficLevel(level: 'low' | 'medium' | 'high'): void {
+    if (level !== this.currentTrafficLevel) {
+      runInAction(() => {
+        this.currentTrafficLevel = level;
+      });
+      this.updateFetchingInterval();
+      console.log(`🚦 Manual traffic override: ${level} mode`);
+    }
   }
   
   /**
