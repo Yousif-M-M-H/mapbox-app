@@ -217,16 +217,20 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         attributionEnabled={false}
         compassEnabled={false}
         rotateEnabled={true} // Allow map rotation but don't affect heading
+        scrollEnabled={true} // Enable panning/scrolling
+        pitchEnabled={true} // Enable pitch/tilt
+        zoomEnabled={true} // Enable zoom gestures
       >
         <MapboxGL.Camera
           ref={cameraRef}
-          centerCoordinate={userLocationCoordinate}
+          centerCoordinate={[-85.3082840, 35.0457770]} // Fixed center at MLK intersection
           zoomLevel={18}
           animationDuration={300}
-        // Don't set bearing - let user control map rotation independently
+        // Camera is now decoupled from user location - free to move around
         />
 
-        {/* User Location Marker with Fixed GPS Heading - Using smoothed coordinates */}
+        {/* User Location Marker with Fixed GPS Heading - Independent of Camera Position */}
+        {/* This marker shows the user's actual location but doesn't control the camera */}
         {smoothedLocation[0] !== 0 && smoothedLocation[1] !== 0 && (
           <MapboxGL.PointAnnotation
             id="vehicle-position"
