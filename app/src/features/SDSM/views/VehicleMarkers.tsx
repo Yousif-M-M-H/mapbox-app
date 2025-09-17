@@ -1,58 +1,18 @@
 // app/src/features/SDSM/views/VehicleMarkers.tsx
-import React, { useEffect } from 'react';
+
+import React, { memo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import { observer } from 'mobx-react-lite';
 import { VehicleDisplayViewModel } from '../viewmodels/VehicleDisplayViewModel';
-import Icon from '@expo/vector-icons/FontAwesome'; 
+import Icon from '@expo/vector-icons/FontAwesome';
 
 interface VehicleMarkersProps {
   viewModel: VehicleDisplayViewModel;
 }
 
-export const VehicleMarkers: React.FC<VehicleMarkersProps> = observer(({ viewModel }) => {
-
-  // Track when vehicles are overlaid in the UI
-  useEffect(() => {
-    if (viewModel?.isActive && viewModel.vehicles.length > 0) {
-      viewModel.vehicles.forEach(vehicle => {
-      });
-    }
-  }, );
-
-  if (!viewModel?.isActive || viewModel.vehicles.length === 0) {
-    return null;
-  }
-
-  return (
-    <>
-      {viewModel.vehicles.map((vehicle) => {
-        const mapboxCoords = viewModel.getMapboxCoordinates(vehicle);
-
-        if (!mapboxCoords || mapboxCoords[0] === 0 || mapboxCoords[1] === 0) {
-          return null;
-        }
-
-        return (
-          <MapboxGL.PointAnnotation
-            key={`sdsm-vehicle-${vehicle.id}`}
-            id={`sdsm-vehicle-${vehicle.id}`}
-            coordinate={mapboxCoords}
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
-            <VehicleIcon heading={vehicle.heading} />
-          </MapboxGL.PointAnnotation>
-        );
-      })}
-    </>
-  );
-});
-
-interface VehicleIconProps {
-  heading?: number;
-}
-
-const VehicleIcon: React.FC<VehicleIconProps> = ({ heading }) => {
+// Memoized vehicle icon to prevent re-renders
+const VehicleIcon = memo<{ heading?: number }>(({ heading }) => {
   const rotationStyle = heading !== undefined ? {
     transform: [{ rotate: `${heading}deg` }]
   } : {};
@@ -62,7 +22,52 @@ const VehicleIcon: React.FC<VehicleIconProps> = ({ heading }) => {
       <Icon name="car" size={20} color="#2563EB" />
     </View>
   );
-};
+});
+
+// Memoized individual vehicle marker
+const VehicleMarker = memo<{
+  vehicle: any;
+  mapboxCoords: [number, number];
+}>(({ vehicle, mapboxCoords }) => {
+  return (
+    <MapboxGL.PointAnnotation
+      key={`sdsm-vehicle-${vehicle.id}`}
+      id={`sdsm-vehicle-${vehicle.id}`}
+      coordinate={mapboxCoords}
+      anchor={{ x: 0.5, y: 0.5 }}
+    >
+      <VehicleIcon heading={vehicle.heading} />
+    </MapboxGL.PointAnnotation>
+  );
+});
+
+export const VehicleMarkers: React.FC<VehicleMarkersProps> = observer(({ viewModel }) => {
+  // Early return if not active or no vehicles
+  if (!viewModel?.isActive || viewModel.vehicles.length === 0) {
+    return null;
+  }
+
+  return (
+    <>
+      {viewModel.vehicles.map((vehicle) => {
+        const mapboxCoords = viewModel.getMapboxCoordinates(vehicle);
+        
+        // Skip invalid coordinates
+        if (!mapboxCoords || mapboxCoords[0] === 0 || mapboxCoords[1] === 0) {
+          return null;
+        }
+
+        return (
+          <VehicleMarker
+            key={vehicle.id}
+            vehicle={vehicle}
+            mapboxCoords={mapboxCoords}
+          />
+        );
+      })}
+    </>
+  );
+});
 
 const styles = StyleSheet.create({
   iconWrapper: {

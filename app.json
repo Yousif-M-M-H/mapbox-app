@@ -17,7 +17,9 @@
       "expo-sqlite"
     ],
     "assetBundlePatterns": [
-      "assets/database/*"
+      "assets/database/*",
+      "assets/data/*"
+
     ],
     "extra": {
       "eas": {

@@ -7,8 +7,6 @@ import { TestingPedestrianDetectorViewModel } from '../../testingFeatures/testin
 import { DirectionGuideViewModel } from '../../features/DirectionGuide/viewModels/DirectionGuideViewModel';
 import { TESTING_CONFIG } from '../../testingFeatures/TestingConfig';
 
-// Import User Heading Feature
-import { UserHeadingViewModel } from '../../features/UserHeading/viewmodels/UserHeadingViewModel';
 
 // Import SDSM Vehicle Display
 import { VehicleDisplayViewModel } from '../../features/SDSM/viewmodels/VehicleDisplayViewModel';
@@ -19,18 +17,14 @@ export class MainViewModel {
   pedestrianDetectorViewModel: PedestrianDetectorViewModel | null = null;
   testingPedestrianDetectorViewModel: TestingPedestrianDetectorViewModel | null = null;
   directionGuideViewModel: DirectionGuideViewModel;
-  userHeadingViewModel: UserHeadingViewModel; // User heading feature
   vehicleDisplayViewModel: VehicleDisplayViewModel; // SDSM vehicle display
   
   isTestingMode: boolean = TESTING_CONFIG.USE_TESTING_MODE;
   isVehicleTestingEnabled: boolean = TESTING_CONFIG.USE_VEHICLE_TESTING_FEATURE;
   
   constructor() {
-    
     this.mapViewModel = new MapViewModel();
     
-    // Initialize user heading feature first
-    this.userHeadingViewModel = new UserHeadingViewModel();
     
     // Initialize SDSM vehicle display
     this.vehicleDisplayViewModel = new VehicleDisplayViewModel();
@@ -44,14 +38,11 @@ export class MainViewModel {
     
     this.directionGuideViewModel = new DirectionGuideViewModel();
     
-
     makeAutoObservable(this);
     
     // Start pedestrian monitoring
     this.startPedestrianMonitoring();
     
-    // Start user heading tracking
-    this.startUserHeadingTracking();
     
     // Start SDSM vehicle display
     this.vehicleDisplayViewModel.start();
@@ -74,6 +65,7 @@ export class MainViewModel {
         this.pedestrianDetectorViewModel.startMonitoring();
       }
     } catch (error) {
+      // Suppressed to reduce noise
     }
   }
   
@@ -86,13 +78,9 @@ export class MainViewModel {
    */
   private startSDSMLatencyTracking(): void {
     try {
-      
       // Start automatic logging every 10 seconds
-      
       // Schedule detailed logging after 5 seconds from app start
-      
       // Removed latency tracking initialization logs to reduce noise
-      
     } catch (error) {
       // Keep error logs for debugging critical issues
     }
@@ -103,11 +91,8 @@ export class MainViewModel {
    */
   private startSDSMFrequencyMonitoring(): void {
     try {
-      
       // Start frequency monitoring with automatic analysis after 1 minute
-      
       // Removed frequency monitoring initialization logs to reduce noise
-      
     } catch (error) {
       // Keep error logs for debugging critical issues
     }
@@ -126,18 +111,18 @@ export class MainViewModel {
     }
     
     try {
-      
       // Monitor test completion
       const checkTestCompletion = setInterval(() => {
         if (this.testingPedestrianDetectorViewModel?.hasCompletedDetectionLatencyTest()) {
           const result = this.testingPedestrianDetectorViewModel.getDetectionLatencyResult();
           if (result !== null) {
+            // Could be logged or processed further
           }
           clearInterval(checkTestCompletion);
         }
       }, 1000);
-      
     } catch (error) {
+      // Suppressed to reduce noise
     }
   }
   
@@ -161,71 +146,6 @@ export class MainViewModel {
     return false;
   }
   
-  // ========================================
-  // User Heading Management
-  // ========================================
-  
-  /**
-   * Start user heading tracking with error handling
-   */
-  private async startUserHeadingTracking(): Promise<void> {
-    try {
-      
-      // Add a small delay to ensure proper initialization
-      setTimeout(async () => {
-        try {
-          await this.userHeadingViewModel.startTracking();
-        } catch (error) {
-        }
-      }, 1000);
-      
-    } catch (error) {
-    }
-  }
-  
-  /**
-   * Get current user heading in degrees (with null safety)
-   */
-  get userHeading(): number | null {
-    try {
-      return this.userHeadingViewModel?.magneticHeading || null;
-    } catch (error) {
-      return null;
-    }
-  }
-  
-  /**
-   * Get current user direction as string (with null safety)
-   */
-  get userDirection(): string {
-    try {
-      return this.userHeadingViewModel?.compassDirection || 'Unknown';
-    } catch (error) {
-      return 'Unknown';
-    }
-  }
-  
-  /**
-   * Get formatted heading display string (with null safety)
-   */
-  get formattedUserHeading(): string {
-    try {
-      return this.userHeadingViewModel?.formattedHeading || 'No heading data';
-    } catch (error) {
-      return 'Heading unavailable';
-    }
-  }
-  
-  /**
-   * Check if user heading is available (with null safety)
-   */
-  get hasUserHeading(): boolean {
-    try {
-      return this.userHeadingViewModel?.hasHeading || false;
-    } catch (error) {
-      return false;
-    }
-  }
   
   // ========================================
   // Existing Methods (unchanged)
@@ -274,8 +194,6 @@ export class MainViewModel {
     return this.getPedestriansCrossingCount();
   }
   
-
-  
   async checkForPedestrians(): Promise<number> {
     const activeDetector = this.activePedestrianDetector;
     if (!activeDetector) return 0;
@@ -291,17 +209,13 @@ export class MainViewModel {
   }
   
   cleanup() {
-    // Stop user heading tracking
-    try {
-      this.userHeadingViewModel?.cleanup();
-    } catch (error) {
-    }
     
     // Stop SDSM vehicle display
     try {
       this.vehicleDisplayViewModel?.cleanup();
       // Removed cleanup log to reduce noise
     } catch (error) {
+      // Suppressed to reduce noise
     }
     
     if (this.isTestingMode && this.testingPedestrianDetectorViewModel) {
@@ -309,7 +223,6 @@ export class MainViewModel {
     } else if (!this.isTestingMode && this.pedestrianDetectorViewModel) {
       this.pedestrianDetectorViewModel.cleanup();
     }
-    
     
     if (this.mapViewModel && this.mapViewModel.cleanup) {
       this.mapViewModel.cleanup();

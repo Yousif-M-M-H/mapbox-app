@@ -212,7 +212,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       <MapboxGL.MapView
         ref={mapRef}
         style={styles.map}
-        styleURL="mapbox://styles/mapbox/streets-v12"
+        styleURL="mapbox://styles/mapbox/outdoors-v12"
         logoEnabled={false}
         attributionEnabled={false}
         compassEnabled={false}
@@ -223,10 +223,10 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       >
         <MapboxGL.Camera
           ref={cameraRef}
-          centerCoordinate={[-85.3082840, 35.0457770]} // Fixed center at MLK intersection
+          centerCoordinate={[-85.3082840, 35.0457770]}
           zoomLevel={18}
           animationDuration={300}
-        // Camera is now decoupled from user location - free to move around
+  
         />
 
         {/* User Location Marker with Fixed GPS Heading - Independent of Camera Position */}
@@ -543,3 +543,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
