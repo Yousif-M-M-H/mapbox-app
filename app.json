@@ -14,7 +14,8 @@
           "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-router"
     ],
     "assetBundlePatterns": [
       "assets/database/*"
