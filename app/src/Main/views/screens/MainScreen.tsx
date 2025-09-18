@@ -17,14 +17,15 @@ export const MainScreen: React.FC<MainScreenProps> = observer(({ viewModel }) =>
 
   return (
     <View style={styles.container}>
-      <MapViewComponent 
+      <MapViewComponent
         mapViewModel={viewModel.mapViewModel}
         pedestrianDetectorViewModel={viewModel.pedestrianDetectorViewModel}
         testingPedestrianDetectorViewModel={viewModel.testingPedestrianDetectorViewModel}
-        testingVehicleDisplayViewModel={viewModel.testingVehicleDisplayViewModel}
+        testingVehicleDisplayViewModel={viewModel.vehicleDisplayViewModel}
         directionGuideViewModel={viewModel.directionGuideViewModel}
         isTestingMode={viewModel.isTestingMode}
         mainViewModel={viewModel}
+        lanesViewModel={viewModel.lanesViewModel}
       />
     </View>
   );
@@ -35,3 +36,5 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
+

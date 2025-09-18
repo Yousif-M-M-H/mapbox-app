@@ -1,4 +1,5 @@
 // app/src/Main/viewmodels/MainViewModel.ts
+
 import { makeAutoObservable } from 'mobx';
 import { Coordinate } from '../../features/Map/models/Location';
 import { MapViewModel } from '../../features/Map/viewmodels/MapViewModel';
@@ -7,10 +8,12 @@ import { TestingPedestrianDetectorViewModel } from '../../testingFeatures/testin
 import { DirectionGuideViewModel } from '../../features/DirectionGuide/viewModels/DirectionGuideViewModel';
 import { TESTING_CONFIG } from '../../testingFeatures/TestingConfig';
 
-
 // Import SDSM Vehicle Display
 import { VehicleDisplayViewModel } from '../../features/SDSM/viewmodels/VehicleDisplayViewModel';
 
+// ADD THIS IMPORT:
+import { ClosestIntersectionViewModel, LocationWithHeading } from '../../features/ClosestIntersection';
+import { LanesViewModel } from '../../features/Lanes';
 
 export class MainViewModel {
   mapViewModel: MapViewModel;
@@ -19,15 +22,22 @@ export class MainViewModel {
   directionGuideViewModel: DirectionGuideViewModel;
   vehicleDisplayViewModel: VehicleDisplayViewModel; // SDSM vehicle display
   
+  // ADD THIS PROPERTY:
+  closestIntersectionViewModel: ClosestIntersectionViewModel;
+  lanesViewModel: LanesViewModel;
+  
   isTestingMode: boolean = TESTING_CONFIG.USE_TESTING_MODE;
   isVehicleTestingEnabled: boolean = TESTING_CONFIG.USE_VEHICLE_TESTING_FEATURE;
   
   constructor() {
     this.mapViewModel = new MapViewModel();
     
-    
     // Initialize SDSM vehicle display
     this.vehicleDisplayViewModel = new VehicleDisplayViewModel();
+    
+    // ADD THIS INITIALIZATION:
+    this.closestIntersectionViewModel = new ClosestIntersectionViewModel();
+    this.lanesViewModel = new LanesViewModel();
     
     // Create appropriate pedestrian detector based on testing mode
     if (TESTING_CONFIG.USE_TESTING_MODE) {
@@ -43,7 +53,6 @@ export class MainViewModel {
     // Start pedestrian monitoring
     this.startPedestrianMonitoring();
     
-    
     // Start SDSM vehicle display
     this.vehicleDisplayViewModel.start();
     
@@ -55,6 +64,9 @@ export class MainViewModel {
     
     // Start Detection Latency Test if in testing mode
     this.startDetectionLatencyTest();
+    
+    // ADD THIS LINE:
+    this.startClosestIntersectionMonitoring();
   }
   
   private startPedestrianMonitoring(): void {
@@ -67,6 +79,35 @@ export class MainViewModel {
     } catch (error) {
       // Suppressed to reduce noise
     }
+  }
+  
+  // ========================================
+  // ADD THIS NEW METHOD:
+  // ========================================
+  
+  /**
+   * Start monitoring closest intersections
+   */
+  private startClosestIntersectionMonitoring(): void {
+    // Create a function that returns current user location with heading
+    const getUserLocation = (): LocationWithHeading => {
+      return {
+        coordinates: [this.userLocation.latitude, this.userLocation.longitude],
+        heading: this.mapViewModel.getUserHeading()
+      };
+    };
+    
+    // Start monitoring when we have a valid location
+    const startWhenReady = () => {
+      if (this.userLocation.latitude !== 0 && this.userLocation.longitude !== 0) {
+        this.closestIntersectionViewModel.startMonitoring(getUserLocation);
+      } else {
+        // Wait for location to be available, check every 2 seconds
+        setTimeout(startWhenReady, 2000);
+      }
+    };
+    
+    startWhenReady();
   }
   
   // ========================================
@@ -146,7 +187,6 @@ export class MainViewModel {
     return false;
   }
   
-  
   // ========================================
   // Existing Methods (unchanged)
   // ========================================
@@ -209,7 +249,6 @@ export class MainViewModel {
   }
   
   cleanup() {
-    
     // Stop SDSM vehicle display
     try {
       this.vehicleDisplayViewModel?.cleanup();
@@ -217,6 +256,9 @@ export class MainViewModel {
     } catch (error) {
       // Suppressed to reduce noise
     }
+    
+    // ADD THIS CLEANUP:
+    this.closestIntersectionViewModel.cleanup();
     
     if (this.isTestingMode && this.testingPedestrianDetectorViewModel) {
       this.testingPedestrianDetectorViewModel.cleanup();

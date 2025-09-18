@@ -1,3 +1,5 @@
+import { SDSMResponse, VehicleData } from "../models/SDSMTypes";
+
 // Pure functions for data transformation - no state
 export class VehicleDataService {
   static extractVehicles(response: SDSMResponse): VehicleData[] {

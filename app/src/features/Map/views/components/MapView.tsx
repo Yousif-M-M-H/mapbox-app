@@ -544,3 +544,8 @@ const styles = StyleSheet.create({
   },
 });
 
+
+
+
+// the second intersection is called lindsay intersection: 
+// -85.30692185020237 , 35.04525079129405
