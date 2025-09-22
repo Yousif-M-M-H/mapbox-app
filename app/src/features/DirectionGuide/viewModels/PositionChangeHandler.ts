@@ -2,7 +2,6 @@
 
 import { LaneDetectionViewModel } from './LaneDetectionViewModel';
 import { TurnDataManager } from './TurnDataManager';
-import { SpatStateManager } from './SpatStateManager';
 
 /**
  * Handles the workflow when vehicle position changes
@@ -11,8 +10,7 @@ import { SpatStateManager } from './SpatStateManager';
 export class PositionChangeHandler {
   constructor(
     private laneDetection: LaneDetectionViewModel,
-    private turnDataManager: TurnDataManager,
-    private spatStateManager: SpatStateManager
+    private turnDataManager: TurnDataManager
   ) {}
   
   // ========================================
@@ -27,25 +25,21 @@ export class PositionChangeHandler {
     try {
       // Step 1: Update lane detection
       const laneDetectionChanged = this.laneDetection.setVehiclePosition(position);
-      
+
       // Step 2: Check if vehicle entered or left lanes
       const isInAnyLane = this.laneDetection.isInAnyLane;
-      const wasInLane = this.spatStateManager.isMonitoring;
-      
-      if (isInAnyLane && !wasInLane) {
-        // Vehicle entered lanes - start monitoring immediately
-        await this.handleEnteredLanes();
-      } else if (isInAnyLane && laneDetectionChanged) {
-        // Still in lanes but detection changed - update monitoring
-        await this.updateSpatMonitoringForCurrentLanes();
-      } else if (!isInAnyLane && wasInLane) {
+
+      if (isInAnyLane && laneDetectionChanged) {
+        // Vehicle entered lanes or detection changed - load turn data
+        await this.loadTurnDataForCurrentLanes();
+      } else if (!isInAnyLane) {
         // Vehicle left lanes - clear data
         this.handleLeftLanes();
       }
-      
-      // Always return current lane state (don't wait for detection change)
+
+      // Always return current lane state
       return isInAnyLane;
-      
+
     } catch (error) {
       return false;
     }
@@ -78,25 +72,11 @@ export class PositionChangeHandler {
   // ========================================
   
   /**
-   * Handle when vehicle enters lanes
-   */
-  private async handleEnteredLanes(): Promise<void> {
-    
-    // Load turn data and start SPaT monitoring in parallel
-    await Promise.all([
-      this.loadTurnDataForCurrentLanes(),
-      this.startSpatMonitoringForCurrentLanes()
-    ]);
-  }
-  
-  /**
    * Handle when vehicle leaves lanes
    */
   private handleLeftLanes(): void {
-    
-    // Clear turn data and stop SPaT monitoring
+    // Clear turn data only
     this.turnDataManager.clearTurnData();
-    this.spatStateManager.stopMonitoring();
   }
   
   /**
@@ -113,35 +93,6 @@ export class PositionChangeHandler {
     }
   }
   
-  /**
-   * Start SPaT monitoring for currently detected lanes
-   */
-  private async startSpatMonitoringForCurrentLanes(): Promise<void> {
-    try {
-      const signalGroups = this.laneDetection.getSignalGroups();
-      
-      if (signalGroups.length > 0) {
-        await this.spatStateManager.startMonitoring(signalGroups);
-      }
-      
-    } catch (error) {
-      // SPaT monitoring failed, but continue
-    }
-  }
-  
-  /**
-   * Update SPaT monitoring when lane detection changes
-   */
-  private async updateSpatMonitoringForCurrentLanes(): Promise<void> {
-    try {
-      // Stop current monitoring and restart with new lane data
-      this.spatStateManager.stopMonitoring();
-      await this.startSpatMonitoringForCurrentLanes();
-      
-    } catch (error) {
-      // SPaT monitoring update failed, but continue
-    }
-  }
   
   /**
    * Cleanup resources

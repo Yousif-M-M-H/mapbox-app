@@ -4,11 +4,8 @@ import { makeAutoObservable, runInAction } from 'mobx';
 import { LaneDetectionViewModel } from './LaneDetectionViewModel';
 import { VehiclePositionViewModel } from './VehiclePositionViewModel';
 import { TurnDataManager } from './TurnDataManager';
-import { SpatStateManager } from './SpatStateManager';
 import { PositionChangeHandler } from './PositionChangeHandler';
-import { ProcessedIntersectionData } from '../models/IntersectionData';
 import { AllowedTurn } from '../models/DirectionTypes';
-import { SignalState } from '../../SpatService/models/SpatModels';
 
 /**
  * Main DirectionGuide ViewModel - Pure orchestration and state exposure
@@ -24,7 +21,6 @@ export class DirectionGuideViewModel {
   private laneDetectionViewModel!: LaneDetectionViewModel;
   private vehiclePositionViewModel!: VehiclePositionViewModel;
   private turnDataManager!: TurnDataManager;
-  private spatStateManager!: SpatStateManager;
   private positionChangeHandler!: PositionChangeHandler;
 
   // Subscription cleanup
@@ -79,9 +75,6 @@ export class DirectionGuideViewModel {
   // Public API - Turn Information
   // ========================================
 
-  get intersectionData(): ProcessedIntersectionData | null {
-    return this.turnDataManager.intersectionData;
-  }
 
   get allowedTurns(): AllowedTurn[] {
     return this.turnDataManager.allowedTurns;
@@ -99,55 +92,6 @@ export class DirectionGuideViewModel {
     return this.turnDataManager.isTurnAllowed(turnType);
   }
 
-  // ========================================
-  // Public API - SPaT Information
-  // ========================================
-
-  get hasSpatData(): boolean {
-    return this.spatStateManager.hasSpatData;
-  }
-
-  get spatStatus(): { state: SignalState; signalGroups: number[] } {
-    return this.spatStateManager.spatStatus;
-  }
-
-  get spatSignalState(): SignalState {
-    return this.spatStateManager.signalState;
-  }
-
-  get spatSignalGroups(): number[] {
-    return this.spatStateManager.signalGroups;
-  }
-
-  get spatLastUpdate(): number {
-    return this.spatStateManager.lastUpdate;
-  }
-
-  get spatDataAge(): number {
-    return this.spatStateManager.dataAge;
-  }
-
-  get isSpatDataStale(): boolean {
-    return this.spatStateManager.isDataStale;
-  }
-
-  get spatMonitoringActive(): boolean {
-    return this.spatStateManager.isMonitoring;
-  }
-
-  get spatUpdateError(): string | null {
-    return this.spatStateManager.updateError;
-  }
-
-  // Add this method to the existing DirectionGuideViewModel class in the "Public API - SPaT Information" section:
-  /**
-   * Get SPaT countdown timing - NEW
-   */
-  get spatCountdown() {
-    return this.spatStateManager.countdown;
-  }
-
-  // This single line addition exposes the countdown to the UI components
 
   // ========================================
   // Public API - Actions
@@ -201,7 +145,6 @@ export class DirectionGuideViewModel {
     this.laneDetectionViewModel.cleanup();
     this.vehiclePositionViewModel.cleanup();
     this.turnDataManager.cleanup();
-    this.spatStateManager.cleanup();
     this.positionChangeHandler.cleanup();
 
     runInAction(() => {
@@ -222,13 +165,11 @@ export class DirectionGuideViewModel {
     this.laneDetectionViewModel = new LaneDetectionViewModel();
     this.vehiclePositionViewModel = new VehiclePositionViewModel();
     this.turnDataManager = new TurnDataManager();
-    this.spatStateManager = new SpatStateManager();
 
     // Position change handler coordinates the other managers
     this.positionChangeHandler = new PositionChangeHandler(
       this.laneDetectionViewModel,
-      this.turnDataManager,
-      this.spatStateManager
+      this.turnDataManager
     );
   }
 

@@ -11,45 +11,89 @@ export const DEFAULT_LANE_STYLE: LaneStyle = {
   lineJoin: 'round'
 };
 
-// Lane coordinate data extracted from MapView
-export const LANE_COORDINATES = {
-  LANE_4: [
-    [-85.3082228825378, 35.045758400746536],
-    [-85.30808198885602, 35.045705490572416]
-  ] as [number, number][],
-
-  LANE_5: [
-    [-85.30823278205297, 35.045747747854335],
-    [-85.30808944380614, 35.04569249636451]
-  ] as [number, number][],
-
-  LANE_6: [
-    [-85.30823869222141, 35.04573090520772],
-    [-85.30809488188754, 35.045682489370606]
-  ] as [number, number][]
-};
 
 // Predefined lanes configuration
 export const INTERSECTION_LANES: Lane[] = [
   {
-    id: 'lane-4',
-    name: 'Lane 4',
-    coordinates: LANE_COORDINATES.LANE_4,
-    visible: true
+    "laneID": 4,
+    "laneAttributes": {
+      "directionalUse": [2, 2],
+      "sharedWith": [0, 10],
+      "laneType": ["vehicle", [0, 8]]
+    },
+    "maneuvers": [0, 12],
+    "geometry": {
+      "type": "LineString",
+      "coordinates": [
+        [-85.3082228825378, 35.045758400746536],
+        [-85.30808198885602, 35.045705490572416]
+      ]
+    },
+    "connectsTo": [
+      {
+        "connectingLane": { "lane": 14 },
+        "signalGroup": 4
+      }
+    ]
   },
   {
-    id: 'lane-5',
-    name: 'Lane 5',
-    coordinates: LANE_COORDINATES.LANE_5,
-    visible: true
+    "laneID": 5,
+    "laneAttributes": {
+      "directionalUse": [2, 2],
+      "sharedWith": [0, 10],
+      "laneType": ["vehicle", [0, 8]]
+    },
+    "maneuvers": [0, 12],
+    "geometry": {
+      "type": "LineString",
+      "coordinates": [
+        [-85.30823278205297, 35.045747747854335],
+        [-85.30808944380614, 35.04569249636451]
+      ]
+    },
+    "connectsTo": [
+      {
+        "connectingLane": { "lane": 13 },
+        "signalGroup": 2
+      },
+      {
+        "connectingLane": { "lane": 9 },
+        "signalGroup": 2
+      }
+    ]
   },
   {
-    id: 'lane-6',
-    name: 'Lane 6',
-    coordinates: LANE_COORDINATES.LANE_6,
-    visible: true
+    "laneID": 8,
+    "laneAttributes": {
+      "directionalUse": [2, 2],
+      "sharedWith": [0, 10],
+      "laneType": ["vehicle", [0, 8]]
+    },
+    "maneuvers": [0, 12],
+    "geometry": {
+      "type": "LineString",
+      "coordinates": [
+        [-85.3083182, 35.0456629],
+        [-85.3086953, 35.0449801]
+      ]
+    },
+    "connectsTo": [
+      {
+        "connectingLane": { "lane": 7 },
+        "signalGroup": 4
+      },
+      {
+        "connectingLane": { "lane": 3 },
+        "signalGroup": 4
+      },
+      {
+        "connectingLane": { "lane": 13 },
+        "signalGroup": 4
+      }
+    ]
   }
 ];
+
 
 // Main lane configuration
 export const LANE_CONFIG: LaneConfiguration = {

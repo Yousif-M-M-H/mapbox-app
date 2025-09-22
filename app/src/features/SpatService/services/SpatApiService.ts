@@ -1,55 +1,94 @@
 // app/src/features/SpatService/services/SpatApiService.ts
-// Focused solely on API communication
+// Service responsible for SPaT API communication
 
-import { SpatData } from '../models/SpatModels';
-import { SpatErrorHandler } from '../errorHandling/SpatErrorHandler';
+import { SignalState } from '../models/SpatModels';
+
+export interface SpatApiResponse {
+  phaseStatusGroupReds: number[];
+  phaseStatusGroupYellows: number[];
+  phaseStatusGroupGreens: number[];
+  timestamp: number;
+  [key: string]: any;
+}
 
 export class SpatApiService {
-  private static readonly SPAT_API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events';
-  private static readonly REQUEST_TIMEOUT = 5000;
-  
+  private static readonly API_ENDPOINT = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events';
+  private static readonly REQUEST_TIMEOUT = 5000; // 5 seconds
+
   /**
    * Fetch current SPaT data from API
    */
-  public static async fetchSpatData(): Promise<SpatData> {
+  static async fetchSpatData(): Promise<SpatApiResponse | null> {
     try {
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT);
-      
-      const response = await fetch(this.SPAT_API_URL, {
+      // Create a timeout promise for React Native compatibility
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout')), this.REQUEST_TIMEOUT);
+      });
+
+      const fetchPromise = fetch(this.API_ENDPOINT, {
         method: 'GET',
-        headers: { 
+        headers: {
           'Accept': 'application/json',
           'Cache-Control': 'no-cache'
-        },
-        signal: controller.signal
+        }
       });
-      
-      clearTimeout(timeoutId);
-      
+
+      const response = await Promise.race([fetchPromise, timeoutPromise]);
+
       if (!response.ok) {
-        throw SpatErrorHandler.createApiError(response.status, response.statusText);
+        console.warn(`SPaT API error: ${response.status} ${response.statusText}`);
+        return null;
       }
-      
-      const rawData = await response.json();
-      
-      return rawData;
-      
-    } catch (error: unknown) {
-      throw SpatErrorHandler.handleApiError(error);
+
+      const spatData = await response.json();
+      return spatData as SpatApiResponse;
+    } catch (error) {
+      console.warn('Failed to fetch SPaT data:', error);
+      return null;
     }
   }
-  
+
   /**
-   * Test API connectivity
+   * Get signal state for a specific signal group from SPaT data
    */
-  public static async testConnection(): Promise<boolean> {
-    try {
-      await this.fetchSpatData();
-      return true;
-    } catch (error: unknown) {
+  static getSignalStateForGroup(spatData: SpatApiResponse, signalGroup: number): SignalState {
+    if (!spatData) {
+      return SignalState.UNKNOWN;
+    }
+
+    // Check if signal group is in GREEN phase
+    if (spatData.phaseStatusGroupGreens && Array.isArray(spatData.phaseStatusGroupGreens)) {
+      if (spatData.phaseStatusGroupGreens.includes(signalGroup)) {
+        return SignalState.GREEN;
+      }
+    }
+
+    // Check if signal group is in YELLOW phase
+    if (spatData.phaseStatusGroupYellows && Array.isArray(spatData.phaseStatusGroupYellows)) {
+      if (spatData.phaseStatusGroupYellows.includes(signalGroup)) {
+        return SignalState.YELLOW;
+      }
+    }
+
+    // Check if signal group is in RED phase
+    if (spatData.phaseStatusGroupReds && Array.isArray(spatData.phaseStatusGroupReds)) {
+      if (spatData.phaseStatusGroupReds.includes(signalGroup)) {
+        return SignalState.RED;
+      }
+    }
+
+    return SignalState.UNKNOWN;
+  }
+
+  /**
+   * Check if SPaT data is valid and fresh
+   */
+  static isDataValid(spatData: SpatApiResponse | null, maxAgeMs: number = 5000): boolean {
+    if (!spatData || !spatData.timestamp) {
       return false;
     }
+
+    const dataAge = Date.now() - spatData.timestamp;
+    return dataAge <= maxAgeMs;
   }
 }

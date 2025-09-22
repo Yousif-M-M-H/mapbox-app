@@ -1,67 +1,61 @@
 // app/src/features/SpatService/views/SpatStatusDisplay.tsx
-// Enhanced with countdown display using existing API fields
+// UI component for displaying SPaT signal status
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { observer } from 'mobx-react-lite';
-import { DirectionGuideViewModel } from '../../DirectionGuide/viewModels/DirectionGuideViewModel';
-import { SignalState } from '../models/SpatModels';
+import { SpatViewModel } from '../viewModels/SpatViewModel';
 
 interface SpatStatusDisplayProps {
-  directionGuideViewModel: DirectionGuideViewModel;
+  userPosition: [number, number]; // [lat, lng]
 }
 
-export const SpatStatusDisplay: React.FC<SpatStatusDisplayProps> = observer(({ 
-  directionGuideViewModel 
-}) => {
-  const isInLane = directionGuideViewModel.detectedLaneIds.length > 0;
-  const hasSpatData = directionGuideViewModel.hasSpatData;
-  const spatStatus = directionGuideViewModel.spatStatus;
-  
-  const shouldShow = isInLane && hasSpatData;
-  
-  if (!shouldShow) {
+export const SpatStatusDisplay: React.FC<SpatStatusDisplayProps> = observer(({ userPosition }) => {
+  const viewModelRef = useRef<SpatViewModel>(new SpatViewModel());
+  const viewModel = viewModelRef.current;
+
+  useEffect(() => {
+    // Update user position in view model
+    viewModel.setUserPosition(userPosition);
+
+    // Start monitoring when component mounts
+    viewModel.startMonitoring();
+
+    return () => {
+      // Cleanup when component unmounts
+      viewModel.cleanup();
+    };
+  }, [viewModel]);
+
+  // Update position when it changes
+  useEffect(() => {
+    viewModel.setUserPosition(userPosition);
+  }, [userPosition, viewModel]);
+
+  // Don't show if no signal data available
+  if (!viewModel.shouldShowDisplay) {
     return null;
   }
-
-  const getSignalColor = (state: SignalState): string => {
-    switch (state) {
-      case SignalState.GREEN: return '#22c55e';
-      case SignalState.YELLOW: return '#eab308';
-      case SignalState.RED: return '#ef4444';
-      default: return '#9ca3af';
-    }
-  };
-
-  const getSignalText = (state: SignalState): string => {
-    switch (state) {
-      case SignalState.GREEN: return 'GO';
-      case SignalState.YELLOW: return 'CAUTION';
-      case SignalState.RED: return 'STOP';
-      default: return 'NO SIGNAL';
-    }
-  };
-
-  // NEW: Get countdown from DirectionGuide (we'll need to add this property)
-  const countdown = directionGuideViewModel.spatCountdown;
-  const hasCountdown = countdown?.hasCountdown || false;
-  const formattedTime = countdown?.formattedTime || '';
-
-  const signalColor = getSignalColor(spatStatus.state);
-  const signalText = getSignalText(spatStatus.state);
 
   return (
     <View style={styles.container}>
       {/* Signal indicator */}
-      <View style={[styles.signalIndicator, { backgroundColor: signalColor }]} />
-      
-      {/* Signal text */}
-      <Text style={[styles.signalText, { color: signalColor }]}>
-        {signalText}
-      </Text>
-      
-      {/* NEW: Countdown display - positioned next to signal */}
+      <View style={[styles.signalIndicator, { backgroundColor: viewModel.signalColor }]} />
 
+      {/* Signal text */}
+      <Text style={[styles.signalText, { color: viewModel.signalColor }]}>
+        {viewModel.signalStatusText}
+      </Text>
+
+      {/* Lane and signal group indicator */}
+      <Text style={styles.laneText}>
+        {viewModel.laneDisplayText}
+      </Text>
+
+      {/* Loading indicator (optional) */}
+      {viewModel.isLoading && (
+        <Text style={styles.loadingText}>...</Text>
+      )}
     </View>
   );
 });
@@ -102,20 +96,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.3,
   },
-  // NEW: Countdown styles - positioned next to signal text
-  countdownContainer: {
+  laneText: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#6b7280',
     marginLeft: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
-    borderRadius: 6,
-    minWidth: 32,
-    alignItems: 'center',
   },
-  countdownText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#1f2937',
-    fontFamily: 'monospace', // Better for numbers
+  loadingText: {
+    fontSize: 10,
+    color: '#6b7280',
+    marginLeft: 4,
   },
 });

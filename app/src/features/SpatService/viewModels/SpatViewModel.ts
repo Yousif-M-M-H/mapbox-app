@@ -1,212 +1,217 @@
 // app/src/features/SpatService/viewModels/SpatViewModel.ts
-// Clean main ViewModel that coordinates managers and provides public API
+// ViewModel responsible for SPaT state management and business logic
 
-import { makeAutoObservable } from 'mobx';
-import { SpatDataManager } from './SpatDataManager';
-import { SpatMonitoringManager } from './SpatMonitoringManager';
-import { SpatSignalManager } from './SpatSignalManager';
-import { SpatUIStateManager } from './SpatUIStateManager';
-import { SpatErrorHandler } from '../errorHandling/SpatErrorHandler';
-import { SignalState, LaneSignalStatus } from '../models/SpatModels';
+import { makeAutoObservable, runInAction } from 'mobx';
+import { SignalState } from '../models/SpatModels';
+import { SpatApiService, SpatApiResponse } from '../services/SpatApiService';
+import { LaneDetectionService, LaneDefinition } from '../services/LaneDetectionService';
 
 export class SpatViewModel {
-  // Managers - single responsibility each
-  private dataManager: SpatDataManager;
-  private monitoringManager: SpatMonitoringManager;
-  private signalManager: SpatSignalManager;
-  private uiStateManager: SpatUIStateManager;
-  
+  // Observable state
+  signalState: SignalState = SignalState.UNKNOWN;
+  currentLane: LaneDefinition | null = null;
+  isLoading: boolean = false;
+  error: string | null = null;
+  lastUpdateTime: number = 0;
+
+  // Private state
+  private updateInterval: NodeJS.Timeout | null = null;
+  private userPosition: [number, number] = [0, 0];
+  private lastApiCall: number = 0;
+  private readonly API_THROTTLE_MS = 2000; // Minimum 2 seconds between API calls
+  private lastLaneChangeTime: number = 0;
+  private readonly LANE_CHANGE_DEBOUNCE_MS = 1000; // Prevent rapid lane changes
+
   constructor() {
     makeAutoObservable(this);
-    
-    // Initialize managers
-    this.dataManager = new SpatDataManager();
-    this.monitoringManager = new SpatMonitoringManager(this.dataManager);
-    this.signalManager = new SpatSignalManager();
-    this.uiStateManager = new SpatUIStateManager(this.dataManager, this.monitoringManager);
-    
-    // Setup automatic signal status updates when data changes
-    this.monitoringManager.setDataUpdateCallback(() => {
-      this.updateSignalStatus();
-    });
   }
-  
+
   // ========================================
-  // Public API - Data Operations
+  // Public Methods
   // ========================================
-  
+
   /**
-   * Fetch current SPaT data without monitoring
+   * Set user position and trigger lane detection
    */
-  async fetchCurrentSpatData(): Promise<void> {
-    await this.dataManager.fetchCurrentData();
+  setUserPosition(position: [number, number]): void {
+    this.userPosition = position;
+    this.detectLaneAndUpdateSignal();
   }
-  
+
   /**
-   * Force refresh current data
+   * Start monitoring SPaT data
    */
-  async refreshSignalData(): Promise<void> {
-    await this.monitoringManager.refreshData();
-  }
-  
-  // ========================================
-  // Public API - Monitoring Operations
-  // ========================================
-  
-  /**
-   * Start monitoring signal status for an approach
-   */
-  async startMonitoringApproach(
-    approachId: string,
-    approachName: string,
-    laneIds: number[],
-    lanesData: any[]
-  ): Promise<void> {
-    try {
-      // Start monitoring
-      await this.monitoringManager.startMonitoring(approachId, approachName, laneIds, lanesData);
-      
-      // Build initial signal status
-      await this.updateSignalStatus();
-      
-    } catch (error) {
-      SpatErrorHandler.logError('startMonitoringApproach', error);
-      throw error;
+  startMonitoring(): void {
+    if (this.updateInterval) {
+      return; // Already monitoring
     }
+
+    // Update immediately
+    this.detectLaneAndUpdateSignal();
+
+    // Update every 1 second for SPaT API calls
+    this.updateInterval = setInterval(() => {
+      this.detectLaneAndUpdateSignal();
+    }, 1000);
   }
-  
+
   /**
-   * Stop monitoring signal status
+   * Stop monitoring SPaT data
    */
   stopMonitoring(): void {
-    this.monitoringManager.stopMonitoring();
-    this.uiStateManager.clearApproachStatus();
-  }
-  
-  // ========================================
-  // Public API - Lane Signal Operations
-  // ========================================
-  
-  /**
-   * Get signal status for specific lanes (one-time check)
-   */
-  async getSignalStatusForLanes(
-    laneIds: number[],
-    lanesData: any[]
-  ): Promise<LaneSignalStatus[]> {
-    try {
-      await this.dataManager.fetchCurrentData();
-      
-      if (!this.dataManager.currentSpatData) {
-        return [];
-      }
-      
-      return this.signalManager.getSignalStatusForLanes(
-        laneIds,
-        lanesData,
-        this.dataManager.currentSpatData
-      );
-      
-    } catch (error) {
-      SpatErrorHandler.logError('getSignalStatusForLanes', error);
-      return [];
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+      this.updateInterval = null;
     }
   }
-  
+
+  /**
+   * Cleanup resources
+   */
+  cleanup(): void {
+    this.stopMonitoring();
+    this.signalState = SignalState.UNKNOWN;
+    this.currentLane = null;
+    this.error = null;
+  }
+
   // ========================================
-  // Public API - UI State (Delegated to UIStateManager)
+  // Computed Properties
   // ========================================
-  
+
   get hasSignalData(): boolean {
-    return this.uiStateManager.hasSignalData;
+    return this.currentLane !== null && this.signalState !== SignalState.UNKNOWN;
   }
-  
-  get approachSignalState(): SignalState {
-    return this.uiStateManager.approachSignalState;
-  }
-  
+
   get signalStatusText(): string {
-    return this.uiStateManager.signalStatusText;
+    switch (this.signalState) {
+      case SignalState.GREEN: return 'GO';
+      case SignalState.YELLOW: return 'CAUTION';
+      case SignalState.RED: return 'STOP';
+      default: return 'NO SIGNAL';
+    }
   }
-  
-  get signalColorClass(): string {
-    return this.uiStateManager.signalColorClass;
+
+  get signalColor(): string {
+    switch (this.signalState) {
+      case SignalState.GREEN: return '#22c55e';
+      case SignalState.YELLOW: return '#eab308';
+      case SignalState.RED: return '#ef4444';
+      default: return '#9ca3af';
+    }
   }
-  
-  get laneSignalStatuses(): LaneSignalStatus[] {
-    return this.uiStateManager.laneSignalStatuses;
+
+  get laneDisplayText(): string {
+    if (!this.currentLane) return '';
+    const signalGroup = this.currentLane.signalGroup;
+    return `L${this.currentLane.id} SG${signalGroup}`;
   }
-  
-  get currentApproachName(): string {
-    return this.uiStateManager.currentApproachName;
+
+  get shouldShowDisplay(): boolean {
+    return this.hasSignalData;
   }
-  
-  get isMonitoring(): boolean {
-    return this.uiStateManager.isMonitoring;
-  }
-  
-  get lastUpdateTime(): number {
-    return this.uiStateManager.lastUpdateTime;
-  }
-  
-  get timeSinceLastUpdate(): number {
-    return this.uiStateManager.timeSinceLastUpdate;
-  }
-  
-  get loading(): boolean {
-    return this.uiStateManager.loading;
-  }
-  
-  get error(): string | null {
-    return this.uiStateManager.error;
-  }
-  
-  // ========================================
-  // Public API - Direct Access to Managers (if needed)
-  // ========================================
-  
-  get currentSpatData() {
-    return this.dataManager.currentSpatData;
-  }
-  
+
   // ========================================
   // Private Methods
   // ========================================
-  
+
   /**
-   * Update signal status based on current monitoring state
+   * Detect current lane and update signal state
    */
-  private async updateSignalStatus(): Promise<void> {
-    if (!this.monitoringManager.isMonitoring || !this.dataManager.currentSpatData) {
-      return;
-    }
-    
+  private async detectLaneAndUpdateSignal(): Promise<void> {
     try {
-      const approachStatus = this.signalManager.buildApproachSignalStatus(
-        this.monitoringManager.currentApproachId,
-        this.monitoringManager.currentApproachName,
-        this.monitoringManager.currentLaneIds,
-        this.monitoringManager.currentLanesData,
-        this.dataManager.currentSpatData
-      );
-      
-      this.uiStateManager.setApproachStatus(approachStatus);
-      
+      // Detect closest lane
+      const closestLane = LaneDetectionService.findClosestLane(this.userPosition);
+
+      // Only update if lane changed with debouncing
+      if (this.hasLaneChanged(closestLane)) {
+        const now = Date.now();
+        if (now - this.lastLaneChangeTime > this.LANE_CHANGE_DEBOUNCE_MS) {
+          runInAction(() => {
+            this.currentLane = closestLane;
+          });
+          this.lastLaneChangeTime = now;
+        } else {
+          // Too soon for lane change, keep current lane
+          return;
+        }
+      }
+
+      // Update signal state if we have a lane
+      if (this.currentLane) {
+        await this.updateSignalStateForLane(this.currentLane);
+      } else {
+        // No lane detected
+        runInAction(() => {
+          this.signalState = SignalState.UNKNOWN;
+          this.error = null;
+        });
+      }
+
     } catch (error) {
-      SpatErrorHandler.logError('updateSignalStatus', error);
+      runInAction(() => {
+        this.error = error instanceof Error ? error.message : 'Unknown error';
+        this.signalState = SignalState.UNKNOWN;
+      });
     }
   }
-  
-  // ========================================
-  // Cleanup
-  // ========================================
-  
+
   /**
-   * Cleanup all resources
+   * Update signal state for a specific lane
    */
-  cleanup(): void {
-    this.monitoringManager.cleanup();
-    this.dataManager.cleanup();
-    this.uiStateManager.cleanup();
+  private async updateSignalStateForLane(lane: LaneDefinition): Promise<void> {
+    // Throttle API calls to prevent flashing
+    const now = Date.now();
+    if (now - this.lastApiCall < this.API_THROTTLE_MS) {
+      return; // Skip this update
+    }
+
+    runInAction(() => {
+      this.isLoading = true;
+      this.error = null;
+    });
+
+    try {
+      this.lastApiCall = now;
+      const spatData = await SpatApiService.fetchSpatData();
+
+      if (!spatData) {
+        runInAction(() => {
+          this.signalState = SignalState.UNKNOWN;
+          this.error = 'Failed to fetch SPaT data';
+        });
+        return;
+      }
+
+      const newSignalState = SpatApiService.getSignalStateForGroup(spatData, lane.signalGroup);
+
+      // Only update if signal state actually changed
+      runInAction(() => {
+        if (newSignalState !== this.signalState) {
+          this.signalState = newSignalState;
+        }
+        this.lastUpdateTime = Date.now();
+        this.error = null;
+      });
+
+    } catch (error) {
+      runInAction(() => {
+        this.error = error instanceof Error ? error.message : 'Failed to update signal state';
+        this.signalState = SignalState.UNKNOWN;
+      });
+    } finally {
+      runInAction(() => {
+        this.isLoading = false;
+      });
+    }
+  }
+
+  /**
+   * Check if the detected lane has changed
+   */
+  private hasLaneChanged(newLane: LaneDefinition | null): boolean {
+    if (!this.currentLane && !newLane) return false;
+    if (!this.currentLane || !newLane) return true;
+    return this.currentLane.id !== newLane.id;
   }
 }

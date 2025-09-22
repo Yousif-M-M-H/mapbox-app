@@ -97,19 +97,6 @@ export class LaneDetectionViewModel {
     return this._detectionState.detectedLaneIds.includes(laneId);
   }
   
-  /**
-   * Get signal groups for currently detected lanes
-   */
-  getSignalGroups(): number[] {
-    if (!this.lanesDataCache) {
-      return [];
-    }
-    
-    return MapDataService.getSignalGroupsForDetectedLanes(
-      this.lanesDataCache,
-      this._vehiclePosition
-    );
-  }
   
   /**
    * Get lanes data for current position
@@ -207,7 +194,7 @@ export class LaneDetectionViewModel {
     }
     
     // Check for specific lane groups
-    if (detectedLanes.includes(7) || detectedLanes.includes(9)) {
+    if (detectedLanes.includes(4) || detectedLanes.includes(5) || detectedLanes.includes(8)) {
       return 'MLK Jr Blvd approach';
     }
     

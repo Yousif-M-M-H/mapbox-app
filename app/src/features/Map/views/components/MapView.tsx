@@ -14,8 +14,9 @@ import { SpatStatusDisplay } from '../../../SpatService/views/SpatStatusDisplay'
 import { SimpleLine } from '../../../PedestrianDetector/views/components/SimpleLine';
 import { VehicleMarkers } from '../../../SDSM/views/VehicleMarkers'
 import { TestingModeOverlay } from '../../../../testingFeatures/testingUI';
+import { LaneOverlay } from '../../../Lanes/views/components/LaneOverlay';
+import { LanesViewModel } from '../../../Lanes/viewmodels/LanesViewModel';
 import {
-  CROSSWALK_CENTER,
   CROSSWALK_POLYGONS
 } from '../../../Crosswalk/constants/CrosswalkCoordinates';
 
@@ -66,26 +67,10 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   // Set to false to hide vehicles from map while keeping background functionality
   const SHOW_SDSM_VEHICLES = true;
 
-  // Line coordinates for lane visualization
-  const lineCoordinates: [number, number][] = [
-    [-85.3082228825378, 35.045758400746536],
-    [-85.30808198885602, 35.045705490572416]
-  ];
+  // Initialize Lanes ViewModel
+  const lanesViewModel = useRef(new LanesViewModel()).current;
 
-  // Lane 5 coordinates
-  const lane5Coordinates: [number, number][] = [
-     
-    [-85.30823278205297, 35.045747747854335],   // Start
-    [-85.30808944380614, 35.04569249636451]   // End
-  ];
 
-  // Lane 6 coordinates
-  const lane6Coordinates: [number, number][] = [
-     
-    [-85.30823869222141, 35.04573090520772],   // End
-    [-85.30809488188754, 35.045682489370606],   // Start
-  
-  ];
 
   // GPS tracking setup with heading capture
   useEffect(() => {
@@ -159,6 +144,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       }
     };
   }, [directionGuideViewModel, activeDetector, mapViewModel, isTestingMode]);
+
 
   // Get detector data
   const pedestrians = activeDetector?.pedestrians || [];
@@ -300,65 +286,8 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           );
         })}
 
-        {/* Lane 4 - Blue Line (Original) */}
-        <MapboxGL.ShapeSource id="lane-4-source" shape={{
-          type: "Feature",
-          properties: {},
-          geometry: {
-            type: "LineString",
-            coordinates: lineCoordinates
-          }
-        }}>
-          <MapboxGL.LineLayer
-            id="lane-4-layer"
-            style={{
-              lineColor: "#0066FF",
-              lineWidth: 3,
-              lineCap: 'round',
-              lineJoin: 'round'
-            }}
-          />
-        </MapboxGL.ShapeSource>
-
-        {/* Lane 5 - Blue Line */}
-        <MapboxGL.ShapeSource id="lane-5-source" shape={{
-          type: "Feature",
-          properties: {},
-          geometry: {
-            type: "LineString",
-            coordinates: lane5Coordinates
-          }
-        }}>
-          <MapboxGL.LineLayer
-            id="lane-5-layer"
-            style={{
-              lineColor: "#0066FF",
-              lineWidth: 3,
-              lineCap: 'round',
-              lineJoin: 'round'
-            }}
-          />
-        </MapboxGL.ShapeSource>
-
-        {/* Lane 6 - Blue Line */}
-        <MapboxGL.ShapeSource id="lane-6-source" shape={{
-          type: "Feature",
-          properties: {},
-          geometry: {
-            type: "LineString",
-            coordinates: lane6Coordinates
-          }
-        }}>
-          <MapboxGL.LineLayer
-            id="lane-6-layer"
-            style={{
-              lineColor: "#0066FF",
-              lineWidth: 3,
-              lineCap: 'round',
-              lineJoin: 'round'
-            }}
-          />
-        </MapboxGL.ShapeSource>
+        {/* Lane Overlays */}
+        <LaneOverlay lanesViewModel={lanesViewModel} />
 
         {/* SDSM Vehicle Markers (Main Feature - FROM SDSM FOLDER ONLY) */}
         {SHOW_SDSM_VEHICLES && mainViewModel?.vehicleDisplayViewModel && (
@@ -397,7 +326,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 
 
       {/* SPaT status display */}
-      <SpatStatusDisplay directionGuideViewModel={directionGuideViewModel} />
+      <SpatStatusDisplay userPosition={[mapViewModel.userLocation.latitude, mapViewModel.userLocation.longitude]} />
 
       {/* Turn guidance UI */}
       <TurnGuideDisplay directionGuideViewModel={directionGuideViewModel} />

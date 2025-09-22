@@ -1,6 +1,6 @@
 // app/src/features/Lanes/services/LaneRenderingService.ts
 
-import { Lane } from '../models/LaneTypes';
+import { LegacyLane, LaneStyle } from '../models/LaneTypes';
 import { DEFAULT_LANE_STYLE } from '../constants/LaneData';
 
 export class LaneRenderingService {
@@ -8,7 +8,7 @@ export class LaneRenderingService {
   /**
    * Generate GeoJSON Feature for a lane
    */
-  static createLaneFeature(lane: Lane): any {
+  static createLaneFeature(lane: LegacyLane): any {
     return {
       type: "Feature" as const,
       properties: {
@@ -39,14 +39,14 @@ export class LaneRenderingService {
   /**
    * Filter visible lanes
    */
-  static getVisibleLanes(lanes: Lane[]): Lane[] {
+  static getVisibleLanes(lanes: LegacyLane[]): LegacyLane[] {
     return lanes.filter(lane => lane.visible);
   }
 
   /**
    * Update lane visibility
    */
-  static toggleLaneVisibility(lanes: Lane[], laneId: string): Lane[] {
+  static toggleLaneVisibility(lanes: LegacyLane[], laneId: string): LegacyLane[] {
     return lanes.map(lane =>
       lane.id === laneId
         ? { ...lane, visible: !lane.visible }
@@ -54,11 +54,19 @@ export class LaneRenderingService {
     );
   }
 
+  /**
+   * Update lane style
+   */
+  static updateLaneStyle(lanes: LegacyLane[], laneId: string, styleUpdate: Partial<LaneStyle>): LegacyLane[] {
+    // Note: LegacyLane doesn't have style properties, so this method doesn't modify lanes
+    // but is kept for API compatibility
+    return lanes;
+  }
 
   /**
    * Get lane by ID
    */
-  static getLaneById(lanes: Lane[], laneId: string): Lane | undefined {
+  static getLaneById(lanes: LegacyLane[], laneId: string): LegacyLane | undefined {
     return lanes.find(lane => lane.id === laneId);
   }
 
