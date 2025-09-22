@@ -1,5 +1,5 @@
 // app/src/features/SDSM/services/SDSMService.ts
-import { SDSMResponse, SDSMObject, PedestrianInfo, VehicleInfo } from '../models/SDSMData';
+import { SDSMResponse, SDSMObject, VRUData, VehicleData } from '../models/SDSMTypes';
 
 export class SDSMService {
   private static readonly API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events';
@@ -94,7 +94,7 @@ export class SDSMService {
   /**
    * Convert SDSM pedestrian objects to simplified pedestrian info
    */
-  static getPedestrianInfo(sdsmData: SDSMResponse): PedestrianInfo[] {
+  static getPedestrianInfo(sdsmData: SDSMResponse): VRUData[] {
     const pedestrians = this.filterPedestrians(sdsmData);
     
     return pedestrians.map(ped => ({
@@ -109,7 +109,7 @@ export class SDSMService {
   /**
    * Convert SDSM vehicle objects to simplified vehicle info
    */
-  static getVehicleInfo(sdsmData: SDSMResponse): VehicleInfo[] {
+  static getVehicleInfo(sdsmData: SDSMResponse): VehicleData[] {
     const vehicles = this.filterVehicles(sdsmData);
     
     return vehicles.map(vehicle => ({

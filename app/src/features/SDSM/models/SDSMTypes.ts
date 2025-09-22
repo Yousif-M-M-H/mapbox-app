@@ -7,6 +7,14 @@ export interface VehicleData {
   size?: { width: number | null; length: number | null };
 }
 
+export interface VRUData {
+  id: number;
+  coordinates: [number, number]; // [lat, lng]
+  heading?: number;
+  speed?: number;
+  size?: { width: number | null; length: number | null };
+}
+
 export interface SDSMResponse {
   intersectionID: string;
   intersection: string;

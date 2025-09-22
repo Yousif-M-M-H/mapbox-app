@@ -7,15 +7,14 @@ import { VehicleDisplayViewModel } from './viewmodels/VehicleDisplayViewModel';
 // ========================================
 // Main ViewModel (Primary Interface)
 // ========================================
-export { useVehicles } from './hooks/useVehicles';
-export { VehicleStore } from './stores/VehicleStore';
-export type { VehicleData } from './models/SDSMTypes';
+export type { VehicleData, VRUData } from './models/SDSMTypes';
 export { VehicleDisplayViewModel } from './viewmodels/VehicleDisplayViewModel';
 
 // ========================================
 // UI Components
 // ========================================
 export { VehicleMarkers } from './views/VehicleMarkers';
+export { VRUMarkers } from './views/VRUMarkers';
 
 // ========================================
 // Services
@@ -25,12 +24,6 @@ export { SDSMService } from './services/SDSMService';
 // ========================================
 // Models and Types
 // ========================================
-export type { 
-  SDSMObject, 
-  SDSMResponse, 
-  VehicleInfo, 
-  PedestrianInfo 
-} from './models/SDSMData';
 
 // ========================================
 // Configuration
@@ -39,7 +32,7 @@ export const SDSM_CONFIG = {
   FEATURE_NAME: 'SDSM Vehicle Display',
   VERSION: '1.0.0',
   UPDATE_FREQUENCY_HZ: 0.66,
-  API_ENDPOINT: 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events',
+  API_ENDPOINT: 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events',
   REQUEST_TIMEOUT_MS: 1000,
   DESCRIPTION: 'Real-time vehicle display from SDSM data at 10Hz'
 };

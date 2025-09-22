@@ -11,8 +11,8 @@ import { VehicleDisplayViewModel } from '../../../SDSM/viewmodels/VehicleDisplay
 import { DirectionGuideViewModel } from '../../../DirectionGuide/viewModels/DirectionGuideViewModel';
 import { TurnGuideDisplay } from '../../../DirectionGuide/views/components/TurnGuideDisplay';
 import { SpatStatusDisplay } from '../../../SpatService/views/SpatStatusDisplay';
-import { SimpleLine } from '../../../PedestrianDetector/views/components/SimpleLine';
 import { VehicleMarkers } from '../../../SDSM/views/VehicleMarkers'
+import { VRUMarkers } from '../../../SDSM/views/VRUMarkers'
 import { TestingModeOverlay } from '../../../../testingFeatures/testingUI';
 import { LaneOverlay } from '../../../Lanes/views/components/LaneOverlay';
 import { LanesViewModel } from '../../../Lanes/viewmodels/LanesViewModel';
@@ -147,12 +147,10 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 
 
   // Get detector data
-  const pedestrians = activeDetector?.pedestrians || [];
   const pedestriansInCrosswalk = activeDetector?.pedestriansInCrosswalk || 0;
   
   // Improved logic: Check if vehicle is near pedestrians specifically IN crosswalk (20m range)
   const isVehicleNearPedestrianInCrosswalk = activeDetector?.isVehicleNearPedestrianInCrosswalk || false;
-  const userLocationCoordinate = mapViewModel.userLocationCoordinate;
 
   // Coordinate smoothing function for better lane alignment
   const applySmoothingFilter = (newCoords: [number, number], accuracy: number): [number, number] => {
@@ -298,20 +296,24 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           <VehicleMarkers viewModel={testingVehicleDisplayViewModel as unknown as VehicleDisplayViewModel} />
         )}
 
+        {/* SDSM VRU/Pedestrian Markers */}
+        {SHOW_SDSM_VEHICLES && mainViewModel?.vehicleDisplayViewModel && (
+          <VRUMarkers
+            vrus={mainViewModel.vehicleDisplayViewModel.vrus}
+            isActive={mainViewModel.vehicleDisplayViewModel.isActive}
+            getMapboxCoordinates={mainViewModel.vehicleDisplayViewModel.getMapboxCoordinates.bind(mainViewModel.vehicleDisplayViewModel)}
+          />
+        )}
 
-        {/* Pedestrian markers */}
-        {pedestrians.map((pedestrian) => (
-          <MapboxGL.PointAnnotation
-            key={`pedestrian-${pedestrian.id}`}
-            id={`pedestrian-${pedestrian.id}`}
-            coordinate={[pedestrian.coordinates[1], pedestrian.coordinates[0]]}
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
-            <View style={styles.pedestrianMarker}>
-              <View style={styles.markerInner} />
-            </View>
-          </MapboxGL.PointAnnotation>
-        ))}
+        {SHOW_SDSM_VEHICLES && testingVehicleDisplayViewModel && (
+          <VRUMarkers
+            vrus={testingVehicleDisplayViewModel.vrus}
+            isActive={testingVehicleDisplayViewModel.isActive}
+            getMapboxCoordinates={testingVehicleDisplayViewModel.getMapboxCoordinates.bind(testingVehicleDisplayViewModel)}
+          />
+        )}
+
+
 
         {children}
       </MapboxGL.MapView>
@@ -414,22 +416,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
   },
 
-  pedestrianMarker: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#FF6B35',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  markerInner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'white',
-  },
   warningContainer: {
     position: 'absolute',
     top: 50,

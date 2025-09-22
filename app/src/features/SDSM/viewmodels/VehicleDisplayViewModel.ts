@@ -1,11 +1,13 @@
 // app/src/features/SDSM/viewmodels/VehicleDisplayViewModel.ts
 
 import { makeAutoObservable, runInAction } from 'mobx';
-import { VehicleInfo } from '../models/SDSMData';
+import { VehicleData, VRUData } from '../models/SDSMTypes';
+import { SDSMDataService } from '../services/SDSMDataService';
 
 export class VehicleDisplayViewModel {
   // Observable state
-  vehicles: VehicleInfo[] = [];
+  vehicles: VehicleData[] = [];
+  vrus: VRUData[] = [];
   isActive: boolean = false;
   lastUpdateTime: number = 0;
   updateCount: number = 0;
@@ -44,6 +46,7 @@ export class VehicleDisplayViewModel {
       this.isActive = true;
       this.error = null;
       this.vehicles = [];
+      this.vrus = [];
       this.lastMessageHash = null;
       this.totalMessages = 0;
       this.newMessages = 0;
@@ -81,7 +84,7 @@ export class VehicleDisplayViewModel {
             // Log updates periodically
             if (this.newMessages % 10 === 0) {
               const efficiency = ((this.duplicateMessages / this.totalMessages) * 100).toFixed(1);
-              console.log(`📊 SDSM: ${this.newMessages} updates | ${this.vehicles.length} vehicles | ${efficiency}% duplicates filtered`);
+              console.log(`📊 SDSM: ${this.newMessages} updates | ${this.vehicles.length} vehicles | ${this.vrus.length} VRUs | ${efficiency}% duplicates filtered`);
             }
           } else {
             // DUPLICATE - Skip to prevent flicker
@@ -165,43 +168,30 @@ export class VehicleDisplayViewModel {
   }
   
   /**
-   * Replace all vehicles (clear old, display new)
+   * Replace all vehicles and VRUs (clear old, display new)
    */
   private replaceAllVehicles(data: any): void {
-    // Parse vehicles from RSU data
-    const newVehicles = this.parseVehicles(data);
-    
+    // Parse vehicles and VRUs from RSU data using the service
+    const sdsmResponse = {
+      intersectionID: data.intersectionID || 'unknown',
+      intersection: data.intersection || 'Unknown Intersection',
+      timestamp: data.timestamp,
+      objects: data.objects || []
+    };
+
+    const newVehicles = SDSMDataService.extractVehicles(sdsmResponse);
+    const newVRUs = SDSMDataService.extractVRUs(sdsmResponse);
+
     runInAction(() => {
       // COMPLETE REPLACEMENT - Clear old, show new
       this.vehicles = newVehicles;
+      this.vrus = newVRUs;
       this.lastUpdateTime = Date.now();
       this.updateCount++;
       this.error = null;
     });
   }
   
-  /**
-   * Parse vehicle data from RSU message
-   */
-  private parseVehicles(data: any): VehicleInfo[] {
-    if (!data?.objects || !Array.isArray(data.objects)) {
-      return [];
-    }
-    
-    return data.objects
-      .filter((obj: any) => obj.type === 'vehicle')
-      .map((obj: any) => ({
-        id: obj.objectID,
-        coordinates: obj.location?.coordinates || [0, 0], // [lat, lng]
-        timestamp: obj.timestamp || data.timestamp,
-        heading: obj.heading === 8191 ? undefined : obj.heading,
-        speed: obj.speed === 8191 ? undefined : obj.speed,
-        size: obj.size
-      }))
-      .filter((vehicle: VehicleInfo) => 
-        vehicle.coordinates[0] !== 0 && vehicle.coordinates[1] !== 0
-      );
-  }
   
   /**
    * Stop polling
@@ -214,6 +204,7 @@ export class VehicleDisplayViewModel {
     runInAction(() => {
       this.isActive = false;
       this.vehicles = [];
+      this.vrus = [];
       this.lastMessageHash = null;
       this.error = null;
     });
@@ -235,9 +226,8 @@ export class VehicleDisplayViewModel {
   /**
    * Convert coordinates for Mapbox ([lat, lng] → [lng, lat])
    */
-  getMapboxCoordinates(vehicle: VehicleInfo): [number, number] {
-    const [lat, lng] = vehicle.coordinates;
-    return [lng, lat];
+  getMapboxCoordinates(data: VehicleData | VRUData): [number, number] {
+    return SDSMDataService.toMapboxCoordinates(data);
   }
   
   /**

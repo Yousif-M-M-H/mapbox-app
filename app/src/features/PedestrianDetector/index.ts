@@ -27,13 +27,7 @@ export { PedestrianErrorHandler } from './errorHandling/PedestrianErrorHandler';
 // ========================================
 // Types and Interfaces
 // ========================================
-export type { PedestrianData } from './viewmodels/PedestrianDataManager';
 export type { PedestrianAlert } from './services/PedestrianWarningService';
-
-// ========================================
-// UI Components (if needed by other features)
-// ========================================
-export { SimpleLine } from './views/components/SimpleLine';
 
 // ========================================
 // Re-export from related features for convenience

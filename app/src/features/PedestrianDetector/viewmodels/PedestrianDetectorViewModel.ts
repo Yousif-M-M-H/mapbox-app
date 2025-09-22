@@ -2,7 +2,7 @@
 // Clean main ViewModel that coordinates managers and provides public API
 
 import { makeAutoObservable, runInAction } from 'mobx';
-import { PedestrianDataManager, PedestrianData } from './PedestrianDataManager';
+import { PedestrianDataManager } from './PedestrianDataManager';
 import { PedestrianMonitoringManager } from './PedestrianMonitoringManager';
 import { CrosswalkDetectionService } from '../services/CrosswalkDetectionService';
 import { ProximityDetectionService } from '../services/ProximityDetectionService';
@@ -67,29 +67,7 @@ export class PedestrianDetectorViewModel {
   // Public API - Pedestrian Data
   // ========================================
   
-  /**
-   * Get current pedestrian data
-   */
-  get pedestrians(): PedestrianData[] {
-    return this.dataManager.pedestrians;
-  }
   
-  /**
-   * Get number of pedestrians detected
-   */
-  get pedestrianCount(): number {
-    return this.dataManager.pedestrianCount;
-  }
-  
-  /**
-   * Check if vehicle is near any pedestrian
-   */
-  get isVehicleNearPedestrian(): boolean {
-    return ProximityDetectionService.isVehicleNearAnyPedestrian(
-      this._vehiclePosition, 
-      this.pedestrians
-    );
-  }
 
   /**
    * Improved logic: Check if vehicle is within 20m of pedestrians that are IN crosswalk
@@ -97,14 +75,14 @@ export class PedestrianDetectorViewModel {
    */
   get isVehicleNearPedestrianInCrosswalk(): boolean {
     // Get pedestrians currently in crosswalk
-    const pedestriansInCrosswalk = this.getPedestriansInCrosswalk();
-    
+    const pedestriansInCrosswalk = CrosswalkDetectionService.getPedestriansInCrosswalk(this.dataManager.pedestrians);
+
     if (pedestriansInCrosswalk.length === 0) {
       return false; // No pedestrians in crosswalk
     }
-    
+
     // Check if vehicle is within 20m of ANY pedestrian that is in crosswalk
-    return pedestriansInCrosswalk.some(pedestrian => 
+    return pedestriansInCrosswalk.some(pedestrian =>
       ProximityDetectionService.isVehicleCloseToPosition(
         this._vehiclePosition,
         pedestrian.coordinates
@@ -148,39 +126,6 @@ export class PedestrianDetectorViewModel {
   // Public API - Detection Results
   // ========================================
   
-  /**
-   * Get pedestrians currently in crosswalk
-   */
-  getPedestriansInCrosswalk(): PedestrianData[] {
-    return CrosswalkDetectionService.getPedestriansInCrosswalk(this.pedestrians);
-  }
-  
-  /**
-   * Get pedestrians near vehicle
-   */
-  getNearbyPedestrians(): PedestrianData[] {
-    return ProximityDetectionService.getNearbyPedestrians(
-      this._vehiclePosition, 
-      this.pedestrians
-    );
-  }
-  
-  /**
-   * Get detailed proximity info for all pedestrians
-   */
-  getProximityInfo(): Array<{
-    isClose: boolean;
-    distanceMeters: number;
-    pedestrianId: number;
-  }> {
-    return this.pedestrians.map(pedestrian => 
-      ProximityDetectionService.getProximityInfo(
-        this._vehiclePosition,
-        pedestrian.coordinates,
-        pedestrian.id
-      )
-    );
-  }
   
   // ========================================
   // Public API - State Information
@@ -224,11 +169,10 @@ export class PedestrianDetectorViewModel {
   private checkConditions(): void {
     try {
       let pedestriansInCrosswalkCount = 0;
-      let hasCloseVehicle = false;
       let hasMetConditions = false;
       
       // Check each pedestrian
-      this.pedestrians.forEach(pedestrian => {
+      this.dataManager.pedestrians.forEach(pedestrian => {
         const isInCrosswalk = CrosswalkDetectionService.isInCrosswalk(pedestrian.coordinates);
         const isCloseToVehicle = ProximityDetectionService.isVehicleCloseToPosition(
           this._vehiclePosition, 
@@ -240,7 +184,6 @@ export class PedestrianDetectorViewModel {
         }
         
         if (isCloseToVehicle) {
-          hasCloseVehicle = true;
           ProximityDetectionService.logProximityWarning(
             this._vehiclePosition,
             pedestrian.coordinates,
@@ -251,11 +194,6 @@ export class PedestrianDetectorViewModel {
         // Check if conditions are met (pedestrian in crosswalk AND vehicle is close)
         if (isInCrosswalk && isCloseToVehicle) {
           hasMetConditions = true;
-          const distance = ProximityDetectionService.getDistanceInMeters(
-            this._vehiclePosition,
-            pedestrian.coordinates
-          );
-          
         }
       });
       
