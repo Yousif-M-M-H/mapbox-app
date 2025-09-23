@@ -6,25 +6,47 @@ export const CAR_POSITION: [number, number] = [35.03976132931588, -85.2920334893
 // Detection radius in degrees (approximately 10 meters)
 export const DETECTION_RADIUS = 0.0001;
 
-// Updated: Multiple crosswalk polygons
+// UPDATED: Crosswalk polygons moved closer to the main intersection
+// The intersection appears to be around: [-85.29210877725966, 35.039778261477665]
+/*
 export const CROSSWALK_POLYGONS: [number, number][][] = [
-  // Original MLK crosswalk
+  // Crosswalk 1 - Moved closer to intersection center
   [
-    [-85.29209037893902, 35.03978691067064],
-    [-85.29203293546509, 35.03976630063465],
-    [-85.29204561249016, 35.039744276336506],
-    [-85.2921106519217, 35.039765715061606],
-    [-85.29209037893902, 35.03978691067064]  
+    [-85.29215, 35.03980],     // Northwest corner
+    [-90.29205, 40.03977],     // Northeast corner  
+    [-85.29206, 35.33975],     // Southeast corner
+    [-85.29216, 35.13978],     // Southwest corner
+    [-85.29215, 40.03980]      // Close polygon
   ],
-  // New crosswalk polygon
+  // Crosswalk 2 - Alternative position closer to intersection
   [
-    [-85.30826038196862, 35.045783233690514],
-    [-85.3081432965312, 35.04573928580798],
-    [-85.30816625582557, 35.04569469197865],
-    [-85.3082754370359, 35.04573071872899],
-    [-85.30826038196862, 35.045783233690514]
+    [-85.29208, 35.03982],     // Northwest corner
+    [-85.29198, 35.03979],     // Northeast corner
+    [-85.29199, 35.03977],     // Southeast corner
+    [-85.29209, 35.03980],     // Southwest corner
+    [-85.29208, 35.03982]      // Close polygon
   ]
 ];
+*/
+
+// Main intersection coordinates from your DirectionGuide constants
+const INTERSECTION_LNG = -85.29210877725966;
+const INTERSECTION_LAT = 35.039778261477665;
+
+export const CROSSWALK_POLYGONS: [number, number][][] = [
+  // North crosswalk - 15 meters north of intersection
+  generateCrosswalkNearIntersection(INTERSECTION_LNG, INTERSECTION_LAT, 15, 4),
+  
+  // South crosswalk - 15 meters south of intersection  
+  generateCrosswalkNearIntersection(INTERSECTION_LNG, INTERSECTION_LAT, -15, 4),
+  
+  // East crosswalk - 15 meters east of intersection
+  generateCrosswalkNearIntersection(INTERSECTION_LNG + 0.00015, INTERSECTION_LAT, 0, 4),
+  
+  // West crosswalk - 15 meters west of intersection
+  generateCrosswalkNearIntersection(INTERSECTION_LNG - 0.00015, INTERSECTION_LAT, 0, 4)
+];
+
 
 // Keep backward compatibility
 export const CROSSWALK_POLYGON_COORDS = CROSSWALK_POLYGONS[0];
@@ -38,5 +60,32 @@ export const CROSSWALK_CENTERS: [number, number][] = CROSSWALK_POLYGONS.map(poly
   return [centerLng, centerLat];
 });
 
-// Directly using the exact center point provided (longitude, latitude)
+// Main crosswalk center (using first crosswalk)
 export const CROSSWALK_CENTER: [number, number] = CROSSWALK_CENTERS[0];
+
+// HELPER FUNCTION: Generate crosswalk coordinates relative to intersection
+export function generateCrosswalkNearIntersection(
+  intersectionLng: number,
+  intersectionLat: number,
+  offsetMeters: number = 13,
+  widthMeters: number = 20
+): [number, number][] {
+  // Convert meters to approximate coordinate degrees
+  // 1 degree ≈ 111,000 meters, so:
+  const metersToDegrees = 1 / 111000;
+  const offset = offsetMeters * metersToDegrees;
+  const width = widthMeters * metersToDegrees;
+  
+  return [
+    [intersectionLng - width/2, intersectionLat + offset],    // NW
+    [intersectionLng + width/2, intersectionLat + offset],    // NE
+    [intersectionLng + width/2, intersectionLat + offset - width], // SE
+    [intersectionLng - width/2, intersectionLat + offset - width], // SW
+    [intersectionLng - width/2, intersectionLat + offset]     // Close polygon
+  ];
+}
+
+// ALTERNATIVE: Use the helper function to generate crosswalks
+// Uncomment this section and comment out CROSSWALK_POLYGONS above to use generated crosswalks
+
+
