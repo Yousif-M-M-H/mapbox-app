@@ -3,10 +3,16 @@ export const TESTING_CONFIG = {
   // Change this to true to enable testing mode with Detection Latency Test
   USE_TESTING_MODE: false,
   USE_VEHICLE_TESTING_FEATURE: false,
-  
+
+  // Toggle to show/hide the fixed testing pedestrian
+  SHOW_FIXED_PEDESTRIAN: false,
+
+  // Toggle to enable/disable SDSM API calls and display
+  ENABLE_SDSM_API: true,
+
   // Fixed pedestrian coordinates for testing [lat, lon]
   // Starting position (outside detection zone for proper latency testing)
-  FIXED_PEDESTRIAN_COORDINATES: [35.04574821897141, -85.30823649580637] as [number, number],
+  FIXED_PEDESTRIAN_COORDINATES: [35.04475484458253, -85.30557334560115] as [number, number],
   
   // Detection Latency Test Configuration
   DETECTION_LATENCY_TEST: {

@@ -2,8 +2,9 @@
 import { makeAutoObservable, action, runInAction } from 'mobx';
 import { CROSSWALK_POLYGONS } from '../../../features/Crosswalk/constants/CrosswalkCoordinates';
 import { TESTING_CONFIG } from '../../TestingConfig';
+import { VRUData } from '../../../features/SDSM/models/SDSMTypes';
 
-const TESTING_PROXIMITY_WARNING_DISTANCE = 0.0006; // ~20 meters for testing (matches main logic)
+const TESTING_PROXIMITY_WARNING_DISTANCE = 0.0003; // ~10 meters for testing (matches main logic)
 
 export interface TestingPedestrianData {
   id: number;
@@ -58,21 +59,37 @@ export class TestingPedestrianDetectorViewModel {
     const pedestriansInCrosswalk = this.pedestrians.filter(pedestrian =>
       this.isPointInAnyCrosswalk(pedestrian.coordinates)
     );
-    
+
     if (pedestriansInCrosswalk.length === 0) {
       return false; // No pedestrians in crosswalk
     }
-    
+
     // Check if vehicle is within range of ANY pedestrian that is in crosswalk
-    return pedestriansInCrosswalk.some(pedestrian => 
+    return pedestriansInCrosswalk.some(pedestrian =>
       this.isVehicleCloseToPosition(pedestrian.coordinates)
     );
+  }
+
+  // Convert testing pedestrian data to VRU format for map display
+  get vrus(): VRUData[] {
+    return this.pedestrians.map(pedestrian => ({
+      id: pedestrian.id,
+      coordinates: pedestrian.coordinates,
+      heading: pedestrian.heading,
+      speed: pedestrian.speed
+    }));
   }
 
   // Actions
   setVehiclePosition = action((position: [number, number]): void => {
     this._vehiclePosition = position;
     this.checkConditions();
+  });
+
+  // Add method to match main PedestrianDetectorViewModel interface
+  updateVRUData = action((vruData: any[]): void => {
+    // For testing, we use fixed pedestrian data, so this is a no-op
+    // But needed for interface compatibility with MapView
   });
 
   startMonitoring = action((): void => {
@@ -141,9 +158,16 @@ export class TestingPedestrianDetectorViewModel {
   // --- Pedestrian Data Management ---
 
   private setupFixedPedestrianData(): void {
+    if (!TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN) {
+      runInAction(() => {
+        this.pedestrians = [];
+      });
+      return;
+    }
+
     const fixedPedestrianData: TestingPedestrianData = {
       id: 99999,
-      coordinates: TESTING_CONFIG.FIXED_PEDESTRIAN_COORDINATES, // Uses second crosswalk coordinates
+      coordinates: TESTING_CONFIG.FIXED_PEDESTRIAN_COORDINATES,
       timestamp: new Date().toISOString(),
       heading: 0,
       speed: 0

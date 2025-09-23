@@ -10,7 +10,6 @@ export { PedestrianDetectorViewModel } from './viewmodels/PedestrianDetectorView
 // Individual Managers (Advanced Use)
 // ========================================
 export { PedestrianDataManager } from './viewmodels/PedestrianDataManager';
-export { PedestrianMonitoringManager } from './viewmodels/PedestrianMonitoringManager';
 
 // ========================================
 // Services
@@ -34,27 +33,3 @@ export type { PedestrianAlert } from './services/PedestrianWarningService';
 // ========================================
 export { CROSSWALK_POLYGON_COORDS } from '../Crosswalk/constants/CrosswalkCoordinates';
 
-/**
- * Usage Guide:
- * 
- * Most features should use only PedestrianDetectorViewModel:
- * 
- * ```typescript
- * import { PedestrianDetectorViewModel } from '@/src/features/PedestrianDetector';
- * 
- * const pedestrianDetector = new PedestrianDetectorViewModel();
- * pedestrianDetector.startMonitoring();
- * const pedestriansInCrosswalk = pedestrianDetector.pedestriansInCrosswalk;
- * ```
- * 
- * Individual services are available for advanced use cases:
- * - Custom detection algorithms
- * - Testing purposes
- * - Custom integrations
- * 
- * Architecture Benefits:
- * - Clean separation between data, detection, and monitoring
- * - Easy to test individual components
- * - Extensible for different detection scenarios
- * - Proper error handling throughout
- */

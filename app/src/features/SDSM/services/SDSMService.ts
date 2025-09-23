@@ -1,8 +1,9 @@
 // app/src/features/SDSM/services/SDSMService.ts
 import { SDSMResponse, SDSMObject, VRUData, VehicleData } from '../models/SDSMTypes';
+import { TESTING_CONFIG } from '../../../testingFeatures/TestingConfig';
 
 export class SDSMService {
-  private static readonly API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events';
+  private static readonly API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events';
   private static readonly REQUEST_TIMEOUT = 1000;
 
   /**
@@ -10,6 +11,11 @@ export class SDSMService {
    * @returns Promise with SDSM data including vehicles and pedestrians (VRUs)
    */
   static async fetchSDSMData(): Promise<SDSMResponse | null> {
+    // Check if SDSM API is enabled
+    if (!TESTING_CONFIG.ENABLE_SDSM_API) {
+      return null;
+    }
+
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT);

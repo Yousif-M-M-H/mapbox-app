@@ -19,6 +19,9 @@ import { LanesViewModel } from '../../../Lanes/viewmodels/LanesViewModel';
 import {
   CROSSWALK_POLYGONS
 } from '../../../Crosswalk/constants/CrosswalkCoordinates';
+import { CrosswalkDetectionService } from '../../../PedestrianDetector/services/CrosswalkDetectionService';
+import { ProximityDetectionService } from '../../../PedestrianDetector/services/ProximityDetectionService';
+import { TESTING_CONFIG } from '../../../../testingFeatures/TestingConfig';
 
 // Import MainViewModel for user heading
 import { MainViewModel } from '../../../../Main/viewmodels/MainViewModel';
@@ -145,12 +148,39 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     };
   }, [directionGuideViewModel, activeDetector, mapViewModel, isTestingMode]);
 
+  // Update PedestrianDetector with VRU data from SDSM and testing pedestrians
+  useEffect(() => {
+    if (!activeDetector) return;
 
-  // Get detector data
-  const pedestriansInCrosswalk = activeDetector?.pedestriansInCrosswalk || 0;
-  
-  // Improved logic: Check if vehicle is near pedestrians specifically IN crosswalk (20m range)
-  const isVehicleNearPedestrianInCrosswalk = activeDetector?.isVehicleNearPedestrianInCrosswalk || false;
+    // Collect VRU data from multiple sources
+    let allVRUs: any[] = [];
+
+    // Add SDSM VRU data if API is enabled
+    if (TESTING_CONFIG.ENABLE_SDSM_API) {
+      const vehicleDisplayVM = mainViewModel?.vehicleDisplayViewModel || testingVehicleDisplayViewModel;
+      if (vehicleDisplayVM?.vrus) {
+        allVRUs = [...allVRUs, ...vehicleDisplayVM.vrus];
+      }
+    }
+
+    // Add testing pedestrian VRU data if enabled
+    if (TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN && testingPedestrianDetectorViewModel?.vrus) {
+      allVRUs = [...allVRUs, ...testingPedestrianDetectorViewModel.vrus];
+    }
+
+    // Update detector with combined VRU data
+    activeDetector.updateVRUData(allVRUs);
+  }, [
+    activeDetector,
+    mainViewModel?.vehicleDisplayViewModel?.vrus,
+    testingVehicleDisplayViewModel?.vrus,
+    testingPedestrianDetectorViewModel?.vrus,
+    TESTING_CONFIG.ENABLE_SDSM_API,
+    TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN
+  ]);
+
+
+  // Note: Individual crosswalk detection is now handled per-crosswalk in the rendering loop
 
   // Coordinate smoothing function for better lane alignment
   const applySmoothingFilter = (newCoords: [number, number], accuracy: number): [number, number] => {
@@ -207,10 +237,10 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       >
         <MapboxGL.Camera
           ref={cameraRef}
-          centerCoordinate={[-85.3082840, 35.0457770]}
-          zoomLevel={18}
+          centerCoordinate={[-85.3075, 35.0454]}
+          zoomLevel={16}
           animationDuration={300}
-  
+
         />
 
         {/* User Location Marker with Fixed GPS Heading - Independent of Camera Position */}
@@ -247,6 +277,25 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 
         {/* Multiple crosswalk polygons */}
         {mapViewModel.showCrosswalkPolygon && CROSSWALK_POLYGONS.map((polygonCoords, index) => {
+          // Get pedestrian data for specific crosswalk independent calculation
+          // Collect VRU data from multiple sources (same logic as useEffect above)
+          let allVRUs: any[] = [];
+
+          // Add SDSM VRU data if API is enabled
+          if (TESTING_CONFIG.ENABLE_SDSM_API) {
+            const vehicleDisplayVM = mainViewModel?.vehicleDisplayViewModel || testingVehicleDisplayViewModel;
+            if (vehicleDisplayVM?.vrus) {
+              allVRUs = [...allVRUs, ...vehicleDisplayVM.vrus];
+            }
+          }
+
+          // Add testing pedestrian VRU data if enabled
+          if (TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN && testingPedestrianDetectorViewModel?.vrus) {
+            allVRUs = [...allVRUs, ...testingPedestrianDetectorViewModel.vrus];
+          }
+
+          const pedestriansInThisCrosswalk = CrosswalkDetectionService.countPedestriansInSpecificCrosswalk(allVRUs, index);
+
           const crosswalkPolygon = {
             type: "Feature" as const,
             properties: {
@@ -268,7 +317,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
               <MapboxGL.FillLayer
                 id={`crosswalk-polygon-fill-${index}`}
                 style={{
-                  fillColor: pedestriansInCrosswalk > 0 ?
+                  fillColor: pedestriansInThisCrosswalk > 0 ?
                     'rgba(255, 59, 48, 0.4)' : 'rgba(255, 255, 0, 0.4)',
                   fillOutlineColor: '#FFCC00'
                 }}
@@ -288,16 +337,16 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         <LaneOverlay lanesViewModel={lanesViewModel} />
 
         {/* SDSM Vehicle Markers (Main Feature - FROM SDSM FOLDER ONLY) */}
-        {SHOW_SDSM_VEHICLES && mainViewModel?.vehicleDisplayViewModel && (
+        {SHOW_SDSM_VEHICLES && TESTING_CONFIG.ENABLE_SDSM_API && mainViewModel?.vehicleDisplayViewModel && (
           <VehicleMarkers viewModel={mainViewModel.vehicleDisplayViewModel} />
         )}
 
-        {SHOW_SDSM_VEHICLES && testingVehicleDisplayViewModel && (
+        {SHOW_SDSM_VEHICLES && TESTING_CONFIG.ENABLE_SDSM_API && testingVehicleDisplayViewModel && (
           <VehicleMarkers viewModel={testingVehicleDisplayViewModel as unknown as VehicleDisplayViewModel} />
         )}
 
         {/* SDSM VRU/Pedestrian Markers */}
-        {SHOW_SDSM_VEHICLES && mainViewModel?.vehicleDisplayViewModel && (
+        {SHOW_SDSM_VEHICLES && TESTING_CONFIG.ENABLE_SDSM_API && mainViewModel?.vehicleDisplayViewModel && (
           <VRUMarkers
             vrus={mainViewModel.vehicleDisplayViewModel.vrus}
             isActive={mainViewModel.vehicleDisplayViewModel.isActive}
@@ -305,11 +354,20 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           />
         )}
 
-        {SHOW_SDSM_VEHICLES && testingVehicleDisplayViewModel && (
+        {SHOW_SDSM_VEHICLES && TESTING_CONFIG.ENABLE_SDSM_API && testingVehicleDisplayViewModel && (
           <VRUMarkers
             vrus={testingVehicleDisplayViewModel.vrus}
             isActive={testingVehicleDisplayViewModel.isActive}
             getMapboxCoordinates={testingVehicleDisplayViewModel.getMapboxCoordinates.bind(testingVehicleDisplayViewModel)}
+          />
+        )}
+
+        {/* Fixed Testing Pedestrian VRU Markers */}
+        {TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN && testingPedestrianDetectorViewModel && (
+          <VRUMarkers
+            vrus={testingPedestrianDetectorViewModel.vrus}
+            isActive={true}
+            getMapboxCoordinates={(vru) => [vru.coordinates[1], vru.coordinates[0]]}
           />
         )}
 
@@ -342,14 +400,51 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         </View>
       )}
 
-      {/* Pedestrian warning - Improved Logic */}
-      {pedestriansInCrosswalk > 0 && isVehicleNearPedestrianInCrosswalk && (
-        <View style={styles.warningContainer}>
-          <Text style={styles.warningText}>
-            Pedestrian crossing detected!
-          </Text>
-        </View>
-      )}
+      {/* Pedestrian warning - Simple Proximity Logic */}
+      {(() => {
+        const vehiclePos: [number, number] = [smoothedLocation[0], smoothedLocation[1]];
+
+        if (smoothedLocation[0] === 0) return null;
+
+        // Collect VRU data from multiple sources
+        let allVRUs: any[] = [];
+
+        // Add SDSM VRU data if API is enabled
+        if (TESTING_CONFIG.ENABLE_SDSM_API) {
+          const vehicleDisplayVM = mainViewModel?.vehicleDisplayViewModel || testingVehicleDisplayViewModel;
+          if (vehicleDisplayVM?.vrus) {
+            allVRUs = [...allVRUs, ...vehicleDisplayVM.vrus];
+          }
+        }
+
+        // Add testing pedestrian VRU data if enabled
+        if (TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN && testingPedestrianDetectorViewModel?.vrus) {
+          allVRUs = [...allVRUs, ...testingPedestrianDetectorViewModel.vrus];
+        }
+
+        // Check if any pedestrian is in crosswalk and vehicle is within 10 meters of that pedestrian
+        const hasPedestriansNearby = allVRUs.some(vru => {
+          // Check if pedestrian is in any crosswalk
+          const isPedestrianInCrosswalk = CrosswalkDetectionService.isInCrosswalk(vru.coordinates);
+          if (!isPedestrianInCrosswalk) return false;
+
+          // Check if vehicle is within 10 meters of this pedestrian
+          const isVehicleNearPedestrian = ProximityDetectionService.isVehicleCloseToPosition(
+            vehiclePos,
+            vru.coordinates
+          );
+
+          return isVehicleNearPedestrian;
+        });
+
+        return hasPedestriansNearby ? (
+          <View style={styles.warningContainer}>
+            <Text style={styles.warningText}>
+              Pedestrian crossing detected ahead!
+            </Text>
+          </View>
+        ) : null;
+      })()}
     </View>
   );
 });
@@ -458,9 +553,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
-
-
-
-// the second intersection is called lindsay intersection: 
-// -85.30692185020237 , 35.04525079129405

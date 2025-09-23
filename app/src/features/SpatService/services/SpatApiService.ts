@@ -2,6 +2,7 @@
 // Service responsible for SPaT API communication
 
 import { SignalState } from '../models/SpatModels';
+import { TESTING_CONFIG } from '../../../testingFeatures/TestingConfig';
 
 export interface SpatApiResponse {
   phaseStatusGroupReds: number[];
@@ -19,6 +20,11 @@ export class SpatApiService {
    * Fetch current SPaT data from API
    */
   static async fetchSpatData(): Promise<SpatApiResponse | null> {
+    // Check if SDSM API is enabled (SPaT is part of same system)
+    if (!TESTING_CONFIG.ENABLE_SDSM_API) {
+      return null;
+    }
+
     try {
       // Create a timeout promise for React Native compatibility
       const timeoutPromise = new Promise<never>((_, reject) => {

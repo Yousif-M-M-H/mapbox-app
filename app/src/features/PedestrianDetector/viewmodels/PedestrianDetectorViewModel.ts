@@ -3,53 +3,46 @@
 
 import { makeAutoObservable, runInAction } from 'mobx';
 import { PedestrianDataManager } from './PedestrianDataManager';
-import { PedestrianMonitoringManager } from './PedestrianMonitoringManager';
 import { CrosswalkDetectionService } from '../services/CrosswalkDetectionService';
 import { ProximityDetectionService } from '../services/ProximityDetectionService';
 import { PedestrianErrorHandler } from '../errorHandling/PedestrianErrorHandler';
+import { VRUData } from '../../SDSM/models/SDSMTypes';
 
 export class PedestrianDetectorViewModel {
   // State
   pedestriansInCrosswalk: number = 0;
   private _vehiclePosition: [number, number] = [0, 0];
   private conditionsMetCallback: (() => void) | null = null;
-  
+
   // Managers
   private dataManager: PedestrianDataManager;
-  private monitoringManager: PedestrianMonitoringManager;
-  
+
   constructor() {
     makeAutoObservable(this);
-    
+
     // Initialize managers
     this.dataManager = new PedestrianDataManager();
-    this.monitoringManager = new PedestrianMonitoringManager(this.dataManager);
-    
-    // Setup automatic condition checking when data updates
-    this.monitoringManager.setDataUpdateCallback(() => {
-      this.checkConditions();
-    });
-    
+
     // Removed initialization log to reduce noise
   }
-  
+
   // ========================================
   // Public API - Vehicle Position
   // ========================================
-  
+
   /**
    * Get current vehicle position
    */
   get vehiclePosition(): [number, number] {
     return this._vehiclePosition;
   }
-  
+
   /**
    * Set vehicle position and trigger condition check
    */
   setVehiclePosition(position: [number, number]): void {
     this._vehiclePosition = position;
-    
+
     // Check conditions immediately when position updates
     if (this.isMonitoring) {
       this.checkConditions();
@@ -62,12 +55,16 @@ export class PedestrianDetectorViewModel {
   setConditionsMetCallback(callback: () => void): void {
     this.conditionsMetCallback = callback;
   }
-  
-  // ========================================
-  // Public API - Pedestrian Data
-  // ========================================
-  
-  
+
+  /**
+   * Update VRU data from SDSM feature
+   */
+  updateVRUData(vruData: VRUData[]): void {
+    this.dataManager.updatePedestrianData(vruData);
+
+    // Check conditions immediately when data updates
+    this.checkConditions();
+  }
 
   /**
    * Improved logic: Check if vehicle is within 20m of pedestrians that are IN crosswalk
@@ -89,80 +86,68 @@ export class PedestrianDetectorViewModel {
       )
     );
   }
-  
+
   // ========================================
   // Public API - Monitoring
   // ========================================
-  
+
   /**
-   * Get monitoring status
+   * Get monitoring status (always true when receiving SDSM data)
    */
   get isMonitoring(): boolean {
-    return this.monitoringManager.isActive;
+    return true; // Always monitoring when receiving VRU data from SDSM
   }
-  
+
   /**
-   * Start pedestrian monitoring
+   * Start pedestrian monitoring (no-op, data comes from SDSM)
    */
   startMonitoring(): void {
-    this.monitoringManager.startMonitoring();
+    // No-op: data comes from SDSM feature
   }
-  
+
   /**
-   * Stop pedestrian monitoring
+   * Stop pedestrian monitoring (no-op, data comes from SDSM)
    */
   stopMonitoring(): void {
-    this.monitoringManager.stopMonitoring();
+    // No-op: data comes from SDSM feature
   }
-  
-  /**
-   * Force refresh pedestrian data
-   */
-  async refreshData(): Promise<void> {
-    await this.monitoringManager.refreshData();
-  }
-  
-  // ========================================
-  // Public API - Detection Results
-  // ========================================
-  
-  
+
   // ========================================
   // Public API - State Information
   // ========================================
-  
+
   /**
-   * Get loading status
+   * Get loading status (always false since data comes from SDSM)
    */
   get loading(): boolean {
-    return this.dataManager.loading;
+    return false;
   }
-  
+
   /**
    * Get error status
    */
   get error(): string | null {
     return this.dataManager.error;
   }
-  
+
   /**
    * Check if data is fresh
    */
   get isDataFresh(): boolean {
     return this.dataManager.isDataFresh();
   }
-  
+
   /**
    * Get data age in milliseconds
    */
   get dataAge(): number {
     return this.dataManager.getDataAge();
   }
-  
+
   // ========================================
   // Private Methods
   // ========================================
-  
+
   /**
    * Check conditions and update crosswalk count
    */
@@ -170,19 +155,19 @@ export class PedestrianDetectorViewModel {
     try {
       let pedestriansInCrosswalkCount = 0;
       let hasMetConditions = false;
-      
+
       // Check each pedestrian
       this.dataManager.pedestrians.forEach(pedestrian => {
         const isInCrosswalk = CrosswalkDetectionService.isInCrosswalk(pedestrian.coordinates);
         const isCloseToVehicle = ProximityDetectionService.isVehicleCloseToPosition(
-          this._vehiclePosition, 
+          this._vehiclePosition,
           pedestrian.coordinates
         );
-        
+
         if (isInCrosswalk) {
           pedestriansInCrosswalkCount++;
         }
-        
+
         if (isCloseToVehicle) {
           ProximityDetectionService.logProximityWarning(
             this._vehiclePosition,
@@ -190,19 +175,19 @@ export class PedestrianDetectorViewModel {
             pedestrian.id
           );
         }
-        
+
         // Check if conditions are met (pedestrian in crosswalk AND vehicle is close)
         if (isInCrosswalk && isCloseToVehicle) {
           hasMetConditions = true;
         }
       });
-      
+
       // Update the observable state
       runInAction(() => {
         this.pedestriansInCrosswalk = pedestriansInCrosswalkCount;
       });
-      
-      
+
+
       // Call the callback if conditions are met
       if (hasMetConditions && this.conditionsMetCallback) {
         try {
@@ -210,27 +195,25 @@ export class PedestrianDetectorViewModel {
         } catch (error) {
         }
       }
-      
+
     } catch (error) {
       PedestrianErrorHandler.logError('checkConditions', error);
     }
   }
-  
+
   // ========================================
   // Cleanup
   // ========================================
-  
+
   /**
    * Cleanup all resources
    */
   cleanup(): void {
-    this.monitoringManager.cleanup();
     this.conditionsMetCallback = null;
-    
+
     runInAction(() => {
       this.pedestriansInCrosswalk = 0;
       this._vehiclePosition = [0, 0];
     });
-    
   }
 }

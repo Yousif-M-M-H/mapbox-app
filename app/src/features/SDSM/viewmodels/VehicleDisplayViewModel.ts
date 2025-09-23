@@ -3,6 +3,7 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import { VehicleData, VRUData } from '../models/SDSMTypes';
 import { SDSMDataService } from '../services/SDSMDataService';
+import { TESTING_CONFIG } from '../../../testingFeatures/TestingConfig';
 
 export class VehicleDisplayViewModel {
   // Observable state
@@ -35,11 +36,22 @@ export class VehicleDisplayViewModel {
    * Start the polling loop
    */
   start(): void {
+    // Check if SDSM API is enabled
+    if (!TESTING_CONFIG.ENABLE_SDSM_API) {
+      console.log('🔴 SDSM API disabled - not starting polling');
+      runInAction(() => {
+        this.vehicles = [];
+        this.vrus = [];
+        this.isActive = false;
+      });
+      return;
+    }
+
     if (this.isActive) {
       console.log('✅ SDSM already running');
       return;
     }
-    
+
     console.log('🚀 Starting SDSM polling at 10Hz');
     
     runInAction(() => {

@@ -44,11 +44,33 @@ export class CrosswalkDetectionService {
    */
   public static countPedestriansInCrosswalk(pedestrians: Array<{ coordinates: [number, number] }>): number {
     try {
-      return pedestrians.filter(pedestrian => 
+      return pedestrians.filter(pedestrian =>
         this.isInCrosswalk(pedestrian.coordinates)
       ).length;
     } catch (error) {
       PedestrianErrorHandler.logError('countPedestriansInCrosswalk', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Count pedestrians in a specific crosswalk by index
+   */
+  public static countPedestriansInSpecificCrosswalk(
+    pedestrians: Array<{ coordinates: [number, number] }>,
+    crosswalkIndex: number
+  ): number {
+    try {
+      if (crosswalkIndex >= CROSSWALK_POLYGONS.length) {
+        return 0;
+      }
+
+      const polygon = CROSSWALK_POLYGONS[crosswalkIndex];
+      return pedestrians.filter(pedestrian =>
+        this.isPointInPolygon(pedestrian.coordinates, polygon)
+      ).length;
+    } catch (error) {
+      PedestrianErrorHandler.logError('countPedestriansInSpecificCrosswalk', error);
       return 0;
     }
   }
@@ -146,8 +168,8 @@ export class CrosswalkDetectionService {
     }
     
     const polygon = CROSSWALK_POLYGONS[crosswalkIndex];
-    const lats = polygon.map(([lng, lat]) => lat);
-    const lngs = polygon.map(([lng, lat]) => lng);
+    const lats = polygon.map(([, lat]) => lat);
+    const lngs = polygon.map(([lng]) => lng);
     
     return {
       minLat: Math.min(...lats),

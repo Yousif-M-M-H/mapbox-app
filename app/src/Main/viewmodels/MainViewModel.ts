@@ -45,6 +45,11 @@ export class MainViewModel {
     } else {
       this.pedestrianDetectorViewModel = new PedestrianDetectorViewModel();
     }
+
+    // Always create testing pedestrian detector if we want to show fixed pedestrian
+    if (TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN && !this.testingPedestrianDetectorViewModel) {
+      this.testingPedestrianDetectorViewModel = new TestingPedestrianDetectorViewModel();
+    }
     
     this.directionGuideViewModel = new DirectionGuideViewModel();
     
