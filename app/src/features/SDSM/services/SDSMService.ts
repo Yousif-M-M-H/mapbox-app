@@ -3,7 +3,7 @@ import { SDSMResponse, SDSMObject, VRUData, VehicleData } from '../models/SDSMTy
 import { TESTING_CONFIG } from '../../../testingFeatures/TestingConfig';
 
 export class SDSMService {
-  private static readonly API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events';
+  private static readonly API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events/MLK_Georgia';
   private static readonly REQUEST_TIMEOUT = 1000;
 
   /**

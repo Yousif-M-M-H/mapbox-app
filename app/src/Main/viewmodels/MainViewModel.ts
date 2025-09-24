@@ -13,6 +13,7 @@ import { VehicleDisplayViewModel } from '../../features/SDSM/viewmodels/VehicleD
 
 // ADD THIS IMPORT:
 import { ClosestIntersectionViewModel, LocationWithHeading } from '../../features/ClosestIntersection';
+import { IntersectionApiController } from '../../features/ClosestIntersection/services/IntersectionApiController';
 import { LanesViewModel } from '../../features/Lanes';
 
 export class MainViewModel {
@@ -58,8 +59,14 @@ export class MainViewModel {
     // Start pedestrian monitoring
     this.startPedestrianMonitoring();
     
-    // Start SDSM vehicle display
-    this.vehicleDisplayViewModel.start();
+    // Start API calling - either conditional or immediate based on config
+    const useConditionalApi = (TESTING_CONFIG as any).USE_CONDITIONAL_API_CALLING || false;
+    if (useConditionalApi) {
+      this.startConditionalApiCalling();
+    } else {
+      // Original behavior - start SDSM vehicle display immediately
+      this.vehicleDisplayViewModel.start();
+    }
     
     // Start SDSM latency tracking and automatic logging
     this.startSDSMLatencyTracking();
@@ -89,7 +96,32 @@ export class MainViewModel {
   // ========================================
   // ADD THIS NEW METHOD:
   // ========================================
-  
+
+  /**
+   * Start conditional API calling based on intersection proximity
+   */
+  private startConditionalApiCalling(): void {
+    // Create a function that returns current user location with heading
+    const getUserLocation = (): LocationWithHeading => {
+      return {
+        coordinates: [this.userLocation.latitude, this.userLocation.longitude],
+        heading: this.mapViewModel.getUserHeading()
+      };
+    };
+
+    // Start conditional API monitoring when we have a valid location
+    const startWhenReady = () => {
+      if (this.userLocation.latitude !== 0 && this.userLocation.longitude !== 0) {
+        IntersectionApiController.startConditionalApiCalling(getUserLocation, this.vehicleDisplayViewModel);
+      } else {
+        // Wait for location to be available, check every 2 seconds
+        setTimeout(startWhenReady, 2000);
+      }
+    };
+
+    startWhenReady();
+  }
+
   /**
    * Start monitoring closest intersections
    */
@@ -264,6 +296,7 @@ export class MainViewModel {
     
     // ADD THIS CLEANUP:
     this.closestIntersectionViewModel.cleanup();
+    IntersectionApiController.cleanup();
     
     if (this.isTestingMode && this.testingPedestrianDetectorViewModel) {
       this.testingPedestrianDetectorViewModel.cleanup();

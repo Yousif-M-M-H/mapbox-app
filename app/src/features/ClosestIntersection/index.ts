@@ -5,6 +5,7 @@ import { ClosestIntersectionViewModel } from './viewmodels/ClosestIntersectionVi
 // Main exports
 export { ClosestIntersectionViewModel } from './viewmodels/ClosestIntersectionViewModel';
 export { DistanceCalculationService } from './services/DistanceCalculationService';
+export { IntersectionApiController } from './services/IntersectionApiController';
 export { INTERSECTIONS } from './constants/IntersectionDefinitions';
 
 // Type exports

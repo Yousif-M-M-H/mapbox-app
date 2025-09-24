@@ -32,7 +32,7 @@ export const SDSM_CONFIG = {
   FEATURE_NAME: 'SDSM Vehicle Display',
   VERSION: '1.0.0',
   UPDATE_FREQUENCY_HZ: 0.66,
-  API_ENDPOINT: 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events',
+  API_ENDPOINT: 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events/MLK_Georgia',
   REQUEST_TIMEOUT_MS: 1000,
   DESCRIPTION: 'Real-time vehicle display from SDSM data at 10Hz'
 };
@@ -69,4 +69,3 @@ export const testSDSMConnection = async (): Promise<boolean> => {
     return false;
   }
 };
-

@@ -6,39 +6,40 @@
 export const DETECTION_RADIUS = 0.0001;
 
 
-export const CROSSWALK_POLYGONS: [number, number][][] = [
-  
+// Georgia Intersection Crosswalks (MLK & Georgia Ave)
+export const GEORGIA_CROSSWALK_POLYGONS: [number, number][][] = [
+
   [
-   // this crosswalk 1
+    // Georgia crosswalk 1
     [-85.30829549845666, 35.04580007082977],
     [-85.30826661219434, 35.04584243117668],
     [-85.30821128896085, 35.04582096118865],
     [-85.30822267243643, 35.045781097596404],
     [-85.30829549845666, 35.04580007082977]
   ],
-  
-    [
-  //  this crosswalk 2
+
+  [
+    //  Georgia crosswalk 2
     [-85.30826038196862, 35.045783233690514],
     [-85.3081432965312, 35.04573928580798],
     [-85.30816625582557, 35.04569469197865],
     [-85.3082754370359, 35.04573071872899],
     [-85.30826038196862, 35.045783233690514]
   ],
-  
+
 
   [
-  // this crosswalk 3
+    // Georgia crosswalk 3
     [-85.30832581022874, 35.04575119805716],
     [-85.30834003307815, 35.04572183142514],
     [-85.3082817934553, 35.04570248640519],
     [-85.30826145739037, 35.04571939715727],
     [-85.30832581022874, 35.04575119805716]
   ],
-  // this crosswalk 4
- 
+  // Georgia crosswalk 4
 
-    [
+
+  [
     [-85.30829996505842, 35.045808667335095],
     [-85.30834238790209, 35.04582401090481],
     [-85.30836722920992, 35.04577012045597],
@@ -47,13 +48,55 @@ export const CROSSWALK_POLYGONS: [number, number][][] = [
   ],
 ];
 
+// Houston Intersection Crosswalks (to be added)
+export const HOUSTON_CROSSWALK_POLYGONS: [number, number][][] = [
+  [
+    [-85.30557750385923, 35.044799387402634],
+    [-85.30555780052255, 35.044817905889175],
+    [-85.30551237026447, 35.044798093118416],
+    [-85.30553008426826, 35.04477303472079],
+    [-85.30557750385923, 35.044799387402634],
+  ], 
+  [
+    [-85.3055289750455, 35.04476961297085], 
+    [-85.30550465780273, 35.0447606013832], 
+    [-85.30553509600826, 35.04471196438787], 
+    [-85.30555307215717, 35.04471712715713],
+    [-85.3055289750455, 35.04476961297085], 
+  ],
+  [
+    [-85.30560053072082, 35.0447357450043], 
+    [-85.30560854542497, 35.044720790326465], 
+    [-85.30556708951902, 35.04470070589619], 
+    [-85.30555640244148, 35.04471332444888]
+  ]
+];
 
-export const CROSSWALK_POLYGON_COORDS = CROSSWALK_POLYGONS[0];
+// Combined crosswalks from both intersections
+export const CROSSWALK_POLYGONS: [number, number][][] = [
+  ...GEORGIA_CROSSWALK_POLYGONS,
+  ...HOUSTON_CROSSWALK_POLYGONS
+];
 
-// Crosswalk center coordinates for directional detection
+export const CROSSWALK_POLYGON_COORDS = GEORGIA_CROSSWALK_POLYGONS[0];
+
+// Georgia Intersection - Manually calculated centers for precise directional detection
+export const GEORGIA_CROSSWALK_CENTERS: [number, number][] = [
+  [-85.30827125295701, 35.04579686383018], // Georgia crosswalk 1
+  [-85.30824290630149, 35.04575243002566], // Georgia crosswalk 2
+  [-85.3082983713258, 35.045738607349946], // Georgia crosswalk 3
+  [-85.30832121637657, 35.04578228950044]  // Georgia crosswalk 4
+];
+
+// Houston Intersection - Centers
+export const HOUSTON_CROSSWALK_CENTERS: [number, number][] = [
+  [-85.30554493706185, 35.04478621106051],  // Houston crosswalk 1 center
+  [-85.30552681642399, 35.04474086918251],  // Houston crosswalk 2 center
+  [-85.30558781512492, 35.04471822538059]   // Houston crosswalk 3 center
+];
+
+// Combined centers from both intersections
 export const CROSSWALK_CENTERS: [number, number][] = [
-  [-85.30827125295701, 35.04579686383018], // Center of crosswalk #1
-  [-85.30824290630149, 35.04575243002566], // Center of crosswalk #2
-  [-85.3082983713258, 35.045738607349946], // Center of crosswalk #3
-  [-85.30832121637657, 35.04578228950044]  // Center of crosswalk #4
+  ...GEORGIA_CROSSWALK_CENTERS,
+  ...HOUSTON_CROSSWALK_CENTERS
 ];

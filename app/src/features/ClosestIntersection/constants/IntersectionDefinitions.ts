@@ -9,8 +9,8 @@ export const INTERSECTIONS: Intersection[] = [
     coordinates: [-85.30828086029983, 35.045767696835526] // [lng, lat]
   },
   {
-    id: 'lindsay',
-    name: 'Lindsay Intersection', 
-    coordinates: [-85.30692185020237, 35.04525079129405] // [lng, lat]
+    id: 'houston',
+    name: 'Houston Intersection',
+    coordinates: [-85.30557334560115, 35.04475484458253] // [lng, lat]
   }
 ];

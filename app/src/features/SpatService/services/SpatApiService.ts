@@ -13,13 +13,28 @@ export interface SpatApiResponse {
 }
 
 export class SpatApiService {
-  private static readonly API_ENDPOINT = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events';
+  private static API_ENDPOINT = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events/MLK_Georgia';
   private static readonly REQUEST_TIMEOUT = 5000; // 5 seconds
+
+  /**
+   * Set the API endpoint for specific intersection
+   */
+  static setApiEndpoint(intersection: 'georgia' | 'houston'): void {
+    if (intersection === 'georgia') {
+      this.API_ENDPOINT = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events/MLK_Georgia';
+    } else if (intersection === 'houston') {
+      this.API_ENDPOINT = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events/MLK_Houston';
+    }
+  }
 
   /**
    * Fetch current SPaT data from API
    */
-  static async fetchSpatData(): Promise<SpatApiResponse | null> {
+  static async fetchSpatData(intersection?: 'georgia' | 'houston'): Promise<SpatApiResponse | null> {
+    // Set API endpoint if intersection is specified
+    if (intersection) {
+      this.setApiEndpoint(intersection);
+    }
     // Check if SDSM API is enabled (SPaT is part of same system)
     if (!TESTING_CONFIG.ENABLE_SDSM_API) {
       return null;

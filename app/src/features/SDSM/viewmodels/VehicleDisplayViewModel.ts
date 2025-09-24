@@ -19,8 +19,8 @@ export class VehicleDisplayViewModel {
   newMessages: number = 0;
   duplicateMessages: number = 0;
   
-  // Configuration
-  private readonly API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events';
+  // Configuration - dynamic API URL based on intersection
+  private API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events/MLK_Georgia';
   private readonly POLL_DELAY_MS = 100; // 100ms = 10Hz to match RSU
   private readonly FETCH_TIMEOUT_MS = 80; // Timeout before next cycle
   
@@ -33,9 +33,20 @@ export class VehicleDisplayViewModel {
   }
   
   /**
+   * Set the API URL for specific intersection
+   */
+  setApiUrl(intersection: 'georgia' | 'houston'): void {
+    if (intersection === 'georgia') {
+      this.API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events/MLK_Georgia';
+    } else if (intersection === 'houston') {
+      this.API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events/MLK_Houston';
+    }
+  }
+
+  /**
    * Start the polling loop
    */
-  start(): void {
+  start(intersection?: 'georgia' | 'houston'): void {
     // Check if SDSM API is enabled
     if (!TESTING_CONFIG.ENABLE_SDSM_API) {
       console.log('🔴 SDSM API disabled - not starting polling');
@@ -47,12 +58,17 @@ export class VehicleDisplayViewModel {
       return;
     }
 
+    // Set API URL if intersection is specified
+    if (intersection) {
+      this.setApiUrl(intersection);
+    }
+
     if (this.isActive) {
       console.log('✅ SDSM already running');
       return;
     }
 
-    console.log('🚀 Starting SDSM polling at 10Hz');
+    console.log(`🚀 Starting SDSM polling at 10Hz for ${intersection || 'default'} intersection`);
     
     runInAction(() => {
       this.isActive = true;
@@ -201,6 +217,7 @@ export class VehicleDisplayViewModel {
       this.lastUpdateTime = Date.now();
       this.updateCount++;
       this.error = null;
+
     });
   }
   
