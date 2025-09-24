@@ -14,7 +14,7 @@ export interface SpatApiResponse {
 
 export class SpatApiService {
   private static API_ENDPOINT = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events/MLK_Georgia';
-  private static readonly REQUEST_TIMEOUT = 5000; // 5 seconds
+  private static readonly REQUEST_TIMEOUT = 8000; // 5 seconds
 
   /**
    * Set the API endpoint for specific intersection

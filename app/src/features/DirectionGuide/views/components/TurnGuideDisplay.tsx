@@ -24,10 +24,13 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
     return null;
   }
 
- 
+  // For now, hardcoded - will be dynamic later
+  const allowLeft = true;
+  const allowStraight = true;
+
   
-  const allowLeft = directionGuideViewModel.isTurnAllowed(TurnType.LEFT);
-  const allowStraight = directionGuideViewModel.isTurnAllowed(TurnType.STRAIGHT);
+  // const allowLeft = directionGuideViewModel.isTurnAllowed(TurnType.LEFT);
+  // const allowStraight = directionGuideViewModel.isTurnAllowed(TurnType.STRAIGHT);
 
   return (
     <View style={styles.container}>

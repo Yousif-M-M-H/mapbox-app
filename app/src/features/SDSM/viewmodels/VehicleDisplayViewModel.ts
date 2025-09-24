@@ -21,8 +21,8 @@ export class VehicleDisplayViewModel {
   
   // Configuration - dynamic API URL based on intersection
   private API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events/MLK_Georgia';
-  private readonly POLL_DELAY_MS = 100; // 100ms = 10Hz to match RSU
-  private readonly FETCH_TIMEOUT_MS = 80; // Timeout before next cycle
+  private readonly POLL_DELAY_MS = 50; // 100ms = 10Hz to match RSU
+  private readonly FETCH_TIMEOUT_MS = 40; // Timeout before next cycle
   
   // State tracking
   private lastMessageHash: string | null = null;
