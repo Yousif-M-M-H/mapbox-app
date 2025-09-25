@@ -1,5 +1,4 @@
 // app/src/features/SpatService/services/SpatApiService.ts
-// Service responsible for SPaT API communication
 
 import { SignalState } from '../models/SpatModels';
 import { TESTING_CONFIG } from '../../../testingFeatures/TestingConfig';
@@ -31,13 +30,14 @@ export class SpatApiService {
    * Fetch current SPaT data from API
    */
   static async fetchSpatData(intersection?: 'georgia' | 'houston'): Promise<SpatApiResponse | null> {
-    // Set API endpoint if intersection is specified
-    if (intersection) {
-      this.setApiEndpoint(intersection);
-    }
     // Check if SDSM API is enabled (SPaT is part of same system)
     if (!TESTING_CONFIG.ENABLE_SDSM_API) {
       return null;
+    }
+
+    // Set API endpoint if intersection is specified
+    if (intersection) {
+      this.setApiEndpoint(intersection);
     }
 
     try {
@@ -57,14 +57,12 @@ export class SpatApiService {
       const response = await Promise.race([fetchPromise, timeoutPromise]);
 
       if (!response.ok) {
-        console.warn(`SPaT API error: ${response.status} ${response.statusText}`);
         return null;
       }
 
       const spatData = await response.json();
       return spatData as SpatApiResponse;
     } catch (error) {
-      console.warn('Failed to fetch SPaT data:', error);
       return null;
     }
   }

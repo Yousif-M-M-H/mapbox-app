@@ -3,7 +3,7 @@
 import { makeAutoObservable } from 'mobx';
 import { Lane, LegacyLane, LaneAdapter, LaneConfiguration, LaneStyle } from '../models/LaneTypes';
 import { LaneRenderingService } from '../services/LaneRenderingService';
-import { LANE_CONFIG } from '../constants/LaneData';
+import { LANE_CONFIG, getLanesForIntersection, getLaneConfigForIntersection } from '../constants/LaneData';
 
 export class LanesViewModel {
   // Observable state - use new Lane format internally
@@ -173,5 +173,52 @@ export class LanesViewModel {
    */
   get hasVisibleLanes(): boolean {
     return this.visible && this.visibleLanes.length > 0;
+  }
+
+  /**
+   * Get lanes for a specific intersection
+   */
+  getLanesForIntersection(intersection: 'georgia' | 'houston' | 'all'): Lane[] {
+    const intersectionLanes = getLanesForIntersection(intersection);
+    return intersectionLanes.filter(lane =>
+      this.lanes.some(myLane => myLane.laneID === lane.laneID)
+    );
+  }
+
+  /**
+   * Get visible lanes for a specific intersection
+   */
+  getVisibleLanesForIntersection(intersection: 'georgia' | 'houston' | 'all'): LegacyLane[] {
+    if (!this.visible) {
+      return [];
+    }
+    const intersectionLanes = this.getLanesForIntersection(intersection);
+    const legacyLanes = LaneAdapter.toLegacyLanes(intersectionLanes);
+    return LaneRenderingService.getVisibleLanes(legacyLanes);
+  }
+
+  /**
+   * Load lanes for a specific intersection
+   */
+  loadIntersectionLanes(intersection: 'georgia' | 'houston' | 'all'): void {
+    const config = getLaneConfigForIntersection(intersection);
+    this.lanes = [...config.lanes];
+    this.visible = config.visible;
+    this.error = null;
+  }
+
+  /**
+   * Add lanes from a specific intersection to current lanes
+   */
+  addIntersectionLanes(intersection: 'georgia' | 'houston'): void {
+    const intersectionLanes = getLanesForIntersection(intersection);
+
+    for (const lane of intersectionLanes) {
+      // Check if lane ID already exists
+      if (!this.lanes.find(l => l.laneID === lane.laneID)) {
+        this.lanes.push(lane);
+      }
+    }
+    this.error = null;
   }
 }

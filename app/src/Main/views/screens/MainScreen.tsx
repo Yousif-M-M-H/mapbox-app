@@ -25,6 +25,7 @@ export const MainScreen: React.FC<MainScreenProps> = observer(({ viewModel }) =>
         directionGuideViewModel={viewModel.directionGuideViewModel}
         isTestingMode={viewModel.isTestingMode}
         mainViewModel={viewModel}
+        spatViewModel={viewModel.spatViewModel}
         lanesViewModel={viewModel.lanesViewModel}
       />
     </View>

@@ -11,21 +11,23 @@ import { TESTING_CONFIG } from '../../testingFeatures/TestingConfig';
 // Import SDSM Vehicle Display
 import { VehicleDisplayViewModel } from '../../features/SDSM/viewmodels/VehicleDisplayViewModel';
 
-// ADD THIS IMPORT:
+// Import ClosestIntersection
 import { ClosestIntersectionViewModel, LocationWithHeading } from '../../features/ClosestIntersection';
-import { IntersectionApiController } from '../../features/ClosestIntersection/services/IntersectionApiController';
 import { LanesViewModel } from '../../features/Lanes';
+
+// Import SPAT Service
+import { SpatViewModel } from '../../features/SpatService/viewModels/SpatViewModel';
 
 export class MainViewModel {
   mapViewModel: MapViewModel;
   pedestrianDetectorViewModel: PedestrianDetectorViewModel | null = null;
   testingPedestrianDetectorViewModel: TestingPedestrianDetectorViewModel | null = null;
   directionGuideViewModel: DirectionGuideViewModel;
-  vehicleDisplayViewModel: VehicleDisplayViewModel; // SDSM vehicle display
+  vehicleDisplayViewModel: VehicleDisplayViewModel;
   
-  // ADD THIS PROPERTY:
   closestIntersectionViewModel: ClosestIntersectionViewModel;
   lanesViewModel: LanesViewModel;
+  spatViewModel: SpatViewModel;
   
   isTestingMode: boolean = TESTING_CONFIG.USE_TESTING_MODE;
   isVehicleTestingEnabled: boolean = TESTING_CONFIG.USE_VEHICLE_TESTING_FEATURE;
@@ -36,9 +38,12 @@ export class MainViewModel {
     // Initialize SDSM vehicle display
     this.vehicleDisplayViewModel = new VehicleDisplayViewModel();
     
-    // ADD THIS INITIALIZATION:
+    // Initialize ClosestIntersection and Lanes
     this.closestIntersectionViewModel = new ClosestIntersectionViewModel();
     this.lanesViewModel = new LanesViewModel();
+
+    // Initialize SPAT ViewModel
+    this.spatViewModel = new SpatViewModel();
     
     // Create appropriate pedestrian detector based on testing mode
     if (TESTING_CONFIG.USE_TESTING_MODE) {
@@ -59,14 +64,11 @@ export class MainViewModel {
     // Start pedestrian monitoring
     this.startPedestrianMonitoring();
     
-    // Start API calling - either conditional or immediate based on config
-    const useConditionalApi = (TESTING_CONFIG as any).USE_CONDITIONAL_API_CALLING || false;
-    if (useConditionalApi) {
-      this.startConditionalApiCalling();
-    } else {
-      // Original behavior - start SDSM vehicle display immediately
-      this.vehicleDisplayViewModel.start();
-    }
+    // Start SDSMS APIs immediately on app startup
+    this.startSDSMSApis();
+
+    // Start conditional SPAT API calling (only when user is in lanes)
+    this.startConditionalSpatCalling();
     
     // Start SDSM latency tracking and automatic logging
     this.startSDSMLatencyTracking();
@@ -77,7 +79,7 @@ export class MainViewModel {
     // Start Detection Latency Test if in testing mode
     this.startDetectionLatencyTest();
     
-    // ADD THIS LINE:
+    // Start closest intersection monitoring
     this.startClosestIntersectionMonitoring();
   }
   
@@ -93,26 +95,44 @@ export class MainViewModel {
     }
   }
   
-  // ========================================
-  // ADD THIS NEW METHOD:
-  // ========================================
-
   /**
-   * Start conditional API calling based on intersection proximity
+   * Start SDSMS APIs immediately on app startup
    */
-  private startConditionalApiCalling(): void {
-    // Create a function that returns current user location with heading
-    const getUserLocation = (): LocationWithHeading => {
-      return {
-        coordinates: [this.userLocation.latitude, this.userLocation.longitude],
-        heading: this.mapViewModel.getUserHeading()
-      };
-    };
-
-    // Start conditional API monitoring when we have a valid location
+  private startSDSMSApis(): void {
+    // Start SDSMS APIs for both Georgia and Houston intersections immediately
     const startWhenReady = () => {
       if (this.userLocation.latitude !== 0 && this.userLocation.longitude !== 0) {
-        IntersectionApiController.startConditionalApiCalling(getUserLocation, this.vehicleDisplayViewModel);
+        // Start both Georgia and Houston APIs
+        this.vehicleDisplayViewModel.start(['georgia', 'houston']);
+      } else {
+        // Wait for location to be available, check every 2 seconds
+        setTimeout(startWhenReady, 2000);
+      }
+    };
+
+    startWhenReady();
+  }
+
+  /**
+   * Start conditional SPAT API calling only when user is in lanes
+   */
+  private startConditionalSpatCalling(): void {
+    // Start monitoring user position and call SPAT API only when in lanes
+    const startWhenReady = () => {
+      if (this.userLocation.latitude !== 0 && this.userLocation.longitude !== 0) {
+        // Set initial position and start monitoring
+        this.spatViewModel.setUserPosition([this.userLocation.longitude, this.userLocation.latitude]);
+        this.spatViewModel.startMonitoring();
+
+        // Update SPAT position whenever user location changes
+        const updateSpatPosition = () => {
+          if (this.userLocation.latitude !== 0 && this.userLocation.longitude !== 0) {
+            this.spatViewModel.setUserPosition([this.userLocation.longitude, this.userLocation.latitude]);
+          }
+        };
+
+        // Update SPAT position every 1 second
+        setInterval(updateSpatPosition, 1000);
       } else {
         // Wait for location to be available, check every 2 seconds
         setTimeout(startWhenReady, 2000);
@@ -147,18 +167,12 @@ export class MainViewModel {
     startWhenReady();
   }
   
-  // ========================================
-  // SDSM Latency Tracking
-  // ========================================
-  
   /**
    * Start SDSM latency tracking and automatic logging
    */
   private startSDSMLatencyTracking(): void {
     try {
-      // Start automatic logging every 10 seconds
-      // Schedule detailed logging after 5 seconds from app start
-      // Removed latency tracking initialization logs to reduce noise
+      // Silent initialization
     } catch (error) {
       // Keep error logs for debugging critical issues
     }
@@ -169,16 +183,11 @@ export class MainViewModel {
    */
   private startSDSMFrequencyMonitoring(): void {
     try {
-      // Start frequency monitoring with automatic analysis after 1 minute
-      // Removed frequency monitoring initialization logs to reduce noise
+      // Silent initialization
     } catch (error) {
       // Keep error logs for debugging critical issues
     }
   }
-  
-  // ========================================
-  // Detection Latency Test Integration
-  // ========================================
   
   /**
    * Start Detection Latency Test (only in testing mode)
@@ -223,10 +232,6 @@ export class MainViewModel {
     }
     return false;
   }
-  
-  // ========================================
-  // Existing Methods (unchanged)
-  // ========================================
   
   get activePedestrianDetector(): PedestrianDetectorViewModel | TestingPedestrianDetectorViewModel | null {
     return this.isTestingMode ? this.testingPedestrianDetectorViewModel : this.pedestrianDetectorViewModel;
@@ -289,14 +294,15 @@ export class MainViewModel {
     // Stop SDSM vehicle display
     try {
       this.vehicleDisplayViewModel?.cleanup();
-      // Removed cleanup log to reduce noise
     } catch (error) {
       // Suppressed to reduce noise
     }
     
-    // ADD THIS CLEANUP:
+    // Cleanup intersection monitoring
     this.closestIntersectionViewModel.cleanup();
-    IntersectionApiController.cleanup();
+
+    // Cleanup SPAT monitoring
+    this.spatViewModel.cleanup();
     
     if (this.isTestingMode && this.testingPedestrianDetectorViewModel) {
       this.testingPedestrianDetectorViewModel.cleanup();

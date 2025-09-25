@@ -8,24 +8,29 @@ import { SpatViewModel } from '../viewModels/SpatViewModel';
 
 interface SpatStatusDisplayProps {
   userPosition: [number, number]; // [lat, lng]
+  spatViewModel?: SpatViewModel; // Optional prop to use external view model
 }
 
-export const SpatStatusDisplay: React.FC<SpatStatusDisplayProps> = observer(({ userPosition }) => {
+export const SpatStatusDisplay: React.FC<SpatStatusDisplayProps> = observer(({ userPosition, spatViewModel }) => {
   const viewModelRef = useRef<SpatViewModel>(new SpatViewModel());
-  const viewModel = viewModelRef.current;
+  const viewModel = spatViewModel || viewModelRef.current;
 
   useEffect(() => {
     // Update user position in view model
     viewModel.setUserPosition(userPosition);
 
-    // Start monitoring when component mounts
-    viewModel.startMonitoring();
+    // Start monitoring when component mounts (only if using internal view model)
+    if (!spatViewModel) {
+      viewModel.startMonitoring();
+    }
 
     return () => {
-      // Cleanup when component unmounts
-      viewModel.cleanup();
+      // Cleanup when component unmounts (only if using internal view model)
+      if (!spatViewModel) {
+        viewModel.cleanup();
+      }
     };
-  }, [viewModel]);
+  }, [viewModel, spatViewModel]);
 
   // Update position when it changes
   useEffect(() => {
