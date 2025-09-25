@@ -1,12 +1,42 @@
 // app/src/features/SDSM/viewmodels/VehicleDisplayViewModel.ts
+// Enhanced with graceful degradation to prevent mass disappearing
 
 import { makeAutoObservable, runInAction } from 'mobx';
 import { VehicleData, VRUData } from '../models/SDSMTypes';
 import { SDSMDataService } from '../services/SDSMDataService';
 import { TESTING_CONFIG } from '../../../testingFeatures/TestingConfig';
 
+// Enhanced vehicle data with stability tracking
+interface VehicleWithHistory extends VehicleData {
+  positionHistory: Array<{
+    coordinates: [number, number];
+    timestamp: number;
+    heading?: number;
+  }>;
+  firstSeenTime: number;
+  lastUpdateTime: number;
+  lastApiUpdateTime: number; // Track when we got fresh API data
+  isStable: boolean;
+  isStale: boolean; // New: gradual staleness vs immediate removal
+  confidenceLevel: number; // 0-1: how confident we are in this object
+}
+
+interface VRUWithHistory extends VRUData {
+  positionHistory: Array<{
+    coordinates: [number, number];
+    timestamp: number;
+    heading?: number;
+  }>;
+  firstSeenTime: number;
+  lastUpdateTime: number;
+  lastApiUpdateTime: number;
+  isStable: boolean;
+  isStale: boolean;
+  confidenceLevel: number;
+}
+
 export class VehicleDisplayViewModel {
-  // Observable state
+  // Observable state - only stable vehicles/VRUs are exposed
   vehicles: VehicleData[] = [];
   vrus: VRUData[] = [];
   isActive: boolean = false;
@@ -14,15 +44,40 @@ export class VehicleDisplayViewModel {
   updateCount: number = 0;
   error: string | null = null;
   
+  // Connection health tracking
+  consecutiveFailures: number = 0;
+  lastSuccessfulFetch: number = 0;
+  isConnectionHealthy: boolean = true;
+  
   // Statistics
   totalMessages: number = 0;
   newMessages: number = 0;
   duplicateMessages: number = 0;
   
-  // Configuration - dynamic API URL based on intersection
+  // Configuration - More lenient timing
   private API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events/MLK_Georgia';
-  private readonly POLL_DELAY_MS = 100; // 100ms = 10Hz to match RSU
-  private readonly FETCH_TIMEOUT_MS = 80; // Timeout before next cycle
+  private readonly POLL_DELAY_MS = 100; // 100ms = 10Hz
+  private readonly FETCH_TIMEOUT_MS = 500; // Increased from 80ms to 500ms
+  
+  // More forgiving stability settings
+  private readonly MIN_HISTORY_COUNT = 2; // Reduced from 3 to 2
+  private readonly MIN_STABLE_TIME_MS = 300; // Reduced from 500ms to 300ms
+  private readonly MAX_HISTORY_COUNT = 8;
+  private readonly POSITION_CHANGE_THRESHOLD = 0.00001;
+  
+  // Graceful degradation settings
+  private readonly STALE_WARNING_TIME_MS = 3000; // Mark as stale after 3 seconds
+  private readonly STALE_REMOVAL_TIME_MS = 8000; // Remove after 8 seconds (much longer)
+  private readonly CONFIDENCE_DECAY_RATE = 0.1; // How fast confidence decreases
+  private readonly MIN_CONFIDENCE_TO_SHOW = 0.3; // Minimum confidence to display
+  
+  // Network resilience
+  private readonly MAX_CONSECUTIVE_FAILURES = 5;
+  private readonly CONNECTION_RECOVERY_DELAY_MS = 1000;
+  
+  // Internal tracking with history
+  private vehicleHistory: Map<number, VehicleWithHistory> = new Map();
+  private vruHistory: Map<number, VRUWithHistory> = new Map();
   
   // State tracking
   private lastMessageHash: string | null = null;
@@ -47,7 +102,6 @@ export class VehicleDisplayViewModel {
    * Start the polling loop
    */
   start(intersection?: 'georgia' | 'houston'): void {
-    // Check if SDSM API is enabled
     if (!TESTING_CONFIG.ENABLE_SDSM_API) {
       console.log('🔴 SDSM API disabled - not starting polling');
       runInAction(() => {
@@ -58,7 +112,6 @@ export class VehicleDisplayViewModel {
       return;
     }
 
-    // Set API URL if intersection is specified
     if (intersection) {
       this.setApiUrl(intersection);
     }
@@ -68,7 +121,7 @@ export class VehicleDisplayViewModel {
       return;
     }
 
-    console.log(`🚀 Starting SDSM polling at 10Hz for ${intersection || 'default'} intersection`);
+    console.log(`🚀 Starting stable SDSM polling for ${intersection || 'default'} intersection`);
     
     runInAction(() => {
       this.isActive = true;
@@ -76,52 +129,64 @@ export class VehicleDisplayViewModel {
       this.vehicles = [];
       this.vrus = [];
       this.lastMessageHash = null;
-      this.totalMessages = 0;
-      this.newMessages = 0;
-      this.duplicateMessages = 0;
+      this.consecutiveFailures = 0;
+      this.lastSuccessfulFetch = Date.now();
+      this.isConnectionHealthy = true;
     });
     
-    // Start the continuous polling loop
+    // Don't clear existing history on restart - preserve stability
     this.runPollingLoop();
   }
   
   /**
-   * Main polling loop - runs continuously with 100ms delay
+   * Main polling loop with connection health monitoring
    */
   private async runPollingLoop(): Promise<void> {
     this.isPolling = true;
     
     while (this.isActive && this.isPolling) {
       try {
-        // Fetch current RSU state
         const data = await this.fetchFromRSU();
         
         if (data) {
-          this.totalMessages++;
+          // Successful fetch - reset failure count
+          this.consecutiveFailures = 0;
+          this.lastSuccessfulFetch = Date.now();
+          this.isConnectionHealthy = true;
           
-          // Create hash to check if message is new
+          this.totalMessages++;
           const messageHash = this.createHash(data);
           
-          // Check if this is a new message
           if (messageHash !== this.lastMessageHash) {
-            // NEW MESSAGE - Clear old and display new
-            this.replaceAllVehicles(data);
+            // Process new message with history tracking
+            this.updateVehiclesWithHistory(data);
             this.lastMessageHash = messageHash;
             this.newMessages++;
-            
-            // Log updates periodically
-            if (this.newMessages % 10 === 0) {
-              const efficiency = ((this.duplicateMessages / this.totalMessages) * 100).toFixed(1);
-              console.log(`📊 SDSM: ${this.newMessages} updates | ${this.vehicles.length} vehicles | ${this.vrus.length} VRUs | ${efficiency}% duplicates filtered`);
-            }
           } else {
-            // DUPLICATE - Skip to prevent flicker
             this.duplicateMessages++;
+          }
+        } else {
+          // Failed fetch - increment failure count but don't panic
+          this.consecutiveFailures++;
+          
+          if (this.consecutiveFailures >= this.MAX_CONSECUTIVE_FAILURES) {
+            this.isConnectionHealthy = false;
+            console.warn(`⚠️ SDSM connection unhealthy: ${this.consecutiveFailures} consecutive failures`);
           }
         }
         
+        // Always update state - even without new data (graceful degradation)
+        this.updateObjectsConfidence();
+        this.updateObservableState();
+        
+        // Log status periodically
+        if (this.newMessages % 20 === 0 && this.newMessages > 0) {
+          this.logStatusUpdate();
+        }
+        
       } catch (error) {
-        // Handle errors but keep loop running
+        this.consecutiveFailures++;
+        
         if (error instanceof Error) {
           console.error('❌ SDSM Error:', error.message);
           runInAction(() => {
@@ -130,8 +195,12 @@ export class VehicleDisplayViewModel {
         }
       }
       
-      // Wait 100ms before next check (maintains 10Hz)
-      await this.sleep(this.POLL_DELAY_MS);
+      // Adaptive delay based on connection health
+      const delay = this.isConnectionHealthy ? 
+        this.POLL_DELAY_MS : 
+        this.CONNECTION_RECOVERY_DELAY_MS;
+        
+      await this.sleep(delay);
     }
     
     this.isPolling = false;
@@ -139,7 +208,260 @@ export class VehicleDisplayViewModel {
   }
   
   /**
-   * Fetch data from RSU API
+   * Update vehicles and VRUs with history tracking
+   */
+  private updateVehiclesWithHistory(data: any): void {
+    const now = Date.now();
+    const sdsmResponse = {
+      intersectionID: data.intersectionID || 'unknown',
+      intersection: data.intersection || 'Unknown Intersection',
+      timestamp: data.timestamp,
+      objects: data.objects || []
+    };
+
+    const newVehicles = SDSMDataService.extractVehicles(sdsmResponse);
+    const newVRUs = SDSMDataService.extractVRUs(sdsmResponse);
+
+    // Update with current API data timestamp
+    this.updateObjectHistory(newVehicles, this.vehicleHistory, now, now);
+    this.updateObjectHistory(newVRUs, this.vruHistory, now, now);
+  }
+  
+  /**
+   * Update object confidence levels based on staleness
+   */
+  private updateObjectsConfidence(): void {
+    const now = Date.now();
+    
+    // Update vehicle confidence
+    for (const vehicle of this.vehicleHistory.values()) {
+      this.updateSingleObjectConfidence(vehicle, now);
+    }
+    
+    // Update VRU confidence
+    for (const vru of this.vruHistory.values()) {
+      this.updateSingleObjectConfidence(vru, now);
+    }
+  }
+  
+  /**
+   * Update confidence for a single object based on how stale it is
+   */
+  private updateSingleObjectConfidence(
+    obj: VehicleWithHistory | VRUWithHistory,
+    now: number
+  ): void {
+    const timeSinceUpdate = now - obj.lastApiUpdateTime;
+    
+    if (timeSinceUpdate <= this.STALE_WARNING_TIME_MS) {
+      // Fresh data - full confidence
+      obj.confidenceLevel = 1.0;
+      obj.isStale = false;
+    } else {
+      // Stale data - gradually reduce confidence
+      obj.isStale = true;
+      const staleness = (timeSinceUpdate - this.STALE_WARNING_TIME_MS) / 
+                       (this.STALE_REMOVAL_TIME_MS - this.STALE_WARNING_TIME_MS);
+      
+      obj.confidenceLevel = Math.max(0, 1.0 - staleness);
+    }
+  }
+  
+  /**
+   * Generic function to update object history
+   */
+  private updateObjectHistory<T extends VehicleData | VRUData>(
+    newObjects: T[],
+    historyMap: Map<number, T & { 
+      positionHistory: Array<any>; 
+      firstSeenTime: number; 
+      lastUpdateTime: number;
+      lastApiUpdateTime: number;
+      isStable: boolean; 
+      isStale: boolean;
+      confidenceLevel: number;
+    }>,
+    now: number,
+    apiUpdateTime: number
+  ): void {
+    const currentObjectIds = new Set<number>();
+
+    for (const obj of newObjects) {
+      currentObjectIds.add(obj.id);
+      
+      let trackedObject = historyMap.get(obj.id);
+      
+      if (!trackedObject) {
+        // New object - create with history tracking
+        trackedObject = {
+          ...obj,
+          positionHistory: [],
+          firstSeenTime: now,
+          lastUpdateTime: now,
+          lastApiUpdateTime: apiUpdateTime,
+          isStable: false,
+          isStale: false,
+          confidenceLevel: 0.5 // Start with medium confidence
+        };
+        historyMap.set(obj.id, trackedObject);
+      } else {
+        // Existing object - update API timestamp (this is key!)
+        trackedObject.lastApiUpdateTime = apiUpdateTime;
+      }
+      
+      // Check if position actually changed
+      const lastPosition = trackedObject.positionHistory[trackedObject.positionHistory.length - 1];
+      const hasSignificantMovement = !lastPosition || 
+        Math.abs(obj.coordinates[0] - lastPosition.coordinates[0]) > this.POSITION_CHANGE_THRESHOLD ||
+        Math.abs(obj.coordinates[1] - lastPosition.coordinates[1]) > this.POSITION_CHANGE_THRESHOLD ||
+        (obj.heading !== undefined && Math.abs((obj.heading || 0) - (lastPosition.heading || 0)) > 5);
+      
+      if (hasSignificantMovement || trackedObject.positionHistory.length === 0) {
+        // Add to position history
+        trackedObject.positionHistory.push({
+          coordinates: [...obj.coordinates],
+          timestamp: now,
+          heading: obj.heading
+        });
+        
+        // Limit history size
+        if (trackedObject.positionHistory.length > this.MAX_HISTORY_COUNT) {
+          trackedObject.positionHistory.shift();
+        }
+      }
+      
+      // Update object properties
+      trackedObject.coordinates = [...obj.coordinates];
+      trackedObject.heading = obj.heading;
+      trackedObject.speed = obj.speed;
+      if ('size' in obj && 'size' in trackedObject) {
+        (trackedObject as any).size = obj.size;
+      }
+      trackedObject.lastUpdateTime = now;
+      
+      // Determine if object is stable enough to display (more lenient)
+      const hasEnoughHistory = trackedObject.positionHistory.length >= this.MIN_HISTORY_COUNT;
+      const hasBeenSeenLongEnough = (now - trackedObject.firstSeenTime) >= this.MIN_STABLE_TIME_MS;
+      
+      trackedObject.isStable = hasEnoughHistory && hasBeenSeenLongEnough;
+    }
+    
+    // Don't immediately remove missing objects - let confidence decay handle it
+  }
+  
+  /**
+   * Clean up only very old objects (much more conservative)
+   */
+  private cleanupVeryStaleObjects(): void {
+    const now = Date.now();
+    
+    // Only remove objects that are completely stale AND have very low confidence
+    for (const [id, vehicle] of this.vehicleHistory.entries()) {
+      if (now - vehicle.lastApiUpdateTime > this.STALE_REMOVAL_TIME_MS && 
+          vehicle.confidenceLevel <= 0.1) {
+        this.vehicleHistory.delete(id);
+      }
+    }
+    
+    for (const [id, vru] of this.vruHistory.entries()) {
+      if (now - vru.lastApiUpdateTime > this.STALE_REMOVAL_TIME_MS && 
+          vru.confidenceLevel <= 0.1) {
+        this.vruHistory.delete(id);
+      }
+    }
+  }
+  
+  /**
+   * Update observable state with confidence-based filtering
+   */
+  private updateObservableState(): void {
+    // Clean up very stale objects (rarely happens)
+    this.cleanupVeryStaleObjects();
+    
+    // Include stable objects with sufficient confidence
+    const displayableVehicles = Array.from(this.vehicleHistory.values())
+      .filter(v => v.isStable && v.confidenceLevel >= this.MIN_CONFIDENCE_TO_SHOW)
+      .map(v => ({
+        id: v.id,
+        coordinates: this.getSmoothedPosition(v),
+        heading: this.getSmoothedHeading(v),
+        speed: v.speed,
+        size: v.size
+      }));
+    
+    const displayableVRUs = Array.from(this.vruHistory.values())
+      .filter(v => v.isStable && v.confidenceLevel >= this.MIN_CONFIDENCE_TO_SHOW)
+      .map(v => ({
+        id: v.id,
+        coordinates: this.getSmoothedPosition(v),
+        heading: this.getSmoothedHeading(v),
+        speed: v.speed
+      }));
+    
+    runInAction(() => {
+      this.vehicles = displayableVehicles;
+      this.vrus = displayableVRUs;
+      this.lastUpdateTime = Date.now();
+      this.updateCount++;
+    });
+  }
+  
+  /**
+   * Log detailed status information
+   */
+  private logStatusUpdate(): void {
+    const stableVehicles = Array.from(this.vehicleHistory.values()).filter(v => v.isStable).length;
+    const staleVehicles = Array.from(this.vehicleHistory.values()).filter(v => v.isStale).length;
+    const lowConfidenceVehicles = Array.from(this.vehicleHistory.values()).filter(v => v.confidenceLevel < 0.5).length;
+    
+    const connectionStatus = this.isConnectionHealthy ? '🟢' : '🟡';
+    const timeSinceSuccess = Math.round((Date.now() - this.lastSuccessfulFetch) / 1000);
+    
+    console.log(`📊 SDSM ${connectionStatus}: ${this.vehicles.length}/${stableVehicles} vehicles shown, ${staleVehicles} stale, ${lowConfidenceVehicles} low-conf, ${this.consecutiveFailures} failures, ${timeSinceSuccess}s since success`);
+  }
+  
+  /**
+   * Get smoothed position from history
+   */
+  private getSmoothedPosition(
+    obj: { positionHistory: Array<{ coordinates: [number, number] }> }
+  ): [number, number] {
+    if (obj.positionHistory.length === 0) {
+      return [0, 0];
+    }
+    
+    if (obj.positionHistory.length === 1) {
+      return [...obj.positionHistory[0].coordinates];
+    }
+    
+    // Use last 2-3 positions for lighter smoothing
+    const recentPositions = obj.positionHistory.slice(-2);
+    const avgLat = recentPositions.reduce((sum, pos) => sum + pos.coordinates[0], 0) / recentPositions.length;
+    const avgLng = recentPositions.reduce((sum, pos) => sum + pos.coordinates[1], 0) / recentPositions.length;
+    
+    return [avgLat, avgLng];
+  }
+  
+  /**
+   * Get smoothed heading from history
+   */
+  private getSmoothedHeading(
+    obj: { positionHistory: Array<{ heading?: number }> }
+  ): number | undefined {
+    const headings = obj.positionHistory
+      .slice(-2) // Use fewer points for responsiveness
+      .map(h => h.heading)
+      .filter((h): h is number => h !== undefined);
+    
+    if (headings.length === 0) {
+      return undefined;
+    }
+    
+    return headings[headings.length - 1]; // Use most recent heading
+  }
+  
+  /**
+   * Fetch data from RSU API with better error handling
    */
   private async fetchFromRSU(): Promise<any> {
     const controller = new AbortController();
@@ -159,7 +481,7 @@ export class VehicleDisplayViewModel {
       clearTimeout(timeoutId);
       
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        return null; // Don't throw, just return null
       }
       
       return await response.json();
@@ -167,11 +489,12 @@ export class VehicleDisplayViewModel {
     } catch (error) {
       clearTimeout(timeoutId);
       
-      // Timeout is expected occasionally - don't throw
+      // Timeouts are expected - don't spam errors
       if (error instanceof Error && error.name === 'AbortError') {
         return null;
       }
       
+      // Other errors we want to know about
       throw error;
     }
   }
@@ -182,45 +505,16 @@ export class VehicleDisplayViewModel {
   private createHash(data: any): string {
     if (!data?.objects) return 'empty';
     
-    // Extract and sort vehicles for consistent hashing
     const vehicles = data.objects
       .filter((obj: any) => obj.type === 'vehicle')
       .sort((a: any, b: any) => a.objectID - b.objectID);
     
-    // Hash: timestamp + count + vehicle IDs and positions
     return `${data.timestamp}|${vehicles.length}|${
       vehicles.map((v: any) => 
         `${v.objectID}@${v.location?.coordinates?.join(',')}`
       ).join('|')
     }`;
   }
-  
-  /**
-   * Replace all vehicles and VRUs (clear old, display new)
-   */
-  private replaceAllVehicles(data: any): void {
-    // Parse vehicles and VRUs from RSU data using the service
-    const sdsmResponse = {
-      intersectionID: data.intersectionID || 'unknown',
-      intersection: data.intersection || 'Unknown Intersection',
-      timestamp: data.timestamp,
-      objects: data.objects || []
-    };
-
-    const newVehicles = SDSMDataService.extractVehicles(sdsmResponse);
-    const newVRUs = SDSMDataService.extractVRUs(sdsmResponse);
-
-    runInAction(() => {
-      // COMPLETE REPLACEMENT - Clear old, show new
-      this.vehicles = newVehicles;
-      this.vrus = newVRUs;
-      this.lastUpdateTime = Date.now();
-      this.updateCount++;
-      this.error = null;
-
-    });
-  }
-  
   
   /**
    * Stop polling
@@ -238,7 +532,8 @@ export class VehicleDisplayViewModel {
       this.error = null;
     });
     
-    // Log final statistics
+    // Preserve history for potential restart - don't clear immediately
+    
     if (this.totalMessages > 0) {
       const efficiency = ((this.duplicateMessages / this.totalMessages) * 100).toFixed(1);
       console.log(`📈 Final Stats: ${this.newMessages} updates from ${this.totalMessages} messages (${efficiency}% duplicates filtered)`);
@@ -253,7 +548,7 @@ export class VehicleDisplayViewModel {
   }
   
   /**
-   * Convert coordinates for Mapbox ([lat, lng] → [lng, lat])
+   * Convert coordinates for Mapbox
    */
   getMapboxCoordinates(data: VehicleData | VRUData): [number, number] {
     return SDSMDataService.toMapboxCoordinates(data);
@@ -267,12 +562,18 @@ export class VehicleDisplayViewModel {
   }
   
   /**
-   * Get current statistics
+   * Get enhanced statistics
    */
   get statistics() {
     const efficiency = this.totalMessages > 0 
       ? ((this.duplicateMessages / this.totalMessages) * 100).toFixed(1)
       : '0';
+    
+    const totalTracked = this.vehicleHistory.size + this.vruHistory.size;
+    const stableCount = Array.from(this.vehicleHistory.values()).filter(v => v.isStable).length +
+                       Array.from(this.vruHistory.values()).filter(v => v.isStable).length;
+    const staleCount = Array.from(this.vehicleHistory.values()).filter(v => v.isStale).length +
+                      Array.from(this.vruHistory.values()).filter(v => v.isStale).length;
     
     return {
       vehicleCount: this.vehicleCount,
@@ -281,7 +582,13 @@ export class VehicleDisplayViewModel {
       duplicateMessages: this.duplicateMessages,
       efficiency: `${efficiency}%`,
       isActive: this.isActive,
-      hasError: this.error !== null
+      hasError: this.error !== null,
+      totalTracked,
+      stableCount,
+      staleCount,
+      connectionHealthy: this.isConnectionHealthy,
+      consecutiveFailures: this.consecutiveFailures,
+      stabilityRate: totalTracked > 0 ? `${Math.round((stableCount / totalTracked) * 100)}%` : '0%'
     };
   }
   
