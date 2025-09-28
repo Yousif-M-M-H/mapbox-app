@@ -1,4 +1,6 @@
 // app/src/features/Map/views/components/MapView.tsx
+// Updated to respect Houston SDSM toggle
+
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
@@ -25,8 +27,6 @@ import { TESTING_CONFIG } from '../../../../testingFeatures/TestingConfig';
 
 // Import MainViewModel for user heading
 import { MainViewModel } from '../../../../Main/viewmodels/MainViewModel';
-
-
 
 interface MapViewProps {
   mapViewModel: MapViewModel;
@@ -73,7 +73,19 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   // Initialize Lanes ViewModel
   const lanesViewModel = useRef(new LanesViewModel()).current;
 
-
+  // NEW: Helper function to determine if SDSM should be shown for a given viewModel
+  const shouldShowSDSMForViewModel = (viewModel: VehicleDisplayViewModel): boolean => {
+    if (!SHOW_SDSM_VEHICLES || !TESTING_CONFIG.ENABLE_SDSM_API) {
+      return false;
+    }
+    
+    // Check if this is Houston intersection and Houston SDSM is disabled
+    if (viewModel.isPollingHouston && viewModel.isPollingHouston() && !TESTING_CONFIG.SHOW_HOUSTON_SDSM) {
+      return false;
+    }
+    
+    return true;
+  };
 
   // GPS tracking setup with heading capture
   useEffect(() => {
@@ -159,7 +171,10 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     if (TESTING_CONFIG.ENABLE_SDSM_API) {
       const vehicleDisplayVM = mainViewModel?.vehicleDisplayViewModel || testingVehicleDisplayViewModel;
       if (vehicleDisplayVM?.vrus) {
-        allVRUs = [...allVRUs, ...vehicleDisplayVM.vrus];
+        // NEW: Only add VRU data if not from hidden Houston intersection
+        if (shouldShowSDSMForViewModel(vehicleDisplayVM)) {
+          allVRUs = [...allVRUs, ...vehicleDisplayVM.vrus];
+        }
       }
     }
 
@@ -176,11 +191,9 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     testingVehicleDisplayViewModel?.vrus,
     testingPedestrianDetectorViewModel?.vrus,
     TESTING_CONFIG.ENABLE_SDSM_API,
-    TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN
+    TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN,
+    TESTING_CONFIG.SHOW_HOUSTON_SDSM // NEW: React to Houston toggle changes
   ]);
-
-
-  // Note: Individual crosswalk detection is now handled per-crosswalk in the rendering loop
 
   // Coordinate smoothing function for better lane alignment
   const applySmoothingFilter = (newCoords: [number, number], accuracy: number): [number, number] => {
@@ -230,35 +243,32 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         logoEnabled={false}
         attributionEnabled={false}
         compassEnabled={false}
-        rotateEnabled={true} // Allow map rotation but don't affect heading
-        scrollEnabled={true} // Enable panning/scrolling
-        pitchEnabled={true} // Enable pitch/tilt
-        zoomEnabled={true} // Enable zoom gestures
+        rotateEnabled={true}
+        scrollEnabled={true}
+        pitchEnabled={true}
+        zoomEnabled={true}
       >
         <MapboxGL.Camera
           ref={cameraRef}
           centerCoordinate={[-85.3075, 35.0454]}
           zoomLevel={16}
           animationDuration={300}
-
         />
 
-        {/* User Location Marker with Fixed GPS Heading - Independent of Camera Position */}
-        {/* This marker shows the user's actual location but doesn't control the camera */}
+        {/* User Location Marker with Fixed GPS Heading */}
         {smoothedLocation[0] !== 0 && smoothedLocation[1] !== 0 && (
           <MapboxGL.PointAnnotation
             id="vehicle-position"
-            coordinate={[smoothedLocation[1], smoothedLocation[0]]} // [lng, lat] for Mapbox
+            coordinate={[smoothedLocation[1], smoothedLocation[0]]}
             anchor={{ x: 0.5, y: 0.5 }}
           >
             {displayHeading !== null ? (
-              // GPS-based heading arrow (fixed to real-world direction)
               <View style={styles.userLocationContainer}>
                 <View style={[
                   styles.headingArrow,
                   {
                     transform: [{
-                      rotate: `${displayHeading}deg` // Direct GPS heading, no map compensation
+                      rotate: `${displayHeading}deg`
                     }]
                   }
                 ]}>
@@ -267,7 +277,6 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
                 </View>
               </View>
             ) : (
-              // Simple circular marker when no heading available
               <View style={styles.userLocationMarker}>
                 <View style={styles.userLocationInner} />
               </View>
@@ -278,13 +287,12 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         {/* Multiple crosswalk polygons */}
         {mapViewModel.showCrosswalkPolygon && CROSSWALK_POLYGONS.map((polygonCoords, index) => {
           // Get pedestrian data for specific crosswalk independent calculation
-          // Collect VRU data from multiple sources (same logic as useEffect above)
           let allVRUs: any[] = [];
 
-          // Add SDSM VRU data if API is enabled
+          // Add SDSM VRU data if API is enabled and not Houston-hidden
           if (TESTING_CONFIG.ENABLE_SDSM_API) {
             const vehicleDisplayVM = mainViewModel?.vehicleDisplayViewModel || testingVehicleDisplayViewModel;
-            if (vehicleDisplayVM?.vrus) {
+            if (vehicleDisplayVM?.vrus && shouldShowSDSMForViewModel(vehicleDisplayVM)) {
               allVRUs = [...allVRUs, ...vehicleDisplayVM.vrus];
             }
           }
@@ -336,17 +344,17 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         {/* Lane Overlays */}
         <LaneOverlay lanesViewModel={lanesViewModel} />
 
-        {/* SDSM Vehicle Markers (Main Feature - FROM SDSM FOLDER ONLY) */}
-        {SHOW_SDSM_VEHICLES && TESTING_CONFIG.ENABLE_SDSM_API && mainViewModel?.vehicleDisplayViewModel && (
+        {/* SDSM Vehicle Markers - Updated with Houston toggle check */}
+        {mainViewModel?.vehicleDisplayViewModel && shouldShowSDSMForViewModel(mainViewModel.vehicleDisplayViewModel) && (
           <VehicleMarkers viewModel={mainViewModel.vehicleDisplayViewModel} />
         )}
 
-        {SHOW_SDSM_VEHICLES && TESTING_CONFIG.ENABLE_SDSM_API && testingVehicleDisplayViewModel && (
+        {testingVehicleDisplayViewModel && shouldShowSDSMForViewModel(testingVehicleDisplayViewModel as unknown as VehicleDisplayViewModel) && (
           <VehicleMarkers viewModel={testingVehicleDisplayViewModel as unknown as VehicleDisplayViewModel} />
         )}
 
-        {/* SDSM VRU/Pedestrian Markers */}
-        {SHOW_SDSM_VEHICLES && TESTING_CONFIG.ENABLE_SDSM_API && mainViewModel?.vehicleDisplayViewModel && (
+        {/* SDSM VRU/Pedestrian Markers - Updated with Houston toggle check */}
+        {mainViewModel?.vehicleDisplayViewModel && shouldShowSDSMForViewModel(mainViewModel.vehicleDisplayViewModel) && (
           <VRUMarkers
             vrus={mainViewModel.vehicleDisplayViewModel.vrus}
             isActive={mainViewModel.vehicleDisplayViewModel.isActive}
@@ -354,7 +362,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           />
         )}
 
-        {SHOW_SDSM_VEHICLES && TESTING_CONFIG.ENABLE_SDSM_API && testingVehicleDisplayViewModel && (
+        {testingVehicleDisplayViewModel && shouldShowSDSMForViewModel(testingVehicleDisplayViewModel as unknown as VehicleDisplayViewModel) && (
           <VRUMarkers
             vrus={testingVehicleDisplayViewModel.vrus}
             isActive={testingVehicleDisplayViewModel.isActive}
@@ -371,8 +379,6 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           />
         )}
 
-
-
         {children}
       </MapboxGL.MapView>
 
@@ -380,10 +386,6 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         isTestingMode={isTestingMode}
         testingVehicleDisplayViewModel={testingVehicleDisplayViewModel as unknown as VehicleDisplayViewModel}
       />
-
-
-      {/* SDSM Vehicle Status Display (FROM SDSM FOLDER ONLY) */}
-
 
       {/* SPaT status display */}
       <SpatStatusDisplay userPosition={[mapViewModel.userLocation.latitude, mapViewModel.userLocation.longitude]} />
@@ -400,19 +402,20 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         </View>
       )}
 
+     
       {/* Pedestrian warning - Simple Proximity Logic */}
       {(() => {
         const vehiclePos: [number, number] = [smoothedLocation[0], smoothedLocation[1]];
 
         if (smoothedLocation[0] === 0) return null;
 
-        // Collect VRU data from multiple sources
+        // Collect VRU data from multiple sources (respecting Houston toggle)
         let allVRUs: any[] = [];
 
-        // Add SDSM VRU data if API is enabled
+        // Add SDSM VRU data if API is enabled and not Houston-hidden
         if (TESTING_CONFIG.ENABLE_SDSM_API) {
           const vehicleDisplayVM = mainViewModel?.vehicleDisplayViewModel || testingVehicleDisplayViewModel;
-          if (vehicleDisplayVM?.vrus) {
+          if (vehicleDisplayVM?.vrus && shouldShowSDSMForViewModel(vehicleDisplayVM)) {
             allVRUs = [...allVRUs, ...vehicleDisplayVM.vrus];
           }
         }
@@ -550,6 +553,26 @@ const styles = StyleSheet.create({
   headingText: {
     color: 'white',
     fontSize: 12,
+    fontWeight: '600',
+  },
+  // NEW: dden indicator
+  houstonHiddenIndicator: {
+    position: 'absolute',
+    top: 100,
+    right: 20,
+    backgroundColor: 'rgba(255, 99, 71, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  houstonHiddenText: {
+    color: 'white',
+    fontSize: 11,
     fontWeight: '600',
   },
 });

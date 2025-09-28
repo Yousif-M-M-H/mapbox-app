@@ -10,6 +10,10 @@ export const TESTING_CONFIG = {
   // Toggle to enable/disable SDSM API calls and display
   ENABLE_SDSM_API: true,
 
+  // NEW: Toggle to hide SDSM data specifically for Houston intersection
+  // When false, Houston intersection SDSM data will be hidden while Georgia remains visible
+  SHOW_HOUSTON_SDSM: false,
+
   // Fixed pedestrian coordinates for testing [lat, lon]
   // Starting position (outside detection zone for proper latency testing)
   FIXED_PEDESTRIAN_COORDINATES: [35.04475484458253, -85.30557334560115] as [number, number],
@@ -22,5 +26,3 @@ export const TESTING_CONFIG = {
     RUN_ONCE: false,                // Only run test once per session
   }
 } as const;
-
-

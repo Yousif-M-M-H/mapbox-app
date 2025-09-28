@@ -1,5 +1,5 @@
 // app/src/features/SDSM/viewmodels/VehicleDisplayViewModel.ts
-// Enhanced with graceful degradation to prevent mass disappearing
+// Enhanced with Houston intersection SDSM toggle support
 
 import { makeAutoObservable, runInAction } from 'mobx';
 import { VehicleData, VRUData } from '../models/SDSMTypes';
@@ -15,10 +15,10 @@ interface VehicleWithHistory extends VehicleData {
   }>;
   firstSeenTime: number;
   lastUpdateTime: number;
-  lastApiUpdateTime: number; // Track when we got fresh API data
+  lastApiUpdateTime: number;
   isStable: boolean;
-  isStale: boolean; // New: gradual staleness vs immediate removal
-  confidenceLevel: number; // 0-1: how confident we are in this object
+  isStale: boolean;
+  confidenceLevel: number;
 }
 
 interface VRUWithHistory extends VRUData {
@@ -83,6 +83,9 @@ export class VehicleDisplayViewModel {
   private lastMessageHash: string | null = null;
   private isPolling: boolean = false;
   
+  // NEW: Track current intersection for Houston toggle
+  private currentIntersection: 'georgia' | 'houston' | null = null;
+  
   constructor() {
     makeAutoObservable(this);
   }
@@ -92,11 +95,14 @@ export class VehicleDisplayViewModel {
    */
   setApiUrl(intersection: 'georgia' | 'houston'): void {
     const previousUrl = this.API_URL;
+    const previousIntersection = this.currentIntersection;
     
     if (intersection === 'georgia') {
       this.API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events/MLK_Georgia';
+      this.currentIntersection = 'georgia';
     } else if (intersection === 'houston') {
       this.API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events/MLK_Houston';
+      this.currentIntersection = 'houston';
     }
     
     console.log(`🚗 SDSM API URL changed from ${previousUrl} to ${this.API_URL}`);
@@ -114,11 +120,22 @@ export class VehicleDisplayViewModel {
   }
 
   /**
-   * Start the polling loop (updated to not require intersection parameter)
+   * Start the polling loop (updated to respect Houston toggle)
    */
   start(): void {
     if (!TESTING_CONFIG.ENABLE_SDSM_API) {
       console.log('🔴 SDSM API disabled - not starting polling');
+      runInAction(() => {
+        this.vehicles = [];
+        this.vrus = [];
+        this.isActive = false;
+      });
+      return;
+    }
+
+    // NEW: Check Houston intersection toggle
+    if (this.currentIntersection === 'houston' && !TESTING_CONFIG.SHOW_HOUSTON_SDSM) {
+      console.log('🔴 Houston SDSM disabled - not starting polling for Houston intersection');
       runInAction(() => {
         this.vehicles = [];
         this.vrus = [];
@@ -147,13 +164,19 @@ export class VehicleDisplayViewModel {
   }
   
   /**
-   * Main polling loop with connection health monitoring
+   * Main polling loop with connection health monitoring (updated with Houston check)
    */
   private async runPollingLoop(): Promise<void> {
     this.isPolling = true;
     
     while (this.isActive && this.isPolling) {
       try {
+        // NEW: Additional check for Houston toggle during polling
+        if (this.currentIntersection === 'houston' && !TESTING_CONFIG.SHOW_HOUSTON_SDSM) {
+          console.log('🔴 Houston SDSM was disabled during polling - stopping');
+          break;
+        }
+
         const data = await this.fetchFromRSU();
         
         if (data) {
@@ -380,9 +403,20 @@ export class VehicleDisplayViewModel {
   }
   
   /**
-   * Update observable state with confidence-based filtering
+   * Update observable state with confidence-based filtering (updated with Houston check)
    */
   private updateObservableState(): void {
+    // NEW: Check if Houston SDSM should be hidden
+    if (this.currentIntersection === 'houston' && !TESTING_CONFIG.SHOW_HOUSTON_SDSM) {
+      runInAction(() => {
+        this.vehicles = [];
+        this.vrus = [];
+        this.lastUpdateTime = Date.now();
+        this.updateCount++;
+      });
+      return;
+    }
+
     // Clean up very stale objects (rarely happens)
     this.cleanupVeryStaleObjects();
     
@@ -415,7 +449,7 @@ export class VehicleDisplayViewModel {
   }
   
   /**
-   * Log detailed status information
+   * Log detailed status information (updated with Houston toggle info)
    */
   private logStatusUpdate(): void {
     const stableVehicles = Array.from(this.vehicleHistory.values()).filter(v => v.isStable).length;
@@ -424,8 +458,10 @@ export class VehicleDisplayViewModel {
     
     const connectionStatus = this.isConnectionHealthy ? '🟢' : '🟡';
     const timeSinceSuccess = Math.round((Date.now() - this.lastSuccessfulFetch) / 1000);
+    const houstonStatus = this.currentIntersection === 'houston' ? 
+      (TESTING_CONFIG.SHOW_HOUSTON_SDSM ? '✅' : '🚫') : '';
     
-    console.log(`📊 SDSM ${connectionStatus}: ${this.vehicles.length}/${stableVehicles} vehicles shown, ${staleVehicles} stale, ${lowConfidenceVehicles} low-conf, ${this.consecutiveFailures} failures, ${timeSinceSuccess}s since success`);
+    console.log(`📊 SDSM ${connectionStatus}${houstonStatus}: ${this.vehicles.length}/${stableVehicles} vehicles shown, ${staleVehicles} stale, ${lowConfidenceVehicles} low-conf, ${this.consecutiveFailures} failures, ${timeSinceSuccess}s since success`);
   }
   
   /**
@@ -577,7 +613,7 @@ export class VehicleDisplayViewModel {
   }
   
   /**
-   * Get enhanced statistics
+   * Get enhanced statistics (updated with Houston toggle info)
    */
   get statistics() {
     const efficiency = this.totalMessages > 0 
@@ -605,7 +641,11 @@ export class VehicleDisplayViewModel {
       connectionHealthy: this.isConnectionHealthy,
       consecutiveFailures: this.consecutiveFailures,
       stabilityRate: totalTracked > 0 ? `${Math.round((stableCount / totalTracked) * 100)}%` : '0%',
-      currentApiUrl: this.API_URL
+      currentApiUrl: this.API_URL,
+      // NEW: Houston toggle status
+      currentIntersection: this.currentIntersection,
+      houstonSdsmEnabled: TESTING_CONFIG.SHOW_HOUSTON_SDSM,
+      isHoustonHidden: this.currentIntersection === 'houston' && !TESTING_CONFIG.SHOW_HOUSTON_SDSM
     };
   }
   
@@ -628,6 +668,13 @@ export class VehicleDisplayViewModel {
    */
   isPollingHouston(): boolean {
     return this.API_URL.includes('MLK_Houston');
+  }
+  
+  /**
+   * NEW: Check if Houston SDSM is currently hidden
+   */
+  isHoustonSdsmHidden(): boolean {
+    return this.currentIntersection === 'houston' && !TESTING_CONFIG.SHOW_HOUSTON_SDSM;
   }
   
   /**
