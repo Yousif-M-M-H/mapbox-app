@@ -12,7 +12,7 @@ import { TESTING_CONFIG } from '../../testingFeatures/TestingConfig';
 import { VehicleDisplayViewModel } from '../../features/SDSM/viewmodels/VehicleDisplayViewModel';
 
 // Import ClosestIntersection
-import { ClosestIntersectionViewModel, LocationWithHeading } from '../../features/ClosestIntersection';
+import { ClosestIntersectionViewModel } from '../../features/ClosestIntersection/viewmodels/ClosestIntersectionViewModel';
 import { LanesViewModel } from '../../features/Lanes';
 
 // Import SPAT Service
@@ -45,6 +45,12 @@ export class MainViewModel {
     // Initialize SPAT ViewModel
     this.spatViewModel = new SpatViewModel();
     
+    // IMPORTANT: Link the ViewModels for integration
+    this.closestIntersectionViewModel.setViewModels(
+      this.vehicleDisplayViewModel,
+      this.spatViewModel
+    );
+    
     // Create appropriate pedestrian detector based on testing mode
     if (TESTING_CONFIG.USE_TESTING_MODE) {
       this.testingPedestrianDetectorViewModel = new TestingPedestrianDetectorViewModel();
@@ -64,8 +70,8 @@ export class MainViewModel {
     // Start pedestrian monitoring
     this.startPedestrianMonitoring();
     
-    // Start SDSMS APIs immediately on app startup
-    this.startSDSMSApis();
+    // Start polygon-based intersection monitoring (NEW - replaces old SDSM API calls)
+    this.startClosestIntersectionMonitoring();
 
     // Start conditional SPAT API calling (only when user is in lanes)
     this.startConditionalSpatCalling();
@@ -78,9 +84,6 @@ export class MainViewModel {
     
     // Start Detection Latency Test if in testing mode
     this.startDetectionLatencyTest();
-    
-    // Start closest intersection monitoring
-    this.startClosestIntersectionMonitoring();
   }
   
   private startPedestrianMonitoring(): void {
@@ -96,20 +99,34 @@ export class MainViewModel {
   }
   
   /**
-   * Start SDSMS APIs immediately on app startup
+   * Start polygon-based intersection monitoring with automatic API calls
+   * This replaces the old startSDSMSApis method
    */
-  private startSDSMSApis(): void {
-    // Start SDSMS APIs for both Georgia and Houston intersections immediately
+  private startClosestIntersectionMonitoring(): void {
+    // Create a function that returns current user location
+    const getUserLocation = (): [number, number] => {
+      // Return in [lat, lng] format
+      return [this.userLocation.latitude, this.userLocation.longitude];
+    };
+    
+    // Start monitoring when we have a valid location
     const startWhenReady = () => {
       if (this.userLocation.latitude !== 0 && this.userLocation.longitude !== 0) {
-        // Start both Georgia and Houston APIs
-        this.vehicleDisplayViewModel.start(['georgia', 'houston']);
+        console.log(`🎯 Starting monitoring with user location: [${this.userLocation.latitude}, ${this.userLocation.longitude}]`);
+        
+        // Start the polygon-based monitoring
+        // This will automatically control SDSM and SPaT APIs based on which polygon the user is in
+        this.closestIntersectionViewModel.startMonitoring(getUserLocation);
+        
+        // The VehicleDisplayViewModel is now controlled by ClosestIntersectionViewModel
+        // No need to start it manually here
       } else {
         // Wait for location to be available, check every 2 seconds
+        console.log('🎯 Waiting for valid user location...');
         setTimeout(startWhenReady, 2000);
       }
     };
-
+    
     startWhenReady();
   }
 
@@ -139,31 +156,6 @@ export class MainViewModel {
       }
     };
 
-    startWhenReady();
-  }
-
-  /**
-   * Start monitoring closest intersections
-   */
-  private startClosestIntersectionMonitoring(): void {
-    // Create a function that returns current user location with heading
-    const getUserLocation = (): LocationWithHeading => {
-      return {
-        coordinates: [this.userLocation.latitude, this.userLocation.longitude],
-        heading: this.mapViewModel.getUserHeading()
-      };
-    };
-    
-    // Start monitoring when we have a valid location
-    const startWhenReady = () => {
-      if (this.userLocation.latitude !== 0 && this.userLocation.longitude !== 0) {
-        this.closestIntersectionViewModel.startMonitoring(getUserLocation);
-      } else {
-        // Wait for location to be available, check every 2 seconds
-        setTimeout(startWhenReady, 2000);
-      }
-    };
-    
     startWhenReady();
   }
   
@@ -298,7 +290,7 @@ export class MainViewModel {
       // Suppressed to reduce noise
     }
     
-    // Cleanup intersection monitoring
+    // Cleanup intersection monitoring (polygon-based)
     this.closestIntersectionViewModel.cleanup();
 
     // Cleanup SPAT monitoring

@@ -1,15 +1,20 @@
 // app/src/features/SpatService/viewModels/SpatViewModel.ts
-// ViewModel responsible for SPaT state management and business logic
 
 import { makeAutoObservable, runInAction } from 'mobx';
 import { SignalState } from '../models/SpatModels';
-import { SpatApiService, SpatApiResponse } from '../services/SpatApiService';
-import { LaneDetectionService, LaneDefinition } from '../services/LaneDetectionService';
+import { SpatApiService } from '../services/SpatApiService';
+import { EnhancedLaneDetectionService, LaneDetectionResult } from '../services/EnhancedLaneDetectionService';
 
 export class SpatViewModel {
   // Observable state
   signalState: SignalState = SignalState.UNKNOWN;
-  currentLane: LaneDefinition | null = null;
+  currentLaneInfo: LaneDetectionResult = {
+    isInLane: false,
+    intersection: null,
+    laneId: null,
+    signalGroup: null,
+    laneName: 'Not in any lane'
+  };
   isLoading: boolean = false;
   error: string | null = null;
   lastUpdateTime: number = 0;
@@ -18,9 +23,8 @@ export class SpatViewModel {
   private updateInterval: NodeJS.Timeout | null = null;
   private userPosition: [number, number] = [0, 0];
   private lastApiCall: number = 0;
-  private readonly API_THROTTLE_MS = 2000; // Minimum 2 seconds between API calls
-  private lastLaneChangeTime: number = 0;
-  private readonly LANE_CHANGE_DEBOUNCE_MS = 1000; // Prevent rapid lane changes
+  private readonly API_THROTTLE_MS = 1000; // Minimum 1 second between API calls
+  private currentIntersection: 'georgia' | 'houston' | null = null;
 
   constructor() {
     makeAutoObservable(this);
@@ -29,6 +33,30 @@ export class SpatViewModel {
   // ========================================
   // Public Methods
   // ========================================
+
+  /**
+   * Set the current intersection (called by ClosestIntersectionViewModel)
+   */
+  setCurrentIntersection(intersection: 'georgia' | 'houston' | null): void {
+    if (this.currentIntersection !== intersection) {
+      console.log(`🚦 SPaT intersection changed to: ${intersection || 'none'}`);
+      this.currentIntersection = intersection;
+      
+      // Update API service with new intersection
+      SpatApiService.setCurrentIntersection(intersection);
+      
+      // Reset signal state when changing intersections
+      runInAction(() => {
+        this.signalState = SignalState.UNKNOWN;
+        this.error = null;
+      });
+      
+      // If we have a valid intersection and are in a lane, update immediately
+      if (intersection && this.currentLaneInfo.isInLane) {
+        this.updateSignalState();
+      }
+    }
+  }
 
   /**
    * Set user position and trigger lane detection
@@ -46,10 +74,12 @@ export class SpatViewModel {
       return; // Already monitoring
     }
 
+    console.log('🚦 Starting SPaT monitoring');
+
     // Update immediately
     this.detectLaneAndUpdateSignal();
 
-    // Update every 1 second for SPaT API calls
+    // Update every second
     this.updateInterval = setInterval(() => {
       this.detectLaneAndUpdateSignal();
     }, 1000);
@@ -63,6 +93,8 @@ export class SpatViewModel {
       clearInterval(this.updateInterval);
       this.updateInterval = null;
     }
+    
+    console.log('🚦 Stopped SPaT monitoring');
   }
 
   /**
@@ -70,9 +102,17 @@ export class SpatViewModel {
    */
   cleanup(): void {
     this.stopMonitoring();
-    this.signalState = SignalState.UNKNOWN;
-    this.currentLane = null;
-    this.error = null;
+    runInAction(() => {
+      this.signalState = SignalState.UNKNOWN;
+      this.currentLaneInfo = {
+        isInLane: false,
+        intersection: null,
+        laneId: null,
+        signalGroup: null,
+        laneName: 'Not in any lane'
+      };
+      this.error = null;
+    });
   }
 
   // ========================================
@@ -80,7 +120,9 @@ export class SpatViewModel {
   // ========================================
 
   get hasSignalData(): boolean {
-    return this.currentLane !== null && this.signalState !== SignalState.UNKNOWN;
+    return this.currentLaneInfo.isInLane && 
+           this.currentLaneInfo.signalGroup !== null && 
+           this.signalState !== SignalState.UNKNOWN;
   }
 
   get signalStatusText(): string {
@@ -102,13 +144,16 @@ export class SpatViewModel {
   }
 
   get laneDisplayText(): string {
-    if (!this.currentLane) return '';
-    const signalGroup = this.currentLane.signalGroup;
-    return `L${this.currentLane.id} SG${signalGroup}`;
+    if (!this.currentLaneInfo.isInLane) return '';
+    
+    const intersection = this.currentLaneInfo.intersection === 'georgia' ? 'GA' : 'HOU';
+    const signalGroup = this.currentLaneInfo.signalGroup || '?';
+    
+    return `${intersection} L${this.currentLaneInfo.laneId} SG${signalGroup}`;
   }
 
   get shouldShowDisplay(): boolean {
-    return this.hasSignalData;
+    return this.hasSignalData && this.currentIntersection !== null;
   }
 
   // ========================================
@@ -120,28 +165,31 @@ export class SpatViewModel {
    */
   private async detectLaneAndUpdateSignal(): Promise<void> {
     try {
-      // Detect closest lane
-      const closestLane = LaneDetectionService.findClosestLane(this.userPosition);
+      // Detect which lane the user is in
+      const laneInfo = EnhancedLaneDetectionService.detectUserLane(this.userPosition);
+      
+      // Update lane info
+      const laneChanged = this.hasLaneChanged(laneInfo);
+      runInAction(() => {
+        this.currentLaneInfo = laneInfo;
+      });
 
-      // Only update if lane changed with debouncing
-      if (this.hasLaneChanged(closestLane)) {
-        const now = Date.now();
-        if (now - this.lastLaneChangeTime > this.LANE_CHANGE_DEBOUNCE_MS) {
-          runInAction(() => {
-            this.currentLane = closestLane;
-          });
-          this.lastLaneChangeTime = now;
-        } else {
-          // Too soon for lane change, keep current lane
-          return;
+      // Only proceed if we're in a lane and have a signal group
+      if (laneInfo.isInLane && laneInfo.signalGroup !== null) {
+        // Check if we need to switch intersection
+        if (laneInfo.intersection !== this.currentIntersection) {
+          console.log(`🚦 Lane detection found different intersection: ${laneInfo.intersection}`);
+          // Note: This should be handled by ClosestIntersectionViewModel
+          // but we can set it here as a fallback
+          this.setCurrentIntersection(laneInfo.intersection);
         }
-      }
 
-      // Update signal state if we have a lane
-      if (this.currentLane) {
-        await this.updateSignalStateForLane(this.currentLane);
+        // Update signal state if we have the right intersection set
+        if (this.currentIntersection === laneInfo.intersection) {
+          await this.updateSignalState();
+        }
       } else {
-        // No lane detected
+        // Not in a lane - clear signal state
         runInAction(() => {
           this.signalState = SignalState.UNKNOWN;
           this.error = null;
@@ -157,13 +205,20 @@ export class SpatViewModel {
   }
 
   /**
-   * Update signal state for a specific lane
+   * Update signal state from SPaT API
    */
-  private async updateSignalStateForLane(lane: LaneDefinition): Promise<void> {
-    // Throttle API calls to prevent flashing
+  private async updateSignalState(): Promise<void> {
+    // Throttle API calls
     const now = Date.now();
     if (now - this.lastApiCall < this.API_THROTTLE_MS) {
-      return; // Skip this update
+      return;
+    }
+
+    // Must have a valid lane and intersection
+    if (!this.currentLaneInfo.isInLane || 
+        !this.currentLaneInfo.signalGroup || 
+        !this.currentIntersection) {
+      return;
     }
 
     runInAction(() => {
@@ -183,16 +238,23 @@ export class SpatViewModel {
         return;
       }
 
-      const newSignalState = SpatApiService.getSignalStateForGroup(spatData, lane.signalGroup);
+      const newSignalState = SpatApiService.getSignalStateForGroup(
+        spatData, 
+        this.currentLaneInfo.signalGroup
+      );
 
-      // Only update if signal state actually changed
       runInAction(() => {
-        if (newSignalState !== this.signalState) {
-          this.signalState = newSignalState;
-        }
+        this.signalState = newSignalState;
         this.lastUpdateTime = Date.now();
         this.error = null;
       });
+
+      // Log state change
+      if (newSignalState !== SignalState.UNKNOWN) {
+        console.log(
+          `🚦 Signal: ${newSignalState} for ${this.currentLaneInfo.laneName} (SG${this.currentLaneInfo.signalGroup})`
+        );
+      }
 
     } catch (error) {
       runInAction(() => {
@@ -209,9 +271,22 @@ export class SpatViewModel {
   /**
    * Check if the detected lane has changed
    */
-  private hasLaneChanged(newLane: LaneDefinition | null): boolean {
-    if (!this.currentLane && !newLane) return false;
-    if (!this.currentLane || !newLane) return true;
-    return this.currentLane.id !== newLane.id;
+  private hasLaneChanged(newLaneInfo: LaneDetectionResult): boolean {
+    return this.currentLaneInfo.laneId !== newLaneInfo.laneId ||
+           this.currentLaneInfo.intersection !== newLaneInfo.intersection;
+  }
+
+  /**
+   * Get debug information
+   */
+  getDebugInfo(): string {
+    return JSON.stringify({
+      intersection: this.currentIntersection,
+      lane: this.currentLaneInfo.laneId,
+      signalGroup: this.currentLaneInfo.signalGroup,
+      signalState: this.signalState,
+      position: this.userPosition.map(v => v.toFixed(6)),
+      hasSignalData: this.hasSignalData
+    }, null, 2);
   }
 }

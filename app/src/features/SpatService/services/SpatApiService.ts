@@ -12,41 +12,65 @@ export interface SpatApiResponse {
 }
 
 export class SpatApiService {
-  private static API_ENDPOINT = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events/MLK_Georgia';
+  private static readonly GEORGIA_ENDPOINT = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events/MLK_Georgia';
+  private static readonly HOUSTON_ENDPOINT = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events/MLK_Houston';
   private static readonly REQUEST_TIMEOUT = 5000; // 5 seconds
+  
+  // Current endpoint based on intersection
+  private static currentEndpoint: string = SpatApiService.GEORGIA_ENDPOINT;
+  private static currentIntersection: 'georgia' | 'houston' | null = null;
 
   /**
-   * Set the API endpoint for specific intersection
+   * Get the API endpoint for a specific intersection
    */
-  static setApiEndpoint(intersection: 'georgia' | 'houston'): void {
+  static getEndpointForIntersection(intersection: 'georgia' | 'houston'): string {
     if (intersection === 'georgia') {
-      this.API_ENDPOINT = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events/MLK_Georgia';
+      return this.GEORGIA_ENDPOINT;
     } else if (intersection === 'houston') {
-      this.API_ENDPOINT = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events/MLK_Houston';
+      return this.HOUSTON_ENDPOINT;
     }
+    return this.GEORGIA_ENDPOINT;
+  }
+
+  /**
+   * Set the current intersection for API calls
+   */
+  static setCurrentIntersection(intersection: 'georgia' | 'houston' | null): void {
+    this.currentIntersection = intersection;
+    if (intersection) {
+      this.currentEndpoint = this.getEndpointForIntersection(intersection);
+      console.log(`🚦 SPaT API switched to ${intersection}: ${this.currentEndpoint}`);
+    }
+  }
+
+  /**
+   * Get current intersection
+   */
+  static getCurrentIntersection(): 'georgia' | 'houston' | null {
+    return this.currentIntersection;
   }
 
   /**
    * Fetch current SPaT data from API
    */
-  static async fetchSpatData(intersection?: 'georgia' | 'houston'): Promise<SpatApiResponse | null> {
+  static async fetchSpatData(): Promise<SpatApiResponse | null> {
     // Check if SDSM API is enabled (SPaT is part of same system)
     if (!TESTING_CONFIG.ENABLE_SDSM_API) {
       return null;
     }
 
-    // Set API endpoint if intersection is specified
-    if (intersection) {
-      this.setApiEndpoint(intersection);
+    // Only fetch if we have a valid intersection set
+    if (!this.currentIntersection) {
+      console.log('🚦 No intersection set - skipping SPaT fetch');
+      return null;
     }
 
     try {
-      // Create a timeout promise for React Native compatibility
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error('Request timeout')), this.REQUEST_TIMEOUT);
       });
 
-      const fetchPromise = fetch(this.API_ENDPOINT, {
+      const fetchPromise = fetch(this.currentEndpoint, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -57,12 +81,14 @@ export class SpatApiService {
       const response = await Promise.race([fetchPromise, timeoutPromise]);
 
       if (!response.ok) {
+        console.log(`🚦 SPaT API returned ${response.status}`);
         return null;
       }
 
       const spatData = await response.json();
       return spatData as SpatApiResponse;
     } catch (error) {
+      console.error('🚦 SPaT API error:', error);
       return null;
     }
   }

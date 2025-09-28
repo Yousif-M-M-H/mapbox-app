@@ -91,17 +91,32 @@ export class VehicleDisplayViewModel {
    * Set the API URL for specific intersection
    */
   setApiUrl(intersection: 'georgia' | 'houston'): void {
+    const previousUrl = this.API_URL;
+    
     if (intersection === 'georgia') {
       this.API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events/MLK_Georgia';
     } else if (intersection === 'houston') {
       this.API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events/MLK_Houston';
     }
+    
+    console.log(`🚗 SDSM API URL changed from ${previousUrl} to ${this.API_URL}`);
+    
+    // Clear existing vehicle history when switching intersections
+    // This ensures vehicles from one intersection don't appear at another
+    this.vehicleHistory.clear();
+    this.vruHistory.clear();
+    
+    runInAction(() => {
+      this.vehicles = [];
+      this.vrus = [];
+      this.lastMessageHash = null;
+    });
   }
 
   /**
-   * Start the polling loop
+   * Start the polling loop (updated to not require intersection parameter)
    */
-  start(intersection?: 'georgia' | 'houston'): void {
+  start(): void {
     if (!TESTING_CONFIG.ENABLE_SDSM_API) {
       console.log('🔴 SDSM API disabled - not starting polling');
       runInAction(() => {
@@ -112,23 +127,16 @@ export class VehicleDisplayViewModel {
       return;
     }
 
-    if (intersection) {
-      this.setApiUrl(intersection);
-    }
-
     if (this.isActive) {
       console.log('✅ SDSM already running');
       return;
     }
 
-    console.log(`🚀 Starting stable SDSM polling for ${intersection || 'default'} intersection`);
+    console.log(`🚀 Starting stable SDSM polling for URL: ${this.API_URL}`);
     
     runInAction(() => {
       this.isActive = true;
       this.error = null;
-      this.vehicles = [];
-      this.vrus = [];
-      this.lastMessageHash = null;
       this.consecutiveFailures = 0;
       this.lastSuccessfulFetch = Date.now();
       this.isConnectionHealthy = true;
@@ -562,6 +570,13 @@ export class VehicleDisplayViewModel {
   }
   
   /**
+   * Get VRU count
+   */
+  get vruCount(): number {
+    return this.vrus.length;
+  }
+  
+  /**
    * Get enhanced statistics
    */
   get statistics() {
@@ -577,6 +592,7 @@ export class VehicleDisplayViewModel {
     
     return {
       vehicleCount: this.vehicleCount,
+      vruCount: this.vruCount,
       totalMessages: this.totalMessages,
       newMessages: this.newMessages,
       duplicateMessages: this.duplicateMessages,
@@ -588,8 +604,49 @@ export class VehicleDisplayViewModel {
       staleCount,
       connectionHealthy: this.isConnectionHealthy,
       consecutiveFailures: this.consecutiveFailures,
-      stabilityRate: totalTracked > 0 ? `${Math.round((stableCount / totalTracked) * 100)}%` : '0%'
+      stabilityRate: totalTracked > 0 ? `${Math.round((stableCount / totalTracked) * 100)}%` : '0%',
+      currentApiUrl: this.API_URL
     };
+  }
+  
+  /**
+   * Get current API endpoint (for debugging)
+   */
+  getCurrentApiEndpoint(): string {
+    return this.API_URL;
+  }
+  
+  /**
+   * Check if currently polling Georgia intersection
+   */
+  isPollingGeorgia(): boolean {
+    return this.API_URL.includes('MLK_Georgia');
+  }
+  
+  /**
+   * Check if currently polling Houston intersection
+   */
+  isPollingHouston(): boolean {
+    return this.API_URL.includes('MLK_Houston');
+  }
+  
+  /**
+   * Force clear all vehicles (used when switching intersections)
+   */
+  clearAllVehicles(): void {
+    this.vehicleHistory.clear();
+    this.vruHistory.clear();
+    
+    runInAction(() => {
+      this.vehicles = [];
+      this.vrus = [];
+      this.lastMessageHash = null;
+      this.totalMessages = 0;
+      this.newMessages = 0;
+      this.duplicateMessages = 0;
+    });
+    
+    console.log('🧹 All vehicles cleared');
   }
   
   /**
@@ -597,5 +654,7 @@ export class VehicleDisplayViewModel {
    */
   cleanup(): void {
     this.stop();
+    this.vehicleHistory.clear();
+    this.vruHistory.clear();
   }
 }

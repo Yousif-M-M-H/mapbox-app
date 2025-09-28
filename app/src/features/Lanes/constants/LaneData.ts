@@ -14,6 +14,71 @@ export const DEFAULT_LANE_STYLE: LaneStyle = {
 // Georgia intersection lanes
 export const GEORGIA_INTERSECTION_LANES: Lane[] = [
   {
+  "laneID": 1,
+  "laneAttributes": {
+    "directionalUse": [2, 2],
+    "sharedWith": [0, 10],
+    "laneType": ["vehicle", [0, 8]]
+  },
+  "maneuvers": [0, 12],
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-85.3082691, 35.0458984],
+      [-85.3078928, 35.0465756]
+    ]
+  },
+  "connectsTo": [
+    {
+      "connectingLane": { "lane": 14 },
+      "signalGroup": 4
+    }
+  ]
+},
+{
+  "laneID": 2,
+  "laneAttributes": {
+    "directionalUse": [2, 2],
+    "sharedWith": [0, 10],
+    "laneType": ["vehicle", [0, 8]]
+  },
+  "maneuvers": [0, 12],
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-85.3082207, 35.0459089],
+      [-85.3080376, 35.0462122]
+    ]
+  },
+  "connectsTo": [
+    {
+      "connectingLane": { "lane": 9 },
+      "signalGroup": 4
+    },
+    {
+      "connectingLane": { "lane": 6 },
+      "signalGroup": 4
+    }
+  ]
+},
+{
+  "laneID": 3,
+  "laneAttributes": {
+    "directionalUse": [1, 2],
+    "sharedWith": [0, 10],
+    "laneType": ["vehicle", [0, 8]]
+  },
+  "maneuvers": [0, 12],
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-85.3081865, 35.0458956],
+      [-85.3081571, 35.0459450]
+    ],
+  },
+  "connectsTo": []
+},
+  {
     "laneID": 4,
     "laneAttributes": {
       "directionalUse": [2, 2],
@@ -31,7 +96,7 @@ export const GEORGIA_INTERSECTION_LANES: Lane[] = [
     "connectsTo": [
       {
         "connectingLane": { "lane": 14 },
-        "signalGroup": 4
+        "signalGroup": 2
       }
     ]
   },
@@ -61,6 +126,105 @@ export const GEORGIA_INTERSECTION_LANES: Lane[] = [
       }
     ]
   },
+  {
+  "laneID": 6,
+  "laneAttributes": {
+    "directionalUse": [1, 2],
+    "sharedWith": [0, 10],
+    "laneType": ["vehicle", [0, 8]]
+  },
+  "maneuvers": [0, 12],
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-85.3081611, 35.0457243],
+      [-85.3080344, 35.0456771]
+    ]
+  },
+  "connectsTo": []
+},
+{
+  "laneID": 7,
+  "laneAttributes": {
+    "directionalUse": [1, 2],
+    "sharedWith": [0, 10],
+    "laneType": ["vehicle", [0, 8]]
+  },
+  "maneuvers": [0, 12],
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-85.3081739, 35.0457009],
+      [-85.3080471, 35.0456536]
+    ]
+  }, 
+  "connectsTo": []
+},
+{
+  "laneID": 9,
+  "laneAttributes": {
+    "directionalUse": [1, 2],
+    "sharedWith": [0, 10],
+    "laneType": ["vehicle", [0, 8]]
+  },
+  "maneuvers": [0, 12],
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-85.3083565, 35.0456777],
+      [-85.3084042, 35.0455942]
+    ]
+  }, 
+  "connectsTo": []
+},
+{
+  "laneID": 10,
+  "laneAttributes": {
+    "directionalUse": [2, 2],
+    "sharedWith": [0, 10],
+    "laneType": ["vehicle", [0, 8]]
+  },
+  "maneuvers": [0, 12],
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-85.3084702, 35.0457724],
+      [-85.3086320, 35.0457746]
+    ]
+  },
+  "connectsTo": [
+    {
+      "connectingLane": { "lane": 9 },
+      "signalGroup": 13
+    },
+    {
+      "connectingLane": { "lane": 7 },
+      "signalGroup": 13
+    }
+  ]
+},
+{
+  "laneID": 11,
+  "laneAttributes": {
+    "directionalUse": [2, 2],
+    "sharedWith": [0, 10],
+    "laneType": ["vehicle", [0, 8]]
+  },
+  "maneuvers": [0, 12],
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-85.3084628, 35.0457990],
+      [-85.3086292, 35.0458000]
+    ]
+  },
+  "connectsTo": [
+    {
+      "connectingLane": { "lane": 6 },
+      "signalGroup": 13
+    }
+  ]
+},
   {
     "laneID": 8,
     "laneAttributes": {
@@ -93,7 +257,6 @@ export const GEORGIA_INTERSECTION_LANES: Lane[] = [
   }
 ];
 
-// Houston intersection lanes (using unique IDs 101-104 to avoid conflicts with Georgia lanes)
 export const HOUSTON_INTERSECTION_LANES: Lane[] = [
   {
     "laneID": 101,
