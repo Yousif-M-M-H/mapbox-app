@@ -1,5 +1,4 @@
 // app/src/features/Map/views/components/MapView.tsx
-// Updated to respect Houston SDSM toggle
 
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
@@ -9,23 +8,20 @@ import * as Location from 'expo-location';
 import { MapViewModel } from '../../viewmodels/MapViewModel';
 import { PedestrianDetectorViewModel } from '../../../PedestrianDetector/viewmodels/PedestrianDetectorViewModel';
 import { TestingPedestrianDetectorViewModel } from '../../../../testingFeatures/testingPedestrianDetectorFeatureTest/viewmodels/TestingPedestrianDetectorViewModel';
-import { VehicleDisplayViewModel } from '../../../SDSM/viewmodels/VehicleDisplayViewModel'
+import { VehicleDisplayViewModel } from '../../../SDSM/viewmodels/VehicleDisplayViewModel';
 import { DirectionGuideViewModel } from '../../../DirectionGuide/viewModels/DirectionGuideViewModel';
 import { TurnGuideDisplay } from '../../../DirectionGuide/views/components/TurnGuideDisplay';
 import { SpatStatusDisplay } from '../../../SpatService/views/SpatStatusDisplay';
-import { VehicleMarkers } from '../../../SDSM/views/VehicleMarkers'
-import { VRUMarkers } from '../../../SDSM/views/VRUMarkers'
+import { SpatViewModel } from '../../../SpatService/viewModels/SpatViewModel';
+import { VehicleMarkers } from '../../../SDSM/views/VehicleMarkers';
+import { VRUMarkers } from '../../../SDSM/views/VRUMarkers';
 import { TestingModeOverlay } from '../../../../testingFeatures/testingUI';
 import { LaneOverlay } from '../../../Lanes/views/components/LaneOverlay';
 import { LanesViewModel } from '../../../Lanes/viewmodels/LanesViewModel';
-import {
-  CROSSWALK_POLYGONS
-} from '../../../Crosswalk/constants/CrosswalkCoordinates';
+import { CROSSWALK_POLYGONS } from '../../../Crosswalk/constants/CrosswalkCoordinates';
 import { CrosswalkDetectionService } from '../../../PedestrianDetector/services/CrosswalkDetectionService';
 import { ProximityDetectionService } from '../../../PedestrianDetector/services/ProximityDetectionService';
 import { TESTING_CONFIG } from '../../../../testingFeatures/TestingConfig';
-
-// Import MainViewModel for user heading
 import { MainViewModel } from '../../../../Main/viewmodels/MainViewModel';
 
 interface MapViewProps {
@@ -52,11 +48,14 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
 
+  // Initialize SPaT ViewModel
+  const spatViewModel = useRef(new SpatViewModel()).current;
+
   // State for GPS heading (independent of camera)
   const [gpsHeading, setGpsHeading] = useState<number | null>(null);
   const [lastKnownHeading, setLastKnownHeading] = useState<number | null>(null);
   
-  // State for smooth location tracking - initialize with user's current location
+  // State for smooth location tracking
   const [smoothedLocation, setSmoothedLocation] = useState<[number, number]>([
     mapViewModel.userLocation.latitude, 
     mapViewModel.userLocation.longitude
@@ -67,13 +66,12 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   const activeDetector = isTestingMode ? testingPedestrianDetectorViewModel : pedestrianDetectorViewModel;
 
   // Simple toggle to control SDSM vehicle visibility on map
-  // Set to false to hide vehicles from map while keeping background functionality
   const SHOW_SDSM_VEHICLES = true;
 
   // Initialize Lanes ViewModel
   const lanesViewModel = useRef(new LanesViewModel()).current;
 
-  // NEW: Helper function to determine if SDSM should be shown for a given viewModel
+  // Helper function to determine if SDSM should be shown for a given viewModel
   const shouldShowSDSMForViewModel = (viewModel: VehicleDisplayViewModel): boolean => {
     if (!SHOW_SDSM_VEHICLES || !TESTING_CONFIG.ENABLE_SDSM_API) {
       return false;
@@ -87,10 +85,9 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     return true;
   };
 
-  // GPS tracking setup with heading capture
+  // GPS tracking setup with heading capture and SPaT updates
   useEffect(() => {
     let locationSubscription: Location.LocationSubscription;
-    let updateCount = 0;
 
     const setupLocationTracking = async () => {
       try {
@@ -102,11 +99,10 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         locationSubscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.BestForNavigation,
-            distanceInterval: 0.5, // Update every half meter for smoother tracking  
-            timeInterval: 250 // Update every 250ms to sync with lane detection throttle
+            distanceInterval: 0.5,
+            timeInterval: 250
           },
           (location) => {
-            updateCount++;
             const { latitude, longitude, heading, accuracy } = location.coords;
 
             // Capture GPS heading independently
@@ -115,7 +111,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
               setLastKnownHeading(heading);
             }
 
-            // Apply coordinate smoothing for better lane alignment
+            // Apply coordinate smoothing
             const newCoords: [number, number] = [latitude, longitude];
             const smoothedCoords = applySmoothingFilter(newCoords, accuracy || 10);
             
@@ -123,6 +119,9 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 
             // Update DirectionGuide with smoothed coordinates
             directionGuideViewModel.setVehiclePosition(smoothedCoords);
+
+            // Update SPaT ViewModel with smoothed coordinates
+            spatViewModel.setUserPosition(smoothedCoords);
 
             // Update other components with smoothed coordinates
             if (activeDetector && 'setVehiclePosition' in activeDetector) {
@@ -143,8 +142,11 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           activeDetector.startMonitoring();
         }
 
+        // Start SPaT monitoring
+        spatViewModel.startMonitoring();
+
       } catch (error) {
-        // Removed error logging
+        console.error('Location tracking error:', error);
       }
     };
 
@@ -157,8 +159,9 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       if (activeDetector && 'stopMonitoring' in activeDetector) {
         activeDetector.stopMonitoring();
       }
+      spatViewModel.cleanup();
     };
-  }, [directionGuideViewModel, activeDetector, mapViewModel, isTestingMode]);
+  }, [directionGuideViewModel, activeDetector, mapViewModel, isTestingMode, spatViewModel]);
 
   // Update PedestrianDetector with VRU data from SDSM and testing pedestrians
   useEffect(() => {
@@ -171,7 +174,6 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     if (TESTING_CONFIG.ENABLE_SDSM_API) {
       const vehicleDisplayVM = mainViewModel?.vehicleDisplayViewModel || testingVehicleDisplayViewModel;
       if (vehicleDisplayVM?.vrus) {
-        // NEW: Only add VRU data if not from hidden Houston intersection
         if (shouldShowSDSMForViewModel(vehicleDisplayVM)) {
           allVRUs = [...allVRUs, ...vehicleDisplayVM.vrus];
         }
@@ -192,37 +194,32 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     testingPedestrianDetectorViewModel?.vrus,
     TESTING_CONFIG.ENABLE_SDSM_API,
     TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN,
-    TESTING_CONFIG.SHOW_HOUSTON_SDSM // NEW: React to Houston toggle changes
+    TESTING_CONFIG.SHOW_HOUSTON_SDSM
   ]);
 
-  // Coordinate smoothing function for better lane alignment
+  // Coordinate smoothing function
   const applySmoothingFilter = (newCoords: [number, number], accuracy: number): [number, number] => {
     const now = Date.now();
     const history = locationHistory.current;
     
-    // Add new coordinates to history
     history.push({ coords: newCoords, timestamp: now });
-    
-    // Keep only last 5 seconds of data
     locationHistory.current = history.filter(item => now - item.timestamp < 5000);
     
-    // If accuracy is good (< 5 meters), use coordinates directly
     if (accuracy < 5) {
       return newCoords;
     }
     
-    // For poor accuracy, apply weighted average with recent history
     if (locationHistory.current.length < 2) {
       return newCoords;
     }
     
-    const recentHistory = locationHistory.current.slice(-3); // Last 3 points
+    const recentHistory = locationHistory.current.slice(-3);
     let totalWeight = 0;
     let weightedLat = 0;
     let weightedLng = 0;
     
     recentHistory.forEach((point, index) => {
-      const weight = index + 1; // More recent points have higher weight
+      const weight = index + 1;
       weightedLat += point.coords[0] * weight;
       weightedLng += point.coords[1] * weight;
       totalWeight += weight;
@@ -255,7 +252,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           animationDuration={300}
         />
 
-        {/* User Location Marker with Fixed GPS Heading */}
+        {/* User Location Marker with GPS Heading */}
         {smoothedLocation[0] !== 0 && smoothedLocation[1] !== 0 && (
           <MapboxGL.PointAnnotation
             id="vehicle-position"
@@ -286,10 +283,8 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 
         {/* Multiple crosswalk polygons */}
         {mapViewModel.showCrosswalkPolygon && CROSSWALK_POLYGONS.map((polygonCoords, index) => {
-          // Get pedestrian data for specific crosswalk independent calculation
           let allVRUs: any[] = [];
 
-          // Add SDSM VRU data if API is enabled and not Houston-hidden
           if (TESTING_CONFIG.ENABLE_SDSM_API) {
             const vehicleDisplayVM = mainViewModel?.vehicleDisplayViewModel || testingVehicleDisplayViewModel;
             if (vehicleDisplayVM?.vrus && shouldShowSDSMForViewModel(vehicleDisplayVM)) {
@@ -297,7 +292,6 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
             }
           }
 
-          // Add testing pedestrian VRU data if enabled
           if (TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN && testingPedestrianDetectorViewModel?.vrus) {
             allVRUs = [...allVRUs, ...testingPedestrianDetectorViewModel.vrus];
           }
@@ -344,7 +338,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         {/* Lane Overlays */}
         <LaneOverlay lanesViewModel={lanesViewModel} />
 
-        {/* SDSM Vehicle Markers - Updated with Houston toggle check */}
+        {/* SDSM Vehicle Markers */}
         {mainViewModel?.vehicleDisplayViewModel && shouldShowSDSMForViewModel(mainViewModel.vehicleDisplayViewModel) && (
           <VehicleMarkers viewModel={mainViewModel.vehicleDisplayViewModel} />
         )}
@@ -353,7 +347,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           <VehicleMarkers viewModel={testingVehicleDisplayViewModel as unknown as VehicleDisplayViewModel} />
         )}
 
-        {/* SDSM VRU/Pedestrian Markers - Updated with Houston toggle check */}
+        {/* SDSM VRU/Pedestrian Markers */}
         {mainViewModel?.vehicleDisplayViewModel && shouldShowSDSMForViewModel(mainViewModel.vehicleDisplayViewModel) && (
           <VRUMarkers
             vrus={mainViewModel.vehicleDisplayViewModel.vrus}
@@ -387,13 +381,16 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         testingVehicleDisplayViewModel={testingVehicleDisplayViewModel as unknown as VehicleDisplayViewModel}
       />
 
-      {/* SPaT status display */}
-      <SpatStatusDisplay userPosition={[mapViewModel.userLocation.latitude, mapViewModel.userLocation.longitude]} />
+      {/* SPaT Status Display */}
+      <SpatStatusDisplay 
+        userPosition={smoothedLocation} 
+        spatViewModel={spatViewModel}
+      />
 
       {/* Turn guidance UI */}
       <TurnGuideDisplay directionGuideViewModel={directionGuideViewModel} />
 
-      {/* GPS Heading Display (Fixed) */}
+      {/* GPS Heading Display */}
       {displayHeading !== null && (
         <View style={styles.headingContainer}>
           <Text style={styles.headingText}>
@@ -402,17 +399,14 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         </View>
       )}
 
-     
-      {/* Pedestrian warning - Simple Proximity Logic */}
+      {/* Pedestrian warning */}
       {(() => {
         const vehiclePos: [number, number] = [smoothedLocation[0], smoothedLocation[1]];
 
         if (smoothedLocation[0] === 0) return null;
 
-        // Collect VRU data from multiple sources (respecting Houston toggle)
         let allVRUs: any[] = [];
 
-        // Add SDSM VRU data if API is enabled and not Houston-hidden
         if (TESTING_CONFIG.ENABLE_SDSM_API) {
           const vehicleDisplayVM = mainViewModel?.vehicleDisplayViewModel || testingVehicleDisplayViewModel;
           if (vehicleDisplayVM?.vrus && shouldShowSDSMForViewModel(vehicleDisplayVM)) {
@@ -420,18 +414,14 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           }
         }
 
-        // Add testing pedestrian VRU data if enabled
         if (TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN && testingPedestrianDetectorViewModel?.vrus) {
           allVRUs = [...allVRUs, ...testingPedestrianDetectorViewModel.vrus];
         }
 
-        // Check if any pedestrian is in crosswalk and vehicle is within 10 meters of that pedestrian
         const hasPedestriansNearby = allVRUs.some(vru => {
-          // Check if pedestrian is in any crosswalk
           const isPedestrianInCrosswalk = CrosswalkDetectionService.isInCrosswalk(vru.coordinates);
           if (!isPedestrianInCrosswalk) return false;
 
-          // Check if vehicle is within 10 meters of this pedestrian
           const isVehicleNearPedestrian = ProximityDetectionService.isVehicleCloseToPosition(
             vehiclePos,
             vru.coordinates
@@ -443,7 +433,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         return hasPedestriansNearby ? (
           <View style={styles.warningContainer}>
             <Text style={styles.warningText}>
-              Pedestrian crossing detected ahead!
+              ⚠️ Pedestrian crossing detected ahead!
             </Text>
           </View>
         ) : null;
@@ -459,16 +449,12 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-
-  // Container for heading arrow (fixed positioning)
   userLocationContainer: {
     width: 28,
     height: 28,
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  // GPS-based heading arrow (Google Maps style)
   headingArrow: {
     width: 28,
     height: 28,
@@ -495,8 +481,6 @@ const styles = StyleSheet.create({
     borderColor: 'white',
     marginTop: -3,
   },
-
-  // Simple circular marker (no heading)
   userLocationMarker: {
     width: 20,
     height: 20,
@@ -513,7 +497,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: 'white',
   },
-
   warningContainer: {
     position: 'absolute',
     top: 50,
@@ -553,26 +536,6 @@ const styles = StyleSheet.create({
   headingText: {
     color: 'white',
     fontSize: 12,
-    fontWeight: '600',
-  },
-  // NEW: dden indicator
-  houstonHiddenIndicator: {
-    position: 'absolute',
-    top: 100,
-    right: 20,
-    backgroundColor: 'rgba(255, 99, 71, 0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  houstonHiddenText: {
-    color: 'white',
-    fontSize: 11,
     fontWeight: '600',
   },
 });

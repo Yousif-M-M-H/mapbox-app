@@ -12,7 +12,7 @@ export const TESTING_CONFIG = {
 
   // NEW: Toggle to hide SDSM data specifically for Houston intersection
   // When false, Houston intersection SDSM data will be hidden while Georgia remains visible
-  SHOW_HOUSTON_SDSM: false,
+  SHOW_HOUSTON_SDSM: true,
 
   // Fixed pedestrian coordinates for testing [lat, lon]
   // Starting position (outside detection zone for proper latency testing)

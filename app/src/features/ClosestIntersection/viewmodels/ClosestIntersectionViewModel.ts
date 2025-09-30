@@ -3,9 +3,7 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import { INTERSECTION_POLYGONS, IntersectionPolygon } from '../constants/IntersectionDefinitions';
 import { PolygonDetectionService } from '../services/PolygonDetectionService';
-import { IntersectionApiService } from '../services/IntersectionApiService';
 import { VehicleDisplayViewModel } from '../../SDSM/viewmodels/VehicleDisplayViewModel';
-import { SpatViewModel } from '../../SpatService/viewModels/SpatViewModel';
 
 export interface LocationProvider {
   (): [number, number]; // Returns [latitude, longitude]
@@ -20,7 +18,6 @@ export class ClosestIntersectionViewModel {
   
   // References to other ViewModels
   private vehicleDisplayVM: VehicleDisplayViewModel | null = null;
-  private spatVM: SpatViewModel | null = null;
   
   // Private
   private monitoringInterval: NodeJS.Timeout | null = null;
@@ -32,10 +29,10 @@ export class ClosestIntersectionViewModel {
   
   /**
    * Set references to other ViewModels for integration
+   * NOTE: SPaT is now self-contained and doesn't need to be linked here
    */
-  setViewModels(vehicleDisplayVM: VehicleDisplayViewModel, spatVM: SpatViewModel): void {
+  setViewModels(vehicleDisplayVM: VehicleDisplayViewModel, spatVM?: any): void {
     this.vehicleDisplayVM = vehicleDisplayVM;
-    this.spatVM = spatVM;
     console.log('🎯 ViewModels linked for intersection monitoring');
   }
   
@@ -114,15 +111,14 @@ export class ClosestIntersectionViewModel {
           this.lastApiCallTime = Date.now();
         });
         
-        // If we've entered a new intersection, update SDSM and SPaT immediately
+        // If we've entered a new intersection, update SDSM immediately
         if (hasChangedIntersection) {
           console.log(`🎯 Intersection changed to: ${intersection.name}`);
           this.updateSDSMForIntersection(intersection);
-          this.updateSPaTForIntersection(intersection);
+          
+          // Note: SPaT now handles its own intersection detection
+          // No need to notify SPaT here
         }
-        
-        // Make API calls (for logging purposes)
-        await this.callIntersectionApis(intersection);
         
       } else {
         // User is not in any intersection polygon
@@ -177,37 +173,6 @@ export class ClosestIntersectionViewModel {
   }
   
   /**
-   * Update SPaT for the current intersection
-   */
-  private updateSPaTForIntersection(intersection: IntersectionPolygon): void {
-    if (!this.spatVM) {
-      console.warn('🎯 SpatViewModel not set - cannot update SPaT');
-      return;
-    }
-    
-    // Update SPaT with the current intersection
-    this.spatVM.setCurrentIntersection(intersection.id as 'georgia' | 'houston');
-    
-    console.log(`🚦 SPaT updated for ${intersection.name} intersection`);
-  }
-  
-  /**
-   * Call both SDSM and SPaT APIs for the intersection (for logging/monitoring)
-   */
-  private async callIntersectionApis(intersection: IntersectionPolygon): Promise<void> {
-    try {
-      console.log(`Calling SDSM API: ${intersection.sdsmApiUrl}`);
-      console.log(`Calling SPaT API: ${intersection.spatApiUrl}`);
-      
-      // The actual API calls are handled by VehicleDisplayViewModel and SpatViewModel
-      // This is just for logging/monitoring purposes
-      
-    } catch (error) {
-      console.error(`🎯 API call error for ${intersection.name}:`, error);
-    }
-  }
-  
-  /**
    * Get current status
    */
   get status(): string {
@@ -231,6 +196,5 @@ export class ClosestIntersectionViewModel {
   cleanup(): void {
     this.stopMonitoring();
     this.vehicleDisplayVM = null;
-    this.spatVM = null;
   }
 }

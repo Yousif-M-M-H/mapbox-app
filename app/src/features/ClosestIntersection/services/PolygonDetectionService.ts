@@ -5,19 +5,22 @@ import { IntersectionPolygon } from '../constants/IntersectionDefinitions';
 export class PolygonDetectionService {
   /**
    * Check if a point is inside a polygon using ray casting algorithm
-   * @param point [lat, lng] format
-   * @param polygon [lng, lat] format (Mapbox standard)
+   * @param point [lat, lng] format from GPS
+   * @param polygon Array of [lng, lat] coordinates (GeoJSON/Mapbox standard)
    */
   static isPointInPolygon(point: [number, number], polygon: [number, number][]): boolean {
     const [lat, lng] = point;
     let inside = false;
     
-    // Convert polygon from [lng, lat] to [lat, lng] for calculation
-    const vertices = polygon.map(([lng, lat]) => [lat, lng] as [number, number]);
+    // Polygon vertices are in [lng, lat] format, need to work with [lat, lng]
+    const vertices: [number, number][] = polygon.map(([pLng, pLat]) => [pLat, pLng]);
     
-    for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
-      const [latI, lngI] = vertices[i];
-      const [latJ, lngJ] = vertices[j];
+    // Remove duplicate last point if polygon is closed
+    const cleanVertices = this.ensureOpenPolygon(vertices);
+    
+    for (let i = 0, j = cleanVertices.length - 1; i < cleanVertices.length; j = i++) {
+      const [latI, lngI] = cleanVertices[i];
+      const [latJ, lngJ] = cleanVertices[j];
       
       if ((latI > lat) !== (latJ > lat) &&
           lng < (lngJ - lngI) * (lat - latI) / (latJ - latI) + lngI) {
@@ -30,7 +33,7 @@ export class PolygonDetectionService {
   
   /**
    * Find which intersection polygon contains the user position
-   * @param userPosition [lat, lng] format
+   * @param userPosition [lat, lng] format from GPS
    * @param intersections Array of intersection polygons
    */
   static findIntersectionForPosition(
@@ -39,25 +42,40 @@ export class PolygonDetectionService {
   ): IntersectionPolygon | null {
     // Validate user position
     if (!userPosition || userPosition[0] === 0 || userPosition[1] === 0) {
-      console.log('🎯 Invalid user position:', userPosition);
       return null;
     }
     
-    console.log(`🎯 Checking position [${userPosition[0].toFixed(6)}, ${userPosition[1].toFixed(6)}]`);
+    const [lat, lng] = userPosition;
     
+    // Validate coordinates are in reasonable range
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return null;
+    }
+    
+    // Check each intersection
     for (const intersection of intersections) {
       if (this.isPointInPolygon(userPosition, intersection.polygon)) {
-        console.log(`✅ User is inside ${intersection.name} polygon`);
         return intersection;
       }
     }
     
-    console.log('❌ User is outside all intersection polygons');
     return null;
   }
   
   /**
-   * Debug method to log polygon bounds
+   * Ensure polygon is open (remove duplicate last point if it matches first)
+   */
+  private static ensureOpenPolygon(vertices: [number, number][]): [number, number][] {
+    if (vertices.length > 0 && 
+        vertices[0][0] === vertices[vertices.length - 1][0] && 
+        vertices[0][1] === vertices[vertices.length - 1][1]) {
+      return vertices.slice(0, -1);
+    }
+    return vertices;
+  }
+  
+  /**
+   * Get polygon bounds for debugging
    */
   static getPolygonBounds(polygon: [number, number][]): {
     minLat: number;
