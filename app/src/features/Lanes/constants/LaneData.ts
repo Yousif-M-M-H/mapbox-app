@@ -369,7 +369,7 @@ export const HOUSTON_INTERSECTION_LANES: Lane[] = [
         [-85.3054120, 35.0446642]
       ]
     },
-    "connectsTo": []
+    "connectsTo": []  
   },
   {
     "laneID": 106,
@@ -431,8 +431,7 @@ export const HOUSTON_INTERSECTION_LANES: Lane[] = [
       "type": "LineString",
       "coordinates": [
       [-85.305691, 35.044761],
-
-        [-85.306085, 35.044913]
+      [-85.306085, 35.044913]
       ]
     },
     "connectsTo": [

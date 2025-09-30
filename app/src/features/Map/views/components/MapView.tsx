@@ -387,8 +387,8 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         spatViewModel={spatViewModel}
       />
 
-      {/* Turn guidance UI */}
-      <TurnGuideDisplay directionGuideViewModel={directionGuideViewModel} />
+      {/* Turn guidance UI - Updated to use SPaT */}
+      <TurnGuideDisplay spatViewModel={spatViewModel} />
 
       {/* GPS Heading Display */}
       {displayHeading !== null && (

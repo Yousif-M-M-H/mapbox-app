@@ -1,207 +1,274 @@
 // app/src/features/DirectionGuide/views/components/TurnGuideDisplay.tsx
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { observer } from 'mobx-react-lite';
-import { DirectionGuideViewModel } from '../../viewModels/DirectionGuideViewModel';
-import { TurnType } from '../../models/DirectionTypes';
-import { 
-  TurnIcon, 
-  TurnSignalState, 
-  TURN_ICON_VARIANTS,
-  createTurnConfigFromSignals,
-  // All available convenience components
-  BothAllowedTurnIcon,
-  BothProhibitedTurnIcon,
-  BothWarningTurnIcon,
-  LeftOnlyTurnIcon,
-  StraightOnlyTurnIcon,
-  LeftWarningTurnIcon,
-  StraightWarningTurnIcon,
-  LeftWarningOnlyTurnIcon,
-  StraightWarningOnlyTurnIcon
-} from './TurnIcon';
+import { TurnIcon, TurnSignalState } from './TurnIcon';
+import { SpatViewModel } from '../../../SpatService/viewModels/SpatViewModel';
+import { SignalState } from '../../../SpatService/models/SpatModels';
 
 interface TurnGuideDisplayProps {
-  directionGuideViewModel: DirectionGuideViewModel;
+  spatViewModel: SpatViewModel;
 }
 
+// Hardcoded allowed turns for each lane
+const LANE_ALLOWED_TURNS: Record<number, { 
+  left: boolean; 
+  straight: boolean;
+  right: boolean;
+  label: string;
+}> = {
+  // Georgia lanes
+  4: { left: false, straight: true, right: true, label: 'Left Lane' },
+  5: { left: true, straight: false, right: false, label: 'Turning Lane' },
+  8: { left: false, straight: true, right: true, label: 'Lane 8' },
+  
+  // Houston lanes
+  103: { left: false, straight: true, right: true, label: 'Left Lane' },
+  104: { left: true, straight: false, right: false, label: 'Turning Lane' },
+  106: { left: false, straight: true, right: true, label: 'Lane 106' },
+  108: { left: false, straight: true, right: true, label: 'Right Lane' },
+  109: { left: true, straight: false, right: false, label: 'Middle Lane' },
+};
+
 /**
- * Pure UI component for displaying turn guidance with traffic signal-aware turn icons
+ * Convert SPaT SignalState to TurnSignalState
  */
+function mapSignalStateToTurnState(signalState: SignalState): TurnSignalState {
+  switch (signalState) {
+    case SignalState.GREEN:
+      return TurnSignalState.ALLOWED;
+    case SignalState.YELLOW:
+      return TurnSignalState.WARNING;
+    case SignalState.RED:
+      return TurnSignalState.PROHIBITED;
+    default:
+      return TurnSignalState.PROHIBITED;
+  }
+}
+
 export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({ 
-  directionGuideViewModel 
+  spatViewModel 
 }) => {
-  // Determine if we should show the turn guide
-  const shouldShowGuide = shouldShowTurnGuide(directionGuideViewModel);
+  // Get current lane
+  const currentLane = spatViewModel.currentLaneId;
+  const currentIntersection = spatViewModel.currentIntersection;
   
-  if (!shouldShowGuide) {
+  // Check if we should display anything
+  const isGeorgiaLanes = currentLane === 4 || currentLane === 5;
+  const isGeorgiaLane8 = currentLane === 8;
+  const isHoustonLanes103_104 = currentLane === 103 || currentLane === 104;
+  const isHoustonLanes108_109 = currentLane === 108 || currentLane === 109;
+  const isHoustonLane106 = currentLane === 106;
+  
+  if (!isGeorgiaLanes && !isGeorgiaLane8 && !isHoustonLanes103_104 && !isHoustonLane106 && !isHoustonLanes108_109) {
     return null;
   }
 
-  // Get turn permissions from view model (when implemented)
-  // const allowLeft = directionGuideViewModel.isTurnAllowed(TurnType.LEFT);
-  // const allowStraight = directionGuideViewModel.isTurnAllowed(TurnType.STRAIGHT);
+  // Get the signal state and convert it to turn state
+  const turnState = mapSignalStateToTurnState(spatViewModel.signalState);
 
-  // For demonstration - you can easily switch between different states
-  const allowLeft = true;
-  const allowStraight = false;
-  const leftWarning = false;
-  const straightWarning = true; // Demo: showing straight as warning (yellow)
-
-  return (
-    <View style={styles.container}>
-      <View style={styles.indicator}>
-        {/* Method 1: Using the flexible TurnIcon with custom config */}
-        <View style={styles.iconContainer}>
-          <TurnIcon 
-            leftTurn={leftWarning ? TurnSignalState.WARNING : 
-                     (allowLeft ? TurnSignalState.ALLOWED : TurnSignalState.PROHIBITED)}
-            straightTurn={straightWarning ? TurnSignalState.WARNING : 
-                         (allowStraight ? TurnSignalState.ALLOWED : TurnSignalState.PROHIBITED)}
-            size={60}
-          />
-        </View>
-        
-        {/* Method 2: Using enhanced helper function with warning support */}
-        {/* 
-        <View style={styles.iconContainer}>
-          <TurnIcon 
-            {...createTurnConfigFromSignals(
-              allowLeft, 
-              allowStraight, 
-              leftWarning, 
-              straightWarning
-            )}
-            size={60}
-          />
-        </View>
-        */}
-        
-        {/* Method 3: Using predefined convenience components (including yellow variants) */}
-        {/* 
-        <View style={styles.iconContainer}>
-          <BothWarningTurnIcon size={60} />
-          <LeftWarningTurnIcon size={60} />
-          <StraightWarningTurnIcon size={60} />
-          <LeftWarningOnlyTurnIcon size={60} />
-          <StraightWarningOnlyTurnIcon size={60} />
-        </View>
-        */}
-        
-        <View style={styles.statusDot} />
-      </View>
-    </View>
-  );
-});
-
-// ========================================
-// Helper Functions
-// ========================================
-
-/**
- * Determine if turn guide should be shown
- */
-function shouldShowTurnGuide(viewModel: DirectionGuideViewModel): boolean {
-  const isInLane = viewModel.detectedLaneIds.length > 0;
-  const hasTurnData = viewModel.allowedTurns.length > 0;
-  
-  return isInLane && hasTurnData;
-}
-
-/**
- * Example function to demonstrate how you might determine turn states
- * based on traffic signal data (to be implemented when you have real data)
- */
-function getTurnStateFromTrafficSignal(
-  viewModel: DirectionGuideViewModel,
-  turnType: TurnType
-): TurnSignalState {
-  // This is where you'd integrate with actual traffic signal data
-  // For now, returning based on allowed turns
-  const isAllowed = viewModel.allowedTurns.includes(turnType as any as typeof viewModel.allowedTurns[number]);
-  return isAllowed ? TurnSignalState.ALLOWED : TurnSignalState.PROHIBITED;
-}
-
-// ========================================
-// Alternative Implementation Examples
-// ========================================
-
-/**
- * Example of how you might implement dynamic icon selection
- * based on different traffic scenarios including yellow/warning states
- */
-export const DynamicTurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({ 
-  directionGuideViewModel 
-}) => {
-  const shouldShowGuide = shouldShowTurnGuide(directionGuideViewModel);
-  
-  if (!shouldShowGuide) {
-    return null;
-  }
-
-  // Example: Different logic for different scenarios including yellow/warning states
-  const getIconForCurrentState = () => {
-    const leftAllowed = true;
-    const straightAllowed = false;
-    const leftWarning = false;
-    const straightWarning = true; // Demo: straight turn in warning state
-
-    // Handle warning states first
-    if (leftWarning && straightWarning) {
-      return <BothWarningTurnIcon size={60} />;
-    } else if (leftWarning && straightAllowed) {
-      return <LeftWarningTurnIcon size={60} />;
-    } else if (leftWarning && !straightAllowed) {
-      return <LeftWarningOnlyTurnIcon size={60} />;
-    } else if (straightWarning && leftAllowed) {
-      return <StraightWarningTurnIcon size={60} />;
-    } else if (straightWarning && !leftAllowed) {
-      return <StraightWarningOnlyTurnIcon size={60} />;
-    }
+  // Lane 8 (Georgia) - Show ONLY straight + right icon (NO LEFT)
+  if (isGeorgiaLane8) {
+    const lane8Config = LANE_ALLOWED_TURNS[8];
     
-    // Handle normal allowed/prohibited states
-    if (leftAllowed && straightAllowed) {
-      return <BothAllowedTurnIcon size={60} />;
-    } else if (leftAllowed && !straightAllowed) {
-      return <LeftOnlyTurnIcon size={60} />;
-    } else if (!leftAllowed && straightAllowed) {
-      return <StraightOnlyTurnIcon size={60} />;
-    } else {
-      return <BothProhibitedTurnIcon size={60} />;
-    }
-  };
+    return (
+      <View style={styles.container}>
+        <View style={styles.laneContainer}>
+          <View style={styles.iconWrapper}>
+            <Text style={styles.laneLabel}>{lane8Config.label}</Text>
+            <View style={styles.iconContainer}>
+              <TurnIcon 
+                leftTurn={TurnSignalState.PROHIBITED}
+                straightTurn={turnState}
+                rightTurn={turnState}
+                showLeft={false}
+                size={55}
+              />
+            </View>
+          </View>
+          <View style={styles.statusDot} />
+        </View>
+      </View>
+    );
+  }
+
+  // Lane 106 (Houston) - Show ONLY straight + right icon (NO LEFT)
+  if (isHoustonLane106) {
+    const lane106Config = LANE_ALLOWED_TURNS[106];
+    
+    return (
+      <View style={styles.container}>
+        <View style={styles.laneContainer}>
+          <View style={styles.iconWrapper}>
+            <Text style={styles.laneLabel}>{lane106Config.label}</Text>
+            <View style={styles.iconContainer}>
+              <TurnIcon 
+                leftTurn={TurnSignalState.PROHIBITED}
+                straightTurn={turnState}
+                rightTurn={turnState}
+                showLeft={false}
+                size={55}
+              />
+            </View>
+          </View>
+          <View style={styles.statusDot} />
+        </View>
+      </View>
+    );
+  }
+
+  // Houston Lanes 108 & 109 - REVERSED ORDER
+  if (isHoustonLanes108_109) {
+    const lane108Config = LANE_ALLOWED_TURNS[108];
+    const lane109Config = LANE_ALLOWED_TURNS[109];
+
+    return (
+      <View style={styles.container}>
+        {/* Lane 109 - Middle Lane (Left ONLY) - NOW FIRST */}
+        <View style={styles.laneContainer}>
+          <View style={styles.iconWrapper}>
+            <Text style={styles.laneLabel}>{lane109Config.label}</Text>
+            <View style={styles.iconContainer}>
+              <TurnIcon 
+                leftTurn={turnState}
+                straightTurn={TurnSignalState.PROHIBITED}
+                rightTurn={TurnSignalState.PROHIBITED}
+                showStraight={false}
+                showRight={false}
+                size={55}
+              />
+            </View>
+          </View>
+          <View style={styles.statusDot} />
+        </View>
+
+        {/* Lane 108 - Right Lane (Straight + Right) - NOW SECOND */}
+        <View style={styles.laneContainer}>
+          <View style={styles.iconWrapper}>
+            <Text style={styles.laneLabel}>{lane108Config.label}</Text>
+            <View style={styles.iconContainer}>
+              <TurnIcon 
+                leftTurn={TurnSignalState.PROHIBITED}
+                straightTurn={turnState}
+                rightTurn={turnState}
+                showLeft={false}
+                size={55}
+              />
+            </View>
+          </View>
+          <View style={styles.statusDot} />
+        </View>
+      </View>
+    );
+  }
+
+  // Houston Lanes 103 & 104 - REVERSED ORDER
+  if (isHoustonLanes103_104) {
+    const lane103Config = LANE_ALLOWED_TURNS[103];
+    const lane104Config = LANE_ALLOWED_TURNS[104];
+
+    return (
+      <View style={styles.container}>
+        {/* Lane 104 - Turning Lane (Left ONLY) - NOW FIRST */}
+        <View style={styles.laneContainer}>
+          <View style={styles.iconWrapper}>
+            <Text style={styles.laneLabel}>{lane104Config.label}</Text>
+            <View style={styles.iconContainer}>
+              <TurnIcon 
+                leftTurn={turnState}
+                straightTurn={TurnSignalState.PROHIBITED}
+                rightTurn={TurnSignalState.PROHIBITED}
+                showStraight={false}
+                showRight={false}
+                size={55}
+              />
+            </View>
+          </View>
+          <View style={styles.statusDot} />
+        </View>
+
+        {/* Lane 103 - Left Lane (Straight + Right) - NOW SECOND */}
+        <View style={styles.laneContainer}>
+          <View style={styles.iconWrapper}>
+            <Text style={styles.laneLabel}>{lane103Config.label}</Text>
+            <View style={styles.iconContainer}>
+              <TurnIcon 
+                leftTurn={TurnSignalState.PROHIBITED}
+                straightTurn={turnState}
+                rightTurn={turnState}
+                showLeft={false}
+                size={55}
+              />
+            </View>
+          </View>
+          <View style={styles.statusDot} />
+        </View>
+      </View>
+    );
+  }
+
+  // Georgia Lanes 4 & 5 - REVERSED ORDER
+  const lane4Config = LANE_ALLOWED_TURNS[4];
+  const lane5Config = LANE_ALLOWED_TURNS[5];
 
   return (
     <View style={styles.container}>
-      <View style={styles.indicator}>
-        <View style={styles.iconContainer}>
-          {getIconForCurrentState()}
+      {/* Lane 5 - Turning Lane (Left ONLY) - NOW FIRST */}
+      <View style={styles.laneContainer}>
+        <View style={styles.iconWrapper}>
+          <Text style={styles.laneLabel}>{lane5Config.label}</Text>
+          <View style={styles.iconContainer}>
+            <TurnIcon 
+              leftTurn={turnState}
+              straightTurn={TurnSignalState.PROHIBITED}
+              rightTurn={TurnSignalState.PROHIBITED}
+              showStraight={false}
+              showRight={false}
+              size={55}
+            />
+          </View>
+        </View>
+        <View style={styles.statusDot} />
+      </View>
+
+      {/* Lane 4 - Left Lane (Straight + Right) - NOW SECOND */}
+      <View style={styles.laneContainer}>
+        <View style={styles.iconWrapper}>
+          <Text style={styles.laneLabel}>{lane4Config.label}</Text>
+          <View style={styles.iconContainer}>
+            <TurnIcon 
+              leftTurn={TurnSignalState.PROHIBITED}
+              straightTurn={turnState}
+              rightTurn={turnState}
+              showLeft={false}
+              size={55}
+            />
+          </View>
         </View>
         <View style={styles.statusDot} />
       </View>
     </View>
   );
 });
-
-// ========================================
-// Styles
-// ========================================
 
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     bottom: 150,
     right: 16,
+    flexDirection: 'row',
+    gap: 10,
     zIndex: 1000,
   },
-  indicator: {
+  laneContainer: {
     alignItems: 'center',
   },
-  iconContainer: {
+  iconWrapper: {
     backgroundColor: 'rgba(255, 255, 255, 0.98)',
-    borderRadius: 35,
-    padding: 10,
+    borderRadius: 20,
+    padding: 12,
+    paddingTop: 8,
     elevation: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
@@ -209,6 +276,19 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     borderWidth: 0.5,
     borderColor: 'rgba(0, 0, 0, 0.06)',
+    alignItems: 'center',
+    minWidth: 85,
+  },
+  laneLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#4b5563',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  iconContainer: {
     justifyContent: 'center',
     alignItems: 'center',
   },
