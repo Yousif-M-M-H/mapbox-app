@@ -486,10 +486,240 @@ export const HOUSTON_INTERSECTION_LANES: Lane[] = [
   }
 ];
 
-// Combined lanes from both intersections
+// NEW: Lindsay intersection lanes
+export const LINDSAY_INTERSECTION_LANES: Lane[] = [
+  {
+    "laneID": 201,
+    "laneAttributes": {
+      "directionalUse": [2, 2],
+      "sharedWith": [0, 10],
+      "laneType": ["vehicle", [0, 8]]
+    },
+    "maneuvers": [3584, 12],
+    "geometry": {
+      "type": "LineString",
+      "coordinates": [
+        [-85.3068790, 35.0453512],
+        [-85.3066849, 35.0457107]
+      ]
+    },
+    "connectsTo": [
+      {
+        "connectingLane": { "lane": 5 },
+        "signalGroup": 4
+      },
+      {
+        "connectingLane": { "lane": 7 },
+        "signalGroup": 4
+      },
+      {
+        "connectingLane": { "lane": 10 },
+        "signalGroup": 4
+      }
+    ]
+  },
+  {
+    "laneID": 202,
+  "laneAttributes": {
+    "directionalUse": [1, 2],
+    "sharedWith": [0, 10],
+    "laneType": ["vehicle", [0, 8]]
+  },
+  "maneuvers": [0, 12],
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-85.3068405, 35.0453373],
+      [-85.3068071, 35.0453950]
+    ],
+  },
+  "connectsTo": []
+},
+{
+  "laneID": 203,
+  "laneAttributes": {
+    "directionalUse": [2, 2],
+    "sharedWith": [0, 10],
+    "laneType": ["vehicle", [0, 8]]
+  },
+  "maneuvers": [2560, 12],
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-85.3068009, 35.0452531],
+      [-85.3058514, 35.0448936]
+    ]
+  },
+  "connectsTo": [
+    {
+      "connectingLane": { "lane": 2 },
+      "signalGroup": 2
+    },
+    {
+      "connectingLane": { "lane": 10 },
+      "signalGroup": 2
+    }
+  ]
+},
+{
+  "laneID": 204,
+  "laneAttributes": {
+    "directionalUse": [2, 2],
+    "sharedWith": [0, 10],
+    "laneType": ["vehicle", [0, 8]]
+  },
+  "maneuvers": [1024, 12],
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-85.3068023, 35.0452213],
+      [-85.3062938, 35.0450271]
+    ]
+  },
+  "connectsTo": [
+    {
+      "connectingLane": { "lane": 7 },
+      "signalGroup": 2
+    }
+  ]
+},
+{
+  "laneID": 205,
+  "laneAttributes": {
+    "directionalUse": [1, 2],
+    "sharedWith": [0, 10],
+    "laneType": ["vehicle", [0, 8]]
+  },
+  "maneuvers": [0, 12],
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-85.3068178, 35.0451952],
+      [-85.3067522, 35.0451703]
+    ]
+  },
+  "connectsTo": []  
+},
+{
+  "laneID": 206,
+  "laneAttributes": {
+    "directionalUse": [2, 2],
+    "sharedWith": [0, 10],
+    "laneType": ["vehicle", [0, 8]]
+  },
+  "maneuvers": [3584, 12],
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-85.3069459, 35.0451611],
+      [-85.3072848, 35.0445437]
+    ]
+  },
+  "connectsTo": [
+    {
+      "connectingLane": { "lane": 5 },
+      "signalGroup": 4
+    },
+    {
+      "connectingLane": { "lane": 2 },
+      "signalGroup": 4
+    },
+    {
+      "connectingLane": { "lane": 10 },
+      "signalGroup": 4
+    }
+  ]
+},
+{
+  "laneID": 207,
+  "laneAttributes": {
+    "directionalUse": [1, 2],
+    "sharedWith": [0, 10],
+    "laneType": ["vehicle", [0, 8]]
+  },
+  "maneuvers": [0, 12],
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-85.3069790, 35.0451756],
+      [-85.3070072, 35.0451243]
+    ]
+  }, 
+  "connectsTo": []
+},
+{
+  "laneID": 208,
+  "laneAttributes": {
+    "directionalUse": [2, 2],
+    "sharedWith": [0, 10],
+    "laneType": ["vehicle", [0, 8]]
+  },
+  "maneuvers": [2560, 12],
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-85.3070316, 35.0452672],
+      [-85.3079039, 35.0455973]
+    ]
+  },
+  "connectsTo": [
+    {
+      "connectingLane": { "lane": 5 },
+      "signalGroup": 2
+    },
+    {
+      "connectingLane": { "lane": 7 },
+      "signalGroup": 2
+    }
+  ]
+}, 
+{
+  "laneID": 209,
+  "laneAttributes": {
+    "directionalUse": [2, 2],
+    "sharedWith": [0, 10],
+    "laneType": ["vehicle", [0, 8]]
+  },
+  "maneuvers": [1024, 12],
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-85.3070257, 35.0452959],
+      [-85.3072120, 35.0453663]
+    ]
+  },
+  "connectsTo": [
+    {
+      "connectingLane": { "lane": 2 },
+      "signalGroup": 2
+    }
+  ]
+},
+{
+  "laneID": 210,
+  "laneAttributes": {
+    "directionalUse": [1, 2],
+    "sharedWith": [0, 10],
+    "laneType": ["vehicle", [0, 8]]
+  },
+  "maneuvers": [0, 12],
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-85.3069970, 35.0453157],
+      [-85.3070740, 35.0453448]
+    ]
+  },
+  "connectsTo": []  
+},
+
+];
+
+// Combined lanes from all intersections (UPDATED)
 export const ALL_INTERSECTION_LANES: Lane[] = [
   ...GEORGIA_INTERSECTION_LANES,
-  ...HOUSTON_INTERSECTION_LANES
+  ...HOUSTON_INTERSECTION_LANES,
+  ...LINDSAY_INTERSECTION_LANES
 ];
 
 // Backward compatibility - keep the original export
@@ -508,35 +738,46 @@ export const HOUSTON_LANE_CONFIG: LaneConfiguration = {
   visible: true
 };
 
+// NEW: Lindsay lane configuration
+export const LINDSAY_LANE_CONFIG: LaneConfiguration = {
+  lanes: LINDSAY_INTERSECTION_LANES,
+  defaultStyle: DEFAULT_LANE_STYLE,
+  visible: true
+};
+
 export const ALL_INTERSECTIONS_LANE_CONFIG: LaneConfiguration = {
   lanes: ALL_INTERSECTION_LANES,
   defaultStyle: DEFAULT_LANE_STYLE,
   visible: true
 };
 
-// Main lane configuration - now includes both intersections
+// Main lane configuration - now includes all three intersections
 export const LANE_CONFIG: LaneConfiguration = ALL_INTERSECTIONS_LANE_CONFIG;
 
-// Helper function to get lanes for a specific intersection
-export function getLanesForIntersection(intersection: 'georgia' | 'houston' | 'all'): Lane[] {
+// Helper function to get lanes for a specific intersection (UPDATED)
+export function getLanesForIntersection(intersection: 'georgia' | 'houston' | 'lindsay' | 'all'): Lane[] {
   switch (intersection) {
     case 'georgia':
       return GEORGIA_INTERSECTION_LANES;
     case 'houston':
       return HOUSTON_INTERSECTION_LANES;
+    case 'lindsay':
+      return LINDSAY_INTERSECTION_LANES;
     case 'all':
     default:
       return ALL_INTERSECTION_LANES;
   }
 }
 
-// Helper function to get lane configuration for a specific intersection
-export function getLaneConfigForIntersection(intersection: 'georgia' | 'houston' | 'all'): LaneConfiguration {
+// Helper function to get lane configuration for a specific intersection (UPDATED)
+export function getLaneConfigForIntersection(intersection: 'georgia' | 'houston' | 'lindsay' | 'all'): LaneConfiguration {
   switch (intersection) {
     case 'georgia':
       return GEORGIA_LANE_CONFIG;
     case 'houston':
       return HOUSTON_LANE_CONFIG;
+    case 'lindsay':
+      return LINDSAY_LANE_CONFIG;
     case 'all':
     default:
       return ALL_INTERSECTIONS_LANE_CONFIG;

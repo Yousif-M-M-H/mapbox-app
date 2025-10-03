@@ -1,174 +1,77 @@
-// app/src/features/SDSM/services/SDSMService.ts
-import { SDSMResponse, SDSMObject, VRUData, VehicleData } from '../models/SDSMTypes';
-import { TESTING_CONFIG } from '../../../testingFeatures/TestingConfig';
+import { SDSMResponse, VehicleData, VRUData } from "../models/SDSMTypes";
 
-export class SDSMService {
-  private static readonly API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events/MLK_Georgia';
-  private static readonly REQUEST_TIMEOUT = 1000;
-
-  /**
-   * Fetch SDSM data from SPaT endpoint (vehicles and other objects)
-   * @returns Promise with SDSM data including vehicles and pedestrians (VRUs)
-   */
-  static async fetchSDSMData(): Promise<SDSMResponse | null> {
-    // Check if SDSM API is enabled
-    if (!TESTING_CONFIG.ENABLE_SDSM_API) {
-      return null;
+// Pure functions for data transformation - no state
+export class SDSMDataService {
+  private static normalizeCoordinates(coords: [number, number]): [number, number] {
+    const [first, second] = coords;
+    
+    // Validate coordinates are in valid ranges
+    const isLatLngFormat = Math.abs(first) <= 90 && Math.abs(second) <= 180;
+    
+    if (!isLatLngFormat) {
+      return [0, 0];
     }
-
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT);
-      
-      const response = await fetch(this.API_URL, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache'
-        },
-        signal: controller.signal,
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        return null;
-      }
-      
-      const rawData: SDSMResponse = await response.json();
-      
-      // Check refPos before processing
-      if (!this.hasValidRefPos(rawData)) {
-        return null;
-      }
-      
-      if (this.isValidSDSMResponse(rawData)) {
-        return rawData;
-      } else {
-        return null;
-      }
-      
-    } catch (error) {
-      return null;
-    }
+    
+    // API returns [lat, lng], store as [lat, lng]
+    return [first, second];
   }
 
-  /**
-   * Check if message has required refPos values
-   */
-  private static hasValidRefPos(data: any): boolean {
-    return data?.refPos?.lat === 35.0457770 && data?.refPos?.long === -85.3082840;
+  static extractVehicles(response: SDSMResponse): VehicleData[] {
+    if (!response?.objects) return [];
+
+    return response.objects
+      .filter(obj => obj.type === 'vehicle')
+      .map(obj => {
+        const coords = this.normalizeCoordinates(obj.location.coordinates);
+        return {
+          id: obj.objectID,
+          coordinates: coords,
+          heading: obj.heading,
+          speed: obj.speed,
+          size: obj.size
+        };
+      })
+      .filter(v => v.coordinates[0] !== 0 && v.coordinates[1] !== 0);
   }
-  
-  /**
-   * Validate that the API response has the expected structure
-   */
-  private static isValidSDSMResponse(data: any): data is SDSMResponse {
-    return (
-      data &&
-      typeof data === 'object' &&
-      (typeof data.intersectionID === 'string' || typeof data.intersectionID === 'number') &&
-      typeof data.intersection === 'string' &&
-      typeof data.timestamp === 'string' &&
-      Array.isArray(data.objects)
-    );
+
+  static extractVRUs(response: SDSMResponse): VRUData[] {
+    if (!response?.objects) return [];
+
+    return response.objects
+      .filter(obj => obj.type === 'vru')
+      .map(obj => {
+        const coords = this.normalizeCoordinates(obj.location.coordinates);
+        return {
+          id: obj.objectID,
+          coordinates: coords,
+          heading: obj.heading,
+          speed: obj.speed,
+          size: obj.size
+        };
+      })
+      .filter(v => v.coordinates[0] !== 0 && v.coordinates[1] !== 0);
   }
-  
-  /**
-   * Filter SDSM data to get only pedestrians (VRUs)
-   */
-  static filterPedestrians(sdsmData: SDSMResponse): SDSMObject[] {
-    if (!sdsmData?.objects) {
-      return [];
+
+  static toMapboxCoordinates(data: VehicleData | VRUData): [number, number] {
+    const [lat, lng] = data.coordinates;
+    
+    if (Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+      return [0, 0];
     }
     
-    return sdsmData.objects.filter(obj => obj.type === 'vru');
+    // Convert [lat, lng] → [lng, lat] for Mapbox
+    return [lng, lat];
   }
-  
-  /**
-   * Filter SDSM data to get only vehicles
-   */
-  static filterVehicles(sdsmData: SDSMResponse): SDSMObject[] {
-    if (!sdsmData?.objects) {
-      return [];
-    }
-    
-    return sdsmData.objects.filter(obj => obj.type === 'vehicle');
+
+  static hasVehicleChanged(oldVehicle: VehicleData, newVehicle: VehicleData): boolean {
+    return oldVehicle.coordinates[0] !== newVehicle.coordinates[0] ||
+           oldVehicle.coordinates[1] !== newVehicle.coordinates[1] ||
+           oldVehicle.heading !== newVehicle.heading;
   }
-  
-  /**
-   * Convert SDSM pedestrian objects to simplified pedestrian info
-   */
-  static getPedestrianInfo(sdsmData: SDSMResponse): VRUData[] {
-    const pedestrians = this.filterPedestrians(sdsmData);
-    
-    return pedestrians.map(ped => ({
-      id: ped.objectID,
-      coordinates: ped.location.coordinates,
-      timestamp: ped.timestamp,
-      heading: ped.heading,
-      speed: ped.speed
-    }));
-  }
-  
-  /**
-   * Convert SDSM vehicle objects to simplified vehicle info
-   */
-  static getVehicleInfo(sdsmData: SDSMResponse): VehicleData[] {
-    const vehicles = this.filterVehicles(sdsmData);
-    
-    return vehicles.map(vehicle => ({
-      id: vehicle.objectID,
-      coordinates: vehicle.location.coordinates,
-      timestamp: vehicle.timestamp,
-      heading: vehicle.heading,
-      speed: vehicle.speed,
-      size: vehicle.size
-    }));
-  }
-  
-  /**
-   * Get summary statistics from SDSM data
-   */
-  static getDataSummary(sdsmData: SDSMResponse): {
-    totalObjects: number;
-    vehicleCount: number;
-    pedestrianCount: number;
-    intersectionName: string;
-    lastUpdate: string;
-  } {
-    if (!sdsmData?.objects) {
-      return {
-        totalObjects: 0,
-        vehicleCount: 0,
-        pedestrianCount: 0,
-        intersectionName: 'Unknown',
-        lastUpdate: 'Never'
-      };
-    }
-    
-    const vehicles = this.filterVehicles(sdsmData);
-    const pedestrians = this.filterPedestrians(sdsmData);
-    
-    return {
-      totalObjects: sdsmData.objects.length,
-      vehicleCount: vehicles.length,
-      pedestrianCount: pedestrians.length,
-      intersectionName: sdsmData.intersection,
-      lastUpdate: sdsmData.timestamp
-    };
-  }
-  
-  /**
-   * Test the SDSM API connection
-   */
-  static async testConnection(): Promise<boolean> {
-    try {
-      const data = await this.fetchSDSMData();
-      return data !== null;
-    } catch (error) {
-      return false;
-    }
+
+  static hasVRUChanged(oldVRU: VRUData, newVRU: VRUData): boolean {
+    return oldVRU.coordinates[0] !== newVRU.coordinates[0] ||
+           oldVRU.coordinates[1] !== newVRU.coordinates[1] ||
+           oldVRU.heading !== newVRU.heading;
   }
 }

@@ -238,7 +238,7 @@ export class VehicleDisplayViewModel {
     console.log('🛑 SDSM polling stopped');
   }
   
-  /**
+/**
    * Update vehicles and VRUs with history tracking
    */
   private updateVehiclesWithHistory(data: any): void {
@@ -253,11 +253,15 @@ export class VehicleDisplayViewModel {
     const newVehicles = SDSMDataService.extractVehicles(sdsmResponse);
     const newVRUs = SDSMDataService.extractVRUs(sdsmResponse);
 
+    // Simple log for Houston data
+    if (this.currentIntersection === 'houston' && (newVehicles.length > 0 || newVRUs.length > 0)) {
+      console.log(`🚗 Houston SDSM: ${newVehicles.length} vehicles, ${newVRUs.length} VRUs`);
+    }
+
     // Update with current API data timestamp
     this.updateObjectHistory(newVehicles, this.vehicleHistory, now, now);
     this.updateObjectHistory(newVRUs, this.vruHistory, now, now);
   }
-  
   /**
    * Update object confidence levels based on staleness
    */
