@@ -1,10 +1,8 @@
 // app/src/features/SDSM/views/VRUMarkers.tsx
-
 import React, { memo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import { observer } from 'mobx-react-lite';
-import Icon from '@expo/vector-icons/FontAwesome';
 import { VRUData } from '../models/SDSMTypes';
 
 interface VRUMarkersProps {
@@ -13,20 +11,12 @@ interface VRUMarkersProps {
   getMapboxCoordinates: (vru: VRUData) => [number, number];
 }
 
-// Memoized VRU icon to prevent re-renders
-const VRUIcon = memo<{ heading?: number }>(({ heading }) => {
-  const rotationStyle = heading !== undefined ? {
-    transform: [{ rotate: `${heading}deg` }]
-  } : {};
+const VRUIcon = memo(() => (
+  <View style={styles.vruIcon}>
+    <View style={styles.vruIconInner} />
+  </View>
+));
 
-  return (
-    <View style={[styles.iconWrapper, rotationStyle]}>
-      <Icon name="user" size={16} color="#FF6B35" />
-    </View>
-  );
-});
-
-// Memoized individual VRU marker
 const VRUMarker = memo<{
   vru: VRUData;
   mapboxCoords: [number, number];
@@ -38,13 +28,12 @@ const VRUMarker = memo<{
       coordinate={mapboxCoords}
       anchor={{ x: 0.5, y: 0.5 }}
     >
-      <VRUIcon heading={vru.heading} />
+      <VRUIcon />
     </MapboxGL.PointAnnotation>
   );
 });
 
 export const VRUMarkers: React.FC<VRUMarkersProps> = observer(({ vrus, isActive, getMapboxCoordinates }) => {
-  // Early return if not active or no VRUs
   if (!isActive || vrus.length === 0) {
     return null;
   }
@@ -54,7 +43,6 @@ export const VRUMarkers: React.FC<VRUMarkersProps> = observer(({ vrus, isActive,
       {vrus.map((vru) => {
         const mapboxCoords = getMapboxCoordinates(vru);
 
-        // Skip invalid coordinates
         if (!mapboxCoords || mapboxCoords[0] === 0 || mapboxCoords[1] === 0) {
           return null;
         }
@@ -72,14 +60,25 @@ export const VRUMarkers: React.FC<VRUMarkersProps> = observer(({ vrus, isActive,
 });
 
 const styles = StyleSheet.create({
-  iconWrapper: {
-    width: 20,
-    height: 20,
+  vruIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#FF6B35',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#FF6B35',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  vruIconInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
   },
 });

@@ -26,7 +26,7 @@ const LANE_ALLOWED_TURNS: Record<number, {
   // Houston lanes
   103: { left: false, straight: true, right: true, label: 'Left Lane' },
   104: { left: true, straight: false, right: false, label: 'Turning Lane' },
-  106: { left: false, straight: true, right: true, label: 'Lane 106' },
+  106: { left: false, straight: true, right: true, label: 'right lane' },
   108: { left: false, straight: true, right: true, label: 'Right Lane' },
   109: { left: true, straight: false, right: false, label: 'Middle Lane' },
 };
