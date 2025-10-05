@@ -4,14 +4,14 @@ import { makeAutoObservable, runInAction } from 'mobx';
 import { SignalState } from '../models/SpatModels';
 import { SpatApiService } from '../services/SpatApiService';
 import { INTERSECTION_POLYGONS } from '../../ClosestIntersection/constants/IntersectionDefinitions';
-import { GEORGIA_INTERSECTION_LANES, HOUSTON_INTERSECTION_LANES } from '../../Lanes/constants/LaneData';
+import { GEORGIA_INTERSECTION_LANES } from '../../Lanes/constants/LaneData';
 
 export class SpatViewModel {
   // Observable state
   signalState: SignalState = SignalState.UNKNOWN;
   currentLaneId: number | null = null;
   currentSignalGroup: number | null = null;
-  currentIntersection: 'georgia' | 'houston' | null = null;
+  currentIntersection: 'georgia' | null = null;
   isLoading: boolean = false;
   error: string | null = null;
 
@@ -53,15 +53,15 @@ export class SpatViewModel {
   }
 
   /**
-   * Main SPaT logic
+   * Main SPaT logic - Georgia only
    */
   private async checkSpatStatus(): Promise<void> {
     try {
-      // Step 1: Check if user is in Houston or Georgia polygon
-      const intersection = this.checkPolygon(this.userPosition);
+      // Step 1: Check if user is in Georgia polygon
+      const isInGeorgia = this.checkPolygon(this.userPosition);
       
-      if (!intersection) {
-        // User not in any polygon - clear everything
+      if (!isInGeorgia) {
+        // User not in Georgia polygon - clear everything
         runInAction(() => {
           this.currentIntersection = null;
           this.currentLaneId = null;
@@ -71,8 +71,8 @@ export class SpatViewModel {
         return;
       }
 
-      // Step 2: Call SPaT API for the intersection
-      const spatData = await SpatApiService.fetchSpatData(intersection);
+      // Step 2: Call SPaT API for Georgia
+      const spatData = await SpatApiService.fetchSpatData('georgia');
       
       if (!spatData) {
         runInAction(() => {
@@ -83,12 +83,12 @@ export class SpatViewModel {
       }
 
       // Step 3: Determine which lane user is in
-      const laneInfo = this.detectLane(this.userPosition, intersection);
+      const laneInfo = this.detectLane(this.userPosition);
       
       if (!laneInfo) {
         // User not in any lane
         runInAction(() => {
-          this.currentIntersection = intersection;
+          this.currentIntersection = 'georgia';
           this.currentLaneId = null;
           this.currentSignalGroup = null;
           this.signalState = SignalState.UNKNOWN;
@@ -104,14 +104,14 @@ export class SpatViewModel {
 
       // Step 5: Update state
       runInAction(() => {
-        this.currentIntersection = intersection;
+        this.currentIntersection = 'georgia';
         this.currentLaneId = laneInfo.laneId;
         this.currentSignalGroup = laneInfo.signalGroup;
         this.signalState = signalState;
         this.error = null;
       });
 
-      console.log(`🚦 ${intersection.toUpperCase()}: Lane ${laneInfo.laneId}, SG${laneInfo.signalGroup} = ${signalState}`);
+      console.log(`🚦 GEORGIA: Lane ${laneInfo.laneId}, SG${laneInfo.signalGroup} = ${signalState}`);
 
     } catch (error) {
       runInAction(() => {
@@ -121,34 +121,22 @@ export class SpatViewModel {
   }
 
   /**
-   * Check if user is in Houston or Georgia polygon
+   * Check if user is in Georgia polygon
    */
-  private checkPolygon(userPosition: [number, number]): 'georgia' | 'houston' | null {
+  private checkPolygon(userPosition: [number, number]): boolean {
     const [lat, lng] = userPosition;
     
-    // Check Georgia polygon
-    if (this.isPointInPolygon([lat, lng], INTERSECTION_POLYGONS[0].polygon)) {
-      return 'georgia';
-    }
-    
-    // Check Houston polygon
-    if (this.isPointInPolygon([lat, lng], INTERSECTION_POLYGONS[1].polygon)) {
-      return 'houston';
-    }
-    
-    return null;
+    // Check Georgia polygon (first and only)
+    return this.isPointInPolygon([lat, lng], INTERSECTION_POLYGONS[0].polygon);
   }
 
   /**
-   * Detect which lane user is in
+   * Detect which lane user is in (Georgia only)
    */
   private detectLane(
-    userPosition: [number, number], 
-    intersection: 'georgia' | 'houston'
-  ): { laneId: number; signalGroup: number } | null {
-    const lanes = intersection === 'georgia' 
-      ? GEORGIA_INTERSECTION_LANES 
-      : HOUSTON_INTERSECTION_LANES;
+    userPosition: [number, number]
+  ): {laneId: number; signalGroup: number } | null {
+    const lanes = GEORGIA_INTERSECTION_LANES;
 
     for (const lane of lanes) {
       if (this.isUserInLane(userPosition, lane.geometry.coordinates)) {
@@ -269,8 +257,7 @@ export class SpatViewModel {
 
   get laneDisplayText(): string {
     if (!this.currentLaneId || !this.currentSignalGroup) return '';
-    const intersection = this.currentIntersection === 'georgia' ? 'GA' : 'HOU';
-    return `${intersection} L${this.currentLaneId} SG${this.currentSignalGroup}`;
+    return `GA L${this.currentLaneId} SG${this.currentSignalGroup}`;
   }
 
   cleanup(): void {

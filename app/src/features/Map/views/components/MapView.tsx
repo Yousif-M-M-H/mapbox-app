@@ -71,10 +71,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       return false;
     }
     
-    if (viewModel.isPollingHouston && viewModel.isPollingHouston() && !TESTING_CONFIG.SHOW_HOUSTON_SDSM) {
-      return false;
-    }
-    
+    // All SDSM is now Georgia-only, so always show if enabled
     return true;
   };
 
@@ -172,8 +169,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     testingVehicleDisplayViewModel?.vrus,
     testingPedestrianDetectorViewModel?.vrus,
     TESTING_CONFIG.ENABLE_SDSM_API,
-    TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN,
-    TESTING_CONFIG.SHOW_HOUSTON_SDSM
+    TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN
   ]);
 
   const applySmoothingFilter = (newCoords: [number, number], accuracy: number): [number, number] => {
@@ -318,8 +314,8 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           <VehicleMarkers viewModel={mainViewModel.vehicleDisplayViewModel} />
         )}
 
-        {testingVehicleDisplayViewModel && shouldShowSDSMForViewModel(testingVehicleDisplayViewModel as unknown as VehicleDisplayViewModel) && (
-          <VehicleMarkers viewModel={testingVehicleDisplayViewModel as unknown as VehicleDisplayViewModel} />
+        {testingVehicleDisplayViewModel && shouldShowSDSMForViewModel(testingVehicleDisplayViewModel) && (
+          <VehicleMarkers viewModel={testingVehicleDisplayViewModel} />
         )}
 
         {mainViewModel?.vehicleDisplayViewModel && shouldShowSDSMForViewModel(mainViewModel.vehicleDisplayViewModel) && (
@@ -330,7 +326,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           />
         )}
 
-        {testingVehicleDisplayViewModel && shouldShowSDSMForViewModel(testingVehicleDisplayViewModel as unknown as VehicleDisplayViewModel) && (
+        {testingVehicleDisplayViewModel && shouldShowSDSMForViewModel(testingVehicleDisplayViewModel) && (
           <VRUMarkers
             vrus={testingVehicleDisplayViewModel.vrus}
             isActive={testingVehicleDisplayViewModel.isActive}
@@ -351,7 +347,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 
       <TestingModeOverlay
         isTestingMode={isTestingMode}
-        testingVehicleDisplayViewModel={testingVehicleDisplayViewModel as unknown as VehicleDisplayViewModel}
+        testingVehicleDisplayViewModel={testingVehicleDisplayViewModel}
       />
 
       <SpatStatusDisplay 

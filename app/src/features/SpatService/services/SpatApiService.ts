@@ -11,16 +11,16 @@ export interface SpatApiResponse {
 }
 
 export class SpatApiService {
+  // Only Georgia endpoint
   private static readonly ENDPOINTS = {
-    georgia: 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events/MLK_Georgia',
-    houston: 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events/MLK_Houston'
+    georgia: 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events/MLK_Georgia'
   };
   private static readonly TIMEOUT = 3000;
 
   /**
-   * Fetch SPaT data for an intersection
+   * Fetch SPaT data for Georgia intersection
    */
-  static async fetchSpatData(intersection: 'georgia' | 'houston'): Promise<SpatApiResponse | null> {
+  static async fetchSpatData(intersection: 'georgia'): Promise<SpatApiResponse | null> {
     const url = this.ENDPOINTS[intersection];
 
     try {

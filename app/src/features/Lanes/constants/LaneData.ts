@@ -24,8 +24,8 @@ export const GEORGIA_INTERSECTION_LANES: Lane[] = [
   "geometry": {
     "type": "LineString",
     "coordinates": [
-      [-85.3082691, 35.0458984],
-      [-85.3078928, 35.0465756]
+      [-85.30825184926294, 35.045881277451016],
+      [-85.30810795257204, 35.04612334710821]
     ]
   },
   "connectsTo": [
@@ -46,8 +46,8 @@ export const GEORGIA_INTERSECTION_LANES: Lane[] = [
   "geometry": {
     "type": "LineString",
     "coordinates": [
-      [-85.3082207, 35.0459089],
-      [-85.3080376, 35.0462122]
+      [-85.30808694608017, 35.0461185720134],
+      [-85.30822309818002, 35.04587185340938]
     ]
   },
   "connectsTo": [
@@ -72,8 +72,8 @@ export const GEORGIA_INTERSECTION_LANES: Lane[] = [
   "geometry": {
     "type": "LineString",
     "coordinates": [
-      [-85.3081865, 35.0458956],
-      [-85.3081571, 35.0459450]
+      [-85.3082055844504, 35.045864455943956],
+      [-85.30806863905465, 35.04608226859658]
     ],
   },
   "connectsTo": []
@@ -89,8 +89,8 @@ export const GEORGIA_INTERSECTION_LANES: Lane[] = [
     "geometry": {
       "type": "LineString",
       "coordinates": [
-        [-85.3082228825378, 35.045758400746536],
-        [-85.30808198885602, 35.045705490572416]
+        [-85.30817757834019, 35.04573944218343],
+        [-85.3077788550721, 35.045593483788124]
       ]
     },
     "connectsTo": [
@@ -111,8 +111,8 @@ export const GEORGIA_INTERSECTION_LANES: Lane[] = [
     "geometry": {
       "type": "LineString",
       "coordinates": [
-        [-85.30823278205297, 35.045747747854335],
-        [-85.30808944380614, 35.04569249636451]
+        [-85.3081833489479, 35.045727395360785],
+        [-85.30779833465891, 35.045582803816814]
       ]
     },
     "connectsTo": [
@@ -137,8 +137,8 @@ export const GEORGIA_INTERSECTION_LANES: Lane[] = [
   "geometry": {
     "type": "LineString",
     "coordinates": [
-      [-85.3081611, 35.0457243],
-      [-85.3080344, 35.0456771]
+      [-85.30818934760474, 35.04571489860149],
+      [-85.3078185286913, 35.04557334578071]
     ]
   },
   "connectsTo": []
@@ -154,8 +154,8 @@ export const GEORGIA_INTERSECTION_LANES: Lane[] = [
   "geometry": {
     "type": "LineString",
     "coordinates": [
-      [-85.3081739, 35.0457009],
-      [-85.3080471, 35.0456536]
+      [-85.30818934760474, 35.04571489860149],
+      [-85.3078185286913, 35.04557334578071]
     ]
   }, 
   "connectsTo": []
@@ -769,7 +769,12 @@ export function getLanesForIntersection(intersection: 'georgia' | 'houston' | 'l
   }
 }
 
-// Helper function to get lane configuration for a specific intersection (UPDATED)
+// app/src/features/Lanes/constants/LaneData.ts
+// Add this function at the end of the file
+
+/**
+ * Helper function to get lane configuration for a specific intersection (UPDATED)
+ */
 export function getLaneConfigForIntersection(intersection: 'georgia' | 'houston' | 'lindsay' | 'all'): LaneConfiguration {
   switch (intersection) {
     case 'georgia':
