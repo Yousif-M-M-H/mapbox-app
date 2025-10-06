@@ -1,4 +1,5 @@
 // app/src/features/SpatService/viewModels/SpatViewModel.ts
+// PRODUCTION VERSION: Enhanced lane detection with proximity fallback
 
 import { makeAutoObservable, runInAction } from 'mobx';
 import { SignalState } from '../models/SpatModels';
@@ -14,10 +15,15 @@ export class SpatViewModel {
   currentIntersection: 'georgia' | null = null;
   isLoading: boolean = false;
   error: string | null = null;
+  isProximityBased: boolean = false;
 
   // Private state
   private userPosition: [number, number] = [0, 0];
   private updateInterval: NodeJS.Timeout | null = null;
+
+  // Detection thresholds
+  private readonly EXACT_LANE_THRESHOLD = 0.00005; // ~5 meters
+  private readonly PROXIMITY_THRESHOLD = 0.00012;  // ~12 meters
 
   constructor() {
     makeAutoObservable(this);
@@ -39,7 +45,7 @@ export class SpatViewModel {
     
     this.updateInterval = setInterval(() => {
       this.checkSpatStatus();
-    }, 1000); // Check every second
+    }, 1000);
   }
 
   /**
@@ -57,21 +63,21 @@ export class SpatViewModel {
    */
   private async checkSpatStatus(): Promise<void> {
     try {
-      // Step 1: Check if user is in Georgia polygon
+      // Check if user is in Georgia polygon
       const isInGeorgia = this.checkPolygon(this.userPosition);
       
       if (!isInGeorgia) {
-        // User not in Georgia polygon - clear everything
         runInAction(() => {
           this.currentIntersection = null;
           this.currentLaneId = null;
           this.currentSignalGroup = null;
           this.signalState = SignalState.UNKNOWN;
+          this.isProximityBased = false;
         });
         return;
       }
 
-      // Step 2: Call SPaT API for Georgia
+      // Call SPaT API for Georgia
       const spatData = await SpatApiService.fetchSpatData('georgia');
       
       if (!spatData) {
@@ -82,36 +88,35 @@ export class SpatViewModel {
         return;
       }
 
-      // Step 3: Determine which lane user is in
-      const laneInfo = this.detectLane(this.userPosition);
+      // Determine which lane user is in (with proximity fallback)
+      const laneInfo = this.detectLaneWithProximity(this.userPosition);
       
       if (!laneInfo) {
-        // User not in any lane
         runInAction(() => {
           this.currentIntersection = 'georgia';
           this.currentLaneId = null;
           this.currentSignalGroup = null;
           this.signalState = SignalState.UNKNOWN;
+          this.isProximityBased = false;
         });
         return;
       }
 
-      // Step 4: Get signal state from SPaT data
+      // Get signal state from SPaT data
       const signalState = SpatApiService.getSignalStateForGroup(
         spatData, 
         laneInfo.signalGroup
       );
 
-      // Step 5: Update state
+      // Update state
       runInAction(() => {
         this.currentIntersection = 'georgia';
         this.currentLaneId = laneInfo.laneId;
         this.currentSignalGroup = laneInfo.signalGroup;
         this.signalState = signalState;
+        this.isProximityBased = laneInfo.isProximityBased;
         this.error = null;
       });
-
-      console.log(`🚦 GEORGIA: Lane ${laneInfo.laneId}, SG${laneInfo.signalGroup} = ${signalState}`);
 
     } catch (error) {
       runInAction(() => {
@@ -121,29 +126,50 @@ export class SpatViewModel {
   }
 
   /**
-   * Check if user is in Georgia polygon
+   * Detect lane with proximity fallback
    */
-  private checkPolygon(userPosition: [number, number]): boolean {
-    const [lat, lng] = userPosition;
-    
-    // Check Georgia polygon (first and only)
-    return this.isPointInPolygon([lat, lng], INTERSECTION_POLYGONS[0].polygon);
-  }
-
-  /**
-   * Detect which lane user is in (Georgia only)
-   */
-  private detectLane(
+  private detectLaneWithProximity(
     userPosition: [number, number]
-  ): {laneId: number; signalGroup: number } | null {
+  ): {laneId: number; signalGroup: number; isProximityBased: boolean} | null {
     const lanes = GEORGIA_INTERSECTION_LANES;
 
+    // Pass 1: Try exact lane detection
     for (const lane of lanes) {
-      if (this.isUserInLane(userPosition, lane.geometry.coordinates)) {
+      if (this.isUserInLane(userPosition, lane.geometry.coordinates, this.EXACT_LANE_THRESHOLD)) {
         const signalGroup = lane.connectsTo?.[0]?.signalGroup;
         if (signalGroup) {
-          return { laneId: lane.laneID, signalGroup };
+          return { 
+            laneId: lane.laneID, 
+            signalGroup,
+            isProximityBased: false 
+          };
         }
+      }
+    }
+
+    // Pass 2: Find nearest lane within proximity threshold
+    let nearestLane: typeof lanes[0] | null = null;
+    let minDistance = this.PROXIMITY_THRESHOLD;
+    
+    for (const lane of lanes) {
+      if (!lane.connectsTo?.[0]?.signalGroup) continue;
+
+      const distance = this.getDistanceToLane(userPosition, lane.geometry.coordinates);
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestLane = lane;
+      }
+    }
+    
+    if (nearestLane) {
+      const signalGroup = nearestLane.connectsTo?.[0]?.signalGroup;
+      if (signalGroup) {
+        return { 
+          laneId: nearestLane.laneID, 
+          signalGroup,
+          isProximityBased: true
+        };
       }
     }
 
@@ -151,14 +177,48 @@ export class SpatViewModel {
   }
 
   /**
-   * Check if user is in a lane
+   * Calculate minimum distance from user to any point on a lane
+   */
+  private getDistanceToLane(
+    userPosition: [number, number],
+    laneCoordinates: [number, number][]
+  ): number {
+    const [userLat, userLng] = userPosition;
+    let minDistance = Infinity;
+
+    for (let i = 0; i < laneCoordinates.length - 1; i++) {
+      const [lng1, lat1] = laneCoordinates[i];
+      const [lng2, lat2] = laneCoordinates[i + 1];
+      
+      const distance = this.distanceToLineSegment(
+        [userLat, userLng],
+        [lat1, lng1],
+        [lat2, lng2]
+      );
+
+      minDistance = Math.min(minDistance, distance);
+    }
+
+    return minDistance;
+  }
+
+  /**
+   * Check if user is in Georgia polygon
+   */
+  private checkPolygon(userPosition: [number, number]): boolean {
+    const [lat, lng] = userPosition;
+    return this.isPointInPolygon([lat, lng], INTERSECTION_POLYGONS[0].polygon);
+  }
+
+  /**
+   * Check if user is in a lane with configurable threshold
    */
   private isUserInLane(
     userPosition: [number, number],
-    laneCoordinates: [number, number][]
+    laneCoordinates: [number, number][],
+    threshold: number = this.EXACT_LANE_THRESHOLD
   ): boolean {
     const [userLat, userLng] = userPosition;
-    const threshold = 0.00004; // ~4 meters
 
     for (let i = 0; i < laneCoordinates.length - 1; i++) {
       const [lng1, lat1] = laneCoordinates[i];
@@ -257,7 +317,8 @@ export class SpatViewModel {
 
   get laneDisplayText(): string {
     if (!this.currentLaneId || !this.currentSignalGroup) return '';
-    return `GA L${this.currentLaneId} SG${this.currentSignalGroup}`;
+    const proximityIndicator = this.isProximityBased ? '~' : '';
+    return `GA L${this.currentLaneId}${proximityIndicator} SG${this.currentSignalGroup}`;
   }
 
   cleanup(): void {

@@ -1,5 +1,5 @@
 // app/src/features/Map/views/components/MapView.tsx
-// OPTIMIZED VERSION - Fixed GPS accuracy and smoothness
+// UPDATED: Smooth camera follow with optimized performance
 
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
@@ -49,20 +49,21 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 }) => {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
-
   const spatViewModel = useRef(new SpatViewModel()).current;
+  const lanesViewModel = useRef(new LanesViewModel()).current;
 
-  // Single source of truth for user position
+  // User position state
   const [userPosition, setUserPosition] = useState<[number, number]>([
     mapViewModel.userLocation.latitude, 
     mapViewModel.userLocation.longitude
   ]);
 
+  // Camera follow state
+  const lastCameraUpdate = useRef<number>(0);
+  const CAMERA_UPDATE_THROTTLE = 1000; // Update camera max once per second
+
   const activeDetector = isTestingMode ? testingPedestrianDetectorViewModel : pedestrianDetectorViewModel;
-
   const SHOW_SDSM_VEHICLES = true;
-
-  const lanesViewModel = useRef(new LanesViewModel()).current;
 
   const shouldShowSDSMForViewModel = (viewModel: VehicleDisplayViewModel): boolean => {
     if (!SHOW_SDSM_VEHICLES || !TESTING_CONFIG.ENABLE_SDSM_API) {
@@ -71,39 +72,33 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     return true;
   };
 
-  // ========================================
-  // MINIMAL SMOOTHING (Only for poor GPS)
-  // ========================================
-  const lastValidPosition = useRef<[number, number]>([0, 0]);
-
-  const applyMinimalSmoothing = (
-    newPosition: [number, number], 
-    accuracy: number
-  ): [number, number] => {
-    // If no previous position, use new position
-    if (lastValidPosition.current[0] === 0) {
-      lastValidPosition.current = newPosition;
-      return newPosition;
-    }
-
-    // For very poor accuracy (>15m), blend 70% new, 30% old
-    // This is MUCH less aggressive than the previous weighted average
-    const blend = accuracy > 25 ? 0.7 : 0.85;
+  /**
+   * Update camera to follow user position
+   * Throttled for performance
+   */
+  const updateCameraPosition = (position: [number, number]) => {
+    const now = Date.now();
     
-    const smoothed: [number, number] = [
-      newPosition[0] * blend + lastValidPosition.current[0] * (1 - blend),
-      newPosition[1] * blend + lastValidPosition.current[1] * (1 - blend)
-    ];
-
-    lastValidPosition.current = smoothed;
-    return smoothed;
+    // Throttle camera updates
+    if (now - lastCameraUpdate.current < CAMERA_UPDATE_THROTTLE) {
+      return;
+    }
+    
+    lastCameraUpdate.current = now;
+    
+    if (cameraRef.current && position[0] !== 0 && position[1] !== 0) {
+      cameraRef.current.setCamera({
+        centerCoordinate: [position[1], position[0]], // [lng, lat]
+        zoomLevel: 17,
+        animationDuration: 800, // Smooth animation
+      });
+    }
   };
 
-  // ========================================
-  // BATCHED VIEWMODEL UPDATES
-  // ========================================
+  /**
+   * Batch update all ViewModels
+   */
   const updateAllViewModels = (position: [number, number]) => {
-    // Update all ViewModels in a single batch
     directionGuideViewModel.setVehiclePosition(position);
     spatViewModel.setUserPosition(position);
     
@@ -118,9 +113,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     });
   };
 
-  // ========================================
-  // OPTIMIZED GPS TRACKING
-  // ========================================
+  // GPS tracking with smooth camera follow
   useEffect(() => {
     let locationSubscription: Location.LocationSubscription;
 
@@ -133,28 +126,22 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 
         locationSubscription = await Location.watchPositionAsync(
           {
-            // OPTIMIZED: Best accuracy without over-polling
             accuracy: Location.Accuracy.BestForNavigation,
-            distanceInterval: 2, // Changed from 0.5 to 2 meters (reasonable movement threshold)
-            timeInterval: 500    // Changed from 250ms to 500ms (2 updates/sec is smooth enough)
+            distanceInterval: 2, // Update every 2 meters
+            timeInterval: 500    // Or every 500ms
           },
           (location) => {
-            const { latitude, longitude, accuracy } = location.coords;
-
-            // CRITICAL FIX: Use raw GPS coordinates directly
-            // Modern GPS is accurate enough - smoothing causes lag and position shifts
+            const { latitude, longitude } = location.coords;
             const newPosition: [number, number] = [latitude, longitude];
 
-            // Only apply minimal smoothing for very poor accuracy
-            const finalPosition = accuracy && accuracy > 15 
-              ? applyMinimalSmoothing(newPosition, accuracy)
-              : newPosition;
-
-            // Single state update
-            setUserPosition(finalPosition);
-
-            // Batch all ViewModel updates together
-            updateAllViewModels(finalPosition);
+            // Update position
+            setUserPosition(newPosition);
+            
+            // Update ViewModels
+            updateAllViewModels(newPosition);
+            
+            // Update camera to follow user
+            updateCameraPosition(newPosition);
           }
         );
 
@@ -165,7 +152,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         spatViewModel.startMonitoring();
 
       } catch (error) {
-        console.error('Location tracking error:', error);
+        // Silent error handling
       }
     };
 
@@ -182,9 +169,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     };
   }, [directionGuideViewModel, activeDetector, mapViewModel, isTestingMode, spatViewModel]);
 
-  // ========================================
-  // VRU DATA UPDATES
-  // ========================================
+  // VRU data updates
   useEffect(() => {
     if (!activeDetector) return;
 
@@ -232,11 +217,12 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         <MapboxGL.Camera
           ref={cameraRef}
           centerCoordinate={[-85.3075, 35.0454]}
-          zoomLevel={16}
-          animationDuration={300}
+          zoomLevel={17}
+          animationMode="flyTo"
+          animationDuration={800}
         />
 
-        {/* User Position Marker - Simple Blue Dot */}
+        {/* User Position Marker */}
         {userPosition[0] !== 0 && userPosition[1] !== 0 && (
           <MapboxGL.PointAnnotation
             id="vehicle-position"
