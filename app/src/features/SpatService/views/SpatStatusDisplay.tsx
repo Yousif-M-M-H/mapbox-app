@@ -1,5 +1,4 @@
 // app/src/features/SpatService/views/SpatStatusDisplay.tsx
-// UI component for displaying SPaT signal status
 
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
@@ -8,7 +7,7 @@ import { SpatViewModel } from '../viewModels/SpatViewModel';
 
 interface SpatStatusDisplayProps {
   userPosition: [number, number]; // [lat, lng]
-  spatViewModel?: SpatViewModel; // Optional prop to use external view model
+  spatViewModel?: SpatViewModel;
 }
 
 export const SpatStatusDisplay: React.FC<SpatStatusDisplayProps> = observer(({ userPosition, spatViewModel }) => {
@@ -36,6 +35,11 @@ export const SpatStatusDisplay: React.FC<SpatStatusDisplayProps> = observer(({ u
   useEffect(() => {
     viewModel.setUserPosition(userPosition);
   }, [userPosition, viewModel]);
+
+  // CRITICAL: Never display for Georgia lanes 6 and 7 (no signal groups)
+  if (viewModel.currentLaneId === 6 || viewModel.currentLaneId === 7) {
+    return null;
+  }
 
   // Don't show if no signal data available
   if (!viewModel.shouldShowDisplay) {

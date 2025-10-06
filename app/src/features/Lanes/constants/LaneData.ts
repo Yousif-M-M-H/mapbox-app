@@ -161,6 +161,36 @@ export const GEORGIA_INTERSECTION_LANES: Lane[] = [
   "connectsTo": []
 },
 {
+    "laneID": 8,
+    "laneAttributes": {
+      "directionalUse": [2, 2],
+      "sharedWith": [0, 10],
+      "laneType": ["vehicle", [0, 8]]
+    },
+    "maneuvers": [0, 12],
+    "geometry": {
+      "type": "LineString",
+      "coordinates": [
+        [-85.30830902290128, 35.04568298238203],
+        [-85.30842975787856, 35.04544796225704]
+      ]
+    },
+    "connectsTo": [
+      {
+        "connectingLane": { "lane": 7 },
+        "signalGroup": 4
+      },
+      {
+        "connectingLane": { "lane": 3 },
+        "signalGroup": 4
+      },
+      {
+        "connectingLane": { "lane": 13 },
+        "signalGroup": 4
+      }
+    ]
+  },
+{
   "laneID": 9,
   "laneAttributes": {
     "directionalUse": [1, 2],
@@ -171,8 +201,8 @@ export const GEORGIA_INTERSECTION_LANES: Lane[] = [
   "geometry": {
     "type": "LineString",
     "coordinates": [
-      [-85.3083565, 35.0456777],
-      [-85.3084042, 35.0455942]
+      [-85.30833282225264, 35.04569171713561],
+      [-85.30846333157696, 35.04547164547776]
     ]
   }, 
   "connectsTo": []
@@ -225,36 +255,7 @@ export const GEORGIA_INTERSECTION_LANES: Lane[] = [
     }
   ]
 },
-  {
-    "laneID": 8,
-    "laneAttributes": {
-      "directionalUse": [2, 2],
-      "sharedWith": [0, 10],
-      "laneType": ["vehicle", [0, 8]]
-    },
-    "maneuvers": [0, 12],
-    "geometry": {
-      "type": "LineString",
-      "coordinates": [
-        [-85.3083182, 35.0456629],
-        [-85.3086953, 35.0449801]
-      ]
-    },
-    "connectsTo": [
-      {
-        "connectingLane": { "lane": 7 },
-        "signalGroup": 4
-      },
-      {
-        "connectingLane": { "lane": 3 },
-        "signalGroup": 4
-      },
-      {
-        "connectingLane": { "lane": 13 },
-        "signalGroup": 4
-      }
-    ]
-  }
+  
 ];
 
 export const HOUSTON_INTERSECTION_LANES: Lane[] = [
