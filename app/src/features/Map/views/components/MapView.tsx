@@ -58,13 +58,11 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   const spatViewModel = providedSpatViewModel || spatViewModelRef.current;
   const lanesViewModel = providedLanesViewModel || lanesViewModelRef.current;
 
-  // User position state
   const [userPosition, setUserPosition] = useState<[number, number]>([
     mapViewModel.userLocation.latitude, 
     mapViewModel.userLocation.longitude
   ]);
 
-  // Camera follow state
   const lastCameraUpdate = useRef<number>(0);
   const CAMERA_UPDATE_THROTTLE = 1000;
 
@@ -78,9 +76,6 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     return true;
   };
 
-  /**
-   * Update camera to follow user position
-   */
   const updateCameraPosition = (position: [number, number]) => {
     const now = Date.now();
     
@@ -92,16 +87,13 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     
     if (cameraRef.current && position[0] !== 0 && position[1] !== 0) {
       cameraRef.current.setCamera({
-        centerCoordinate: [position[1], position[0]], // [lng, lat]
+        centerCoordinate: [position[1], position[0]],
         zoomLevel: 17,
         animationDuration: 800,
       });
     }
   };
 
-  /**
-   * Batch update all ViewModels
-   */
   const updateAllViewModels = (position: [number, number]) => {
     directionGuideViewModel.setVehiclePosition(position);
     spatViewModel.setUserPosition(position);
@@ -117,7 +109,6 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     });
   };
 
-  // GPS tracking with smooth camera follow
   useEffect(() => {
     let locationSubscription: Location.LocationSubscription;
 
@@ -144,12 +135,9 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           }
         );
 
-        // Start monitoring
         if (activeDetector && 'startMonitoring' in activeDetector) {
           activeDetector.startMonitoring();
         }
-        
-        // SPaT monitoring is already started by MainViewModel
 
       } catch (error) {
         // Silent error handling
@@ -168,7 +156,6 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     };
   }, [directionGuideViewModel, activeDetector, mapViewModel, isTestingMode, spatViewModel]);
 
-  // VRU data updates
   useEffect(() => {
     if (!activeDetector) return;
 
@@ -221,7 +208,6 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           animationDuration={800}
         />
 
-        {/* User Position Marker */}
         {userPosition[0] !== 0 && userPosition[1] !== 0 && (
           <MapboxGL.PointAnnotation
             id="vehicle-position"
@@ -234,7 +220,6 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           </MapboxGL.PointAnnotation>
         )}
 
-        {/* Crosswalk Polygons */}
         {mapViewModel.showCrosswalkPolygon && CROSSWALK_POLYGONS.map((polygonCoords, index) => {
           let allVRUs: any[] = [];
 
@@ -337,7 +322,6 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 
       <TurnGuideDisplay spatViewModel={spatViewModel} />
 
-      {/* Pedestrian Warning */}
       {(() => {
         const vehiclePos: [number, number] = [userPosition[0], userPosition[1]];
 

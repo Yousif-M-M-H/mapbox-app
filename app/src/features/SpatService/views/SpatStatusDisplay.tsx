@@ -6,7 +6,7 @@ import { observer } from 'mobx-react-lite';
 import { SpatViewModel } from '../viewModels/SpatViewModel';
 
 interface SpatStatusDisplayProps {
-  userPosition: [number, number]; // [lat, lng]
+  userPosition: [number, number];
   spatViewModel?: SpatViewModel;
 }
 
@@ -15,53 +15,43 @@ export const SpatStatusDisplay: React.FC<SpatStatusDisplayProps> = observer(({ u
   const viewModel = spatViewModel || viewModelRef.current;
 
   useEffect(() => {
-    // Update user position in view model
     viewModel.setUserPosition(userPosition);
 
-    // Start monitoring when component mounts (only if using internal view model)
     if (!spatViewModel) {
       viewModel.startMonitoring();
     }
 
     return () => {
-      // Cleanup when component unmounts (only if using internal view model)
       if (!spatViewModel) {
         viewModel.cleanup();
       }
     };
   }, [viewModel, spatViewModel]);
 
-  // Update position when it changes
   useEffect(() => {
     viewModel.setUserPosition(userPosition);
   }, [userPosition, viewModel]);
 
-  // CRITICAL: Never display for Georgia lanes 6 and 7 (no signal groups)
   if (viewModel.currentLaneId === 6 || viewModel.currentLaneId === 7) {
     return null;
   }
 
-  // Don't show if no signal data available
   if (!viewModel.shouldShowDisplay) {
     return null;
   }
 
   return (
     <View style={styles.container}>
-      {/* Signal indicator */}
       <View style={[styles.signalIndicator, { backgroundColor: viewModel.signalColor }]} />
 
-      {/* Signal text */}
       <Text style={[styles.signalText, { color: viewModel.signalColor }]}>
         {viewModel.signalStatusText}
       </Text>
 
-      {/* Lane and signal group indicator */}
       <Text style={styles.laneText}>
         {viewModel.laneDisplayText}
       </Text>
 
-      {/* Loading indicator (optional) */}
       {viewModel.isLoading && (
         <Text style={styles.loadingText}>...</Text>
       )}

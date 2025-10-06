@@ -11,7 +11,6 @@ interface TurnGuideDisplayProps {
   spatViewModel: SpatViewModel;
 }
 
-// Hardcoded allowed turns for each lane
 const LANE_ALLOWED_TURNS: Record<number, { 
   left: boolean; 
   straight: boolean;
@@ -19,14 +18,12 @@ const LANE_ALLOWED_TURNS: Record<number, {
   label: string;
   yieldMode?: boolean;
 }> = {
-  // Georgia lanes
   1: { left: false, straight: true, right: true, label: 'Right Lane', yieldMode: true },
   2: { left: true, straight: false, right: false, label: 'Turning Lane' },
   4: { left: false, straight: true, right: true, label: 'Left Lane', yieldMode: true },
   5: { left: true, straight: false, right: false, label: 'Turning Lane' },
-  8: { left: false, straight: true, right: true, label: 'Right Lane', yieldMode: true }, // UPDATED
+  8: { left: false, straight: true, right: true, label: 'Right Lane', yieldMode: true },
   
-  // Houston lanes
   103: { left: false, straight: true, right: true, label: 'Left Lane' },
   104: { left: true, straight: false, right: false, label: 'Turning Lane' },
   106: { left: false, straight: true, right: true, label: 'Right Lane' },
@@ -34,9 +31,6 @@ const LANE_ALLOWED_TURNS: Record<number, {
   109: { left: true, straight: false, right: false, label: 'Middle Lane' },
 };
 
-/**
- * Convert SPaT SignalState to TurnSignalState
- */
 function mapSignalStateToTurnState(signalState: SignalState): TurnSignalState {
   switch (signalState) {
     case SignalState.GREEN:
@@ -53,16 +47,17 @@ function mapSignalStateToTurnState(signalState: SignalState): TurnSignalState {
 export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({ 
   spatViewModel 
 }) => {
-  // Get current lane
   const currentLane = spatViewModel.currentLaneId;
   const currentIntersection = spatViewModel.currentIntersection;
   
-  // CRITICAL: Never display for Georgia lanes 6 and 7 (no signal groups)
   if (currentLane === 6 || currentLane === 7) {
     return null;
   }
   
-  // Check if we should display anything
+  if (!spatViewModel.shouldShowDisplay) {
+    return null;
+  }
+  
   const isGeorgiaLanes1_2 = currentLane === 1 || currentLane === 2;
   const isGeorgiaLanes4_5 = currentLane === 4 || currentLane === 5;
   const isGeorgiaLane8 = currentLane === 8;
@@ -79,19 +74,14 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
     return null;
   }
 
-  // Get the signal state and convert it to turn state
   const turnState = mapSignalStateToTurnState(spatViewModel.signalState);
 
-  // ========================================
-  // Georgia Lanes 1 & 2 (WITH YIELD MODE)
-  // ========================================
   if (isGeorgiaLanes1_2) {
     const lane2Config = LANE_ALLOWED_TURNS[2];
     const lane1Config = LANE_ALLOWED_TURNS[1];
     
     return (
       <View style={styles.container}>
-        {/* Lane 2 - Turning Lane (Left ONLY) - Signal Based */}
         <View style={styles.laneContainer}>
           <View style={styles.iconWrapper}>
             <Text style={styles.laneLabel}>{lane2Config.label}</Text>
@@ -109,7 +99,6 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
           <View style={styles.statusDot} />
         </View>
 
-        {/* Lane 1 - Right Lane (Straight + Right) - YIELD MODE */}
         <View style={styles.laneContainer}>
           <View style={styles.iconWrapper}>
             <Text style={styles.laneLabel}>{lane1Config.label}</Text>
@@ -130,9 +119,6 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
     );
   }
 
-  // ========================================
-  // Georgia Lane 8 - Right Lane (WITH YIELD MODE)
-  // ========================================
   if (isGeorgiaLane8) {
     const lane8Config = LANE_ALLOWED_TURNS[8];
     
@@ -145,12 +131,11 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
               <TurnIcon 
                 leftTurn={TurnSignalState.PROHIBITED}
                 straightTurn={turnState}
-                rightTurn={TurnSignalState.ALLOWED} // Always green for right turn
+                rightTurn={TurnSignalState.ALLOWED}
                 showLeft={false}
                 size={55}
               />
             </View>
-            {/* Yield Warning for Right Turn */}
             <Text style={styles.yieldWarning}>⚠️ YIELD</Text>
           </View>
           <View style={[styles.statusDot, styles.yieldDot]} />
@@ -159,9 +144,6 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
     );
   }
 
-  // ========================================
-  // Houston Lane 106
-  // ========================================
   if (isHoustonLane106) {
     const lane106Config = LANE_ALLOWED_TURNS[106];
     
@@ -186,9 +168,6 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
     );
   }
 
-  // ========================================
-  // Houston Lanes 108 & 109 - REVERSED ORDER
-  // ========================================
   if (isHoustonLanes108_109) {
     const lane108Config = LANE_ALLOWED_TURNS[108];
     const lane109Config = LANE_ALLOWED_TURNS[109];
@@ -231,9 +210,6 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
     );
   }
 
-  // ========================================
-  // Houston Lanes 103 & 104 - REVERSED ORDER
-  // ========================================
   if (isHoustonLanes103_104) {
     const lane103Config = LANE_ALLOWED_TURNS[103];
     const lane104Config = LANE_ALLOWED_TURNS[104];
@@ -276,9 +252,6 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
     );
   }
 
-  // ========================================
-  // Georgia Lanes 4 & 5 - REVERSED ORDER (WITH YIELD MODE)
-  // ========================================
   const lane4Config = LANE_ALLOWED_TURNS[4];
   const lane5Config = LANE_ALLOWED_TURNS[5];
 

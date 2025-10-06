@@ -7,9 +7,7 @@ import { PedestrianDetectorViewModel } from '../../features/PedestrianDetector/v
 import { TestingPedestrianDetectorViewModel } from '../../testingFeatures/testingPedestrianDetectorFeatureTest/viewmodels/TestingPedestrianDetectorViewModel';
 import { DirectionGuideViewModel } from '../../features/DirectionGuide/viewModels/DirectionGuideViewModel';
 import { TESTING_CONFIG } from '../../testingFeatures/TestingConfig';
-
 import { VehicleDisplayViewModel } from '../../features/SDSM/viewmodels/VehicleDisplayViewModel';
-import { ClosestIntersectionViewModel } from '../../features/ClosestIntersection/viewmodels/ClosestIntersectionViewModel';
 import { LanesViewModel } from '../../features/Lanes';
 import { SpatViewModel } from '../../features/SpatService/viewModels/SpatViewModel';
 
@@ -19,31 +17,17 @@ export class MainViewModel {
   testingPedestrianDetectorViewModel: TestingPedestrianDetectorViewModel | null = null;
   directionGuideViewModel: DirectionGuideViewModel;
   vehicleDisplayViewModel: VehicleDisplayViewModel;
-  
-  closestIntersectionViewModel: ClosestIntersectionViewModel;
   lanesViewModel: LanesViewModel;
   spatViewModel: SpatViewModel;
   
   isTestingMode: boolean = TESTING_CONFIG.USE_TESTING_MODE;
-  isVehicleTestingEnabled: boolean = TESTING_CONFIG.USE_VEHICLE_TESTING_FEATURE;
   
   constructor() {
     this.mapViewModel = new MapViewModel();
-    
     this.vehicleDisplayViewModel = new VehicleDisplayViewModel();
-    
-    this.closestIntersectionViewModel = new ClosestIntersectionViewModel();
     this.lanesViewModel = new LanesViewModel();
-
     this.spatViewModel = new SpatViewModel();
     
-    // Keep the ViewModel linking (but won't be used for activation)
-    this.closestIntersectionViewModel.setViewModels(
-      this.vehicleDisplayViewModel,
-      this.spatViewModel
-    );
-    
-    // Create appropriate pedestrian detector based on testing mode
     if (TESTING_CONFIG.USE_TESTING_MODE) {
       this.testingPedestrianDetectorViewModel = new TestingPedestrianDetectorViewModel();
     } else {
@@ -55,28 +39,18 @@ export class MainViewModel {
     }
     
     this.directionGuideViewModel = new DirectionGuideViewModel();
-    
     makeAutoObservable(this);
     
-    // START APIS IMMEDIATELY ON APP LAUNCH
-    this.startAPIsImmediately();
-    
+    this.startApisOnLaunch();
     this.startPedestrianMonitoring();
-    this.startClosestIntersectionMonitoring();
     this.startSpatMonitoring();
   }
   
-  /**
-   * Start both SDSM and SPaT APIs immediately when app launches
-   */
-  private startAPIsImmediately(): void {
-    // Start SDSM API for Georgia immediately
+  private startApisOnLaunch(): void {
     if (TESTING_CONFIG.ENABLE_SDSM_API) {
       this.vehicleDisplayViewModel.setApiUrl('georgia');
       this.vehicleDisplayViewModel.start();
     }
-    
-    // SPaT will start automatically through startSpatMonitoring()
   }
   
   private startPedestrianMonitoring(): void {
@@ -87,45 +61,20 @@ export class MainViewModel {
         this.pedestrianDetectorViewModel.startMonitoring();
       }
     } catch (error) {
-      // Suppressed
+      // Silent
     }
   }
-  
-  /**
-   * Keep polygon monitoring but it won't control API activation
-   */
-  private startClosestIntersectionMonitoring(): void {
-    const getUserLocation = (): [number, number] => {
-      return [this.userLocation.latitude, this.userLocation.longitude];
-    };
-    
-    const startWhenReady = () => {
-      if (this.userLocation.latitude !== 0 && this.userLocation.longitude !== 0) {
-        this.closestIntersectionViewModel.startMonitoring(getUserLocation);
-      } else {
-        setTimeout(startWhenReady, 2000);
-      }
-    };
-    
-    startWhenReady();
-  }
 
-  /**
-   * Start SPaT monitoring
-   */
   private startSpatMonitoring(): void {
     const startWhenReady = () => {
       if (this.userLocation.latitude !== 0 && this.userLocation.longitude !== 0) {
-        // Set initial position
         this.spatViewModel.setUserPosition([
           this.userLocation.latitude, 
           this.userLocation.longitude
         ]);
         
-        // Start monitoring
         this.spatViewModel.startMonitoring();
 
-        // Update position every 1 second
         setInterval(() => {
           if (this.userLocation.latitude !== 0 && this.userLocation.longitude !== 0) {
             this.spatViewModel.setUserPosition([
@@ -133,10 +82,9 @@ export class MainViewModel {
               this.userLocation.longitude
             ]);
           }
-        }, 1000);
+        }, 500);
       } else {
-        // Wait for location
-        setTimeout(startWhenReady, 2000);
+        setTimeout(startWhenReady, 1000);
       }
     };
 
@@ -204,10 +152,9 @@ export class MainViewModel {
     try {
       this.vehicleDisplayViewModel?.cleanup();
     } catch (error) {
-      // Suppressed
+      // Silent
     }
     
-    this.closestIntersectionViewModel.cleanup();
     this.spatViewModel.cleanup();
     
     if (this.isTestingMode && this.testingPedestrianDetectorViewModel) {

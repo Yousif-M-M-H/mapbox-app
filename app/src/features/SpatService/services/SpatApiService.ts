@@ -11,16 +11,13 @@ export interface SpatApiResponse {
 }
 
 export class SpatApiService {
-  // Only Georgia endpoint
   private static readonly ENDPOINTS = {
-    georgia: 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events/MLK_Georgia'
+    georgia: 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events/MLK_Georgia',
+    houston: 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events/MLK_Houston'
   };
   private static readonly TIMEOUT = 3000;
 
-  /**
-   * Fetch SPaT data for Georgia intersection
-   */
-  static async fetchSpatData(intersection: 'georgia'): Promise<SpatApiResponse | null> {
+  static async fetchSpatData(intersection: 'georgia' | 'houston'): Promise<SpatApiResponse | null> {
     const url = this.ENDPOINTS[intersection];
 
     try {
@@ -42,14 +39,10 @@ export class SpatApiService {
 
       return await response.json();
     } catch (error) {
-      console.error('SPaT API error:', error);
       return null;
     }
   }
 
-  /**
-   * Get signal state for a signal group
-   */
   static getSignalStateForGroup(spatData: SpatApiResponse, signalGroup: number): SignalState {
     if (!spatData) return SignalState.UNKNOWN;
 
