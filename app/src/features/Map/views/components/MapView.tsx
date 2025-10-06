@@ -1,5 +1,4 @@
 // app/src/features/Map/views/components/MapView.tsx
-// UPDATED: Smooth camera follow with optimized performance
 
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
@@ -34,6 +33,8 @@ interface MapViewProps {
   directionGuideViewModel: DirectionGuideViewModel;
   isTestingMode: boolean;
   mainViewModel?: MainViewModel;
+  spatViewModel?: SpatViewModel;
+  lanesViewModel?: LanesViewModel;
   children?: React.ReactNode;
 }
 
@@ -45,12 +46,17 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   directionGuideViewModel,
   isTestingMode,
   mainViewModel,
+  spatViewModel: providedSpatViewModel,
+  lanesViewModel: providedLanesViewModel,
   children
 }) => {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
-  const spatViewModel = useRef(new SpatViewModel()).current;
-  const lanesViewModel = useRef(new LanesViewModel()).current;
+  const spatViewModelRef = useRef<SpatViewModel>(new SpatViewModel());
+  const lanesViewModelRef = useRef<LanesViewModel>(new LanesViewModel());
+  
+  const spatViewModel = providedSpatViewModel || spatViewModelRef.current;
+  const lanesViewModel = providedLanesViewModel || lanesViewModelRef.current;
 
   // User position state
   const [userPosition, setUserPosition] = useState<[number, number]>([
@@ -60,7 +66,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 
   // Camera follow state
   const lastCameraUpdate = useRef<number>(0);
-  const CAMERA_UPDATE_THROTTLE = 1000; // Update camera max once per second
+  const CAMERA_UPDATE_THROTTLE = 1000;
 
   const activeDetector = isTestingMode ? testingPedestrianDetectorViewModel : pedestrianDetectorViewModel;
   const SHOW_SDSM_VEHICLES = true;
@@ -74,12 +80,10 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 
   /**
    * Update camera to follow user position
-   * Throttled for performance
    */
   const updateCameraPosition = (position: [number, number]) => {
     const now = Date.now();
     
-    // Throttle camera updates
     if (now - lastCameraUpdate.current < CAMERA_UPDATE_THROTTLE) {
       return;
     }
@@ -90,7 +94,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       cameraRef.current.setCamera({
         centerCoordinate: [position[1], position[0]], // [lng, lat]
         zoomLevel: 17,
-        animationDuration: 800, // Smooth animation
+        animationDuration: 800,
       });
     }
   };
@@ -127,20 +131,15 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         locationSubscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.BestForNavigation,
-            distanceInterval: 2, // Update every 2 meters
-            timeInterval: 500    // Or every 500ms
+            distanceInterval: 2,
+            timeInterval: 500
           },
           (location) => {
             const { latitude, longitude } = location.coords;
             const newPosition: [number, number] = [latitude, longitude];
 
-            // Update position
             setUserPosition(newPosition);
-            
-            // Update ViewModels
             updateAllViewModels(newPosition);
-            
-            // Update camera to follow user
             updateCameraPosition(newPosition);
           }
         );
@@ -149,7 +148,8 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         if (activeDetector && 'startMonitoring' in activeDetector) {
           activeDetector.startMonitoring();
         }
-        spatViewModel.startMonitoring();
+        
+        // SPaT monitoring is already started by MainViewModel
 
       } catch (error) {
         // Silent error handling
@@ -165,7 +165,6 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       if (activeDetector && 'stopMonitoring' in activeDetector) {
         activeDetector.stopMonitoring();
       }
-      spatViewModel.cleanup();
     };
   }, [directionGuideViewModel, activeDetector, mapViewModel, isTestingMode, spatViewModel]);
 

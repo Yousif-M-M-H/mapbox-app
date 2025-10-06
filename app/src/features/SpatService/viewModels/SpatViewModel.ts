@@ -1,10 +1,8 @@
 // app/src/features/SpatService/viewModels/SpatViewModel.ts
-// PRODUCTION VERSION: Enhanced lane detection with proximity fallback
 
 import { makeAutoObservable, runInAction } from 'mobx';
 import { SignalState } from '../models/SpatModels';
 import { SpatApiService } from '../services/SpatApiService';
-import { INTERSECTION_POLYGONS } from '../../ClosestIntersection/constants/IntersectionDefinitions';
 import { GEORGIA_INTERSECTION_LANES } from '../../Lanes/constants/LaneData';
 
 export class SpatViewModel {
@@ -12,7 +10,7 @@ export class SpatViewModel {
   signalState: SignalState = SignalState.UNKNOWN;
   currentLaneId: number | null = null;
   currentSignalGroup: number | null = null;
-  currentIntersection: 'georgia' | null = null;
+  currentIntersection: 'georgia' | null = 'georgia'; // Always Georgia
   isLoading: boolean = false;
   error: string | null = null;
   isProximityBased: boolean = false;
@@ -38,11 +36,15 @@ export class SpatViewModel {
   }
 
   /**
-   * Start monitoring
+   * Start monitoring - Always fetches from Georgia API
    */
   startMonitoring(): void {
     if (this.updateInterval) return;
     
+    // Immediately fetch SPaT data
+    this.checkSpatStatus();
+    
+    // Continue polling every second
     this.updateInterval = setInterval(() => {
       this.checkSpatStatus();
     }, 1000);
@@ -59,25 +61,11 @@ export class SpatViewModel {
   }
 
   /**
-   * Main SPaT logic - Georgia only
+   * Main SPaT logic - Always fetches from Georgia
    */
   private async checkSpatStatus(): Promise<void> {
     try {
-      // Check if user is in Georgia polygon
-      const isInGeorgia = this.checkPolygon(this.userPosition);
-      
-      if (!isInGeorgia) {
-        runInAction(() => {
-          this.currentIntersection = null;
-          this.currentLaneId = null;
-          this.currentSignalGroup = null;
-          this.signalState = SignalState.UNKNOWN;
-          this.isProximityBased = false;
-        });
-        return;
-      }
-
-      // Call SPaT API for Georgia
+      // Always call SPaT API for Georgia (no polygon check)
       const spatData = await SpatApiService.fetchSpatData('georgia');
       
       if (!spatData) {
@@ -203,14 +191,6 @@ export class SpatViewModel {
   }
 
   /**
-   * Check if user is in Georgia polygon
-   */
-  private checkPolygon(userPosition: [number, number]): boolean {
-    const [lat, lng] = userPosition;
-    return this.isPointInPolygon([lat, lng], INTERSECTION_POLYGONS[0].polygon);
-  }
-
-  /**
    * Check if user is in a lane with configurable threshold
    */
   private isUserInLane(
@@ -236,29 +216,6 @@ export class SpatViewModel {
     }
 
     return false;
-  }
-
-  /**
-   * Point in polygon check (ray casting)
-   */
-  private isPointInPolygon(
-    point: [number, number],
-    polygon: [number, number][]
-  ): boolean {
-    const [lat, lng] = point;
-    let inside = false;
-
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-      const [lngI, latI] = polygon[i];
-      const [lngJ, latJ] = polygon[j];
-
-      if (((latI > lat) !== (latJ > lat)) &&
-          (lng < (lngJ - lngI) * (lat - latI) / (latJ - latI) + lngI)) {
-        inside = !inside;
-      }
-    }
-
-    return inside;
   }
 
   /**

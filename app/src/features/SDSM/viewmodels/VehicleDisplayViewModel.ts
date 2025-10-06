@@ -1,12 +1,10 @@
 // app/src/features/SDSM/viewmodels/VehicleDisplayViewModel.ts
-// Simplified for Georgia intersection only
 
 import { makeAutoObservable, runInAction } from 'mobx';
 import { VehicleData, VRUData } from '../models/SDSMTypes';
 import { SDSMDataService } from '../services/SDSMDataService';
 import { TESTING_CONFIG } from '../../../testingFeatures/TestingConfig';
 
-// Enhanced vehicle data with stability tracking
 interface VehicleWithHistory extends VehicleData {
   positionHistory: Array<{
     coordinates: [number, number];
@@ -36,7 +34,7 @@ interface VRUWithHistory extends VRUData {
 }
 
 export class VehicleDisplayViewModel {
-  // Observable state - only stable vehicles/VRUs are exposed
+  // Observable state
   vehicles: VehicleData[] = [];
   vrus: VRUData[] = [];
   isActive: boolean = false;
@@ -59,7 +57,7 @@ export class VehicleDisplayViewModel {
   private readonly POLL_DELAY_MS = 100; // 100ms = 10Hz
   private readonly FETCH_TIMEOUT_MS = 500;
   
-  // More forgiving stability settings
+  // Stability settings
   private readonly MIN_HISTORY_COUNT = 2;
   private readonly MIN_STABLE_TIME_MS = 300;
   private readonly MAX_HISTORY_COUNT = 8;
@@ -91,11 +89,7 @@ export class VehicleDisplayViewModel {
    * Set the API URL - only Georgia is supported
    */
   setApiUrl(intersection: 'georgia'): void {
-    const previousUrl = this.API_URL;
-    
     this.API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events/MLK_Georgia';
-    
-    console.log(`🚗 SDSM API URL set to Georgia: ${this.API_URL}`);
     
     // Clear existing vehicle history when changing API
     this.vehicleHistory.clear();
@@ -109,11 +103,10 @@ export class VehicleDisplayViewModel {
   }
 
   /**
-   * Start the polling loop (Georgia only)
+   * Start the polling loop
    */
   start(): void {
     if (!TESTING_CONFIG.ENABLE_SDSM_API) {
-      console.log('🔴 SDSM API disabled - not starting polling');
       runInAction(() => {
         this.vehicles = [];
         this.vrus = [];
@@ -123,11 +116,8 @@ export class VehicleDisplayViewModel {
     }
 
     if (this.isActive) {
-      console.log('✅ SDSM already running');
       return;
     }
-
-    console.log(`🚀 Starting SDSM polling for Georgia: ${this.API_URL}`);
     
     runInAction(() => {
       this.isActive = true;
@@ -168,29 +158,22 @@ export class VehicleDisplayViewModel {
             this.duplicateMessages++;
           }
         } else {
-          // Failed fetch - increment failure count but don't panic
+          // Failed fetch - increment failure count
           this.consecutiveFailures++;
           
           if (this.consecutiveFailures >= this.MAX_CONSECUTIVE_FAILURES) {
             this.isConnectionHealthy = false;
-            console.warn(`⚠️ SDSM connection unhealthy: ${this.consecutiveFailures} consecutive failures`);
           }
         }
         
-        // Always update state - even without new data (graceful degradation)
+        // Always update state
         this.updateObjectsConfidence();
         this.updateObservableState();
-        
-        // Log status periodically
-        if (this.newMessages % 20 === 0 && this.newMessages > 0) {
-          this.logStatusUpdate();
-        }
         
       } catch (error) {
         this.consecutiveFailures++;
         
         if (error instanceof Error) {
-          console.error('❌ SDSM Error:', error.message);
           runInAction(() => {
             this.error = error.message;
           });
@@ -206,7 +189,6 @@ export class VehicleDisplayViewModel {
     }
     
     this.isPolling = false;
-    console.log('🛑 SDSM polling stopped');
   }
   
   /**
@@ -223,11 +205,6 @@ export class VehicleDisplayViewModel {
 
     const newVehicles = SDSMDataService.extractVehicles(sdsmResponse);
     const newVRUs = SDSMDataService.extractVRUs(sdsmResponse);
-
-    // Log for Georgia data
-    if (newVehicles.length > 0 || newVRUs.length > 0) {
-      console.log(`🚗 Georgia SDSM: ${newVehicles.length} vehicles, ${newVRUs.length} VRUs`);
-    }
 
     // Update with current API data timestamp
     this.updateObjectHistory(newVehicles, this.vehicleHistory, now, now);
@@ -412,20 +389,6 @@ export class VehicleDisplayViewModel {
   }
   
   /**
-   * Log detailed status information
-   */
-  private logStatusUpdate(): void {
-    const stableVehicles = Array.from(this.vehicleHistory.values()).filter(v => v.isStable).length;
-    const staleVehicles = Array.from(this.vehicleHistory.values()).filter(v => v.isStale).length;
-    const lowConfidenceVehicles = Array.from(this.vehicleHistory.values()).filter(v => v.confidenceLevel < 0.5).length;
-    
-    const connectionStatus = this.isConnectionHealthy ? '🟢' : '🟡';
-    const timeSinceSuccess = Math.round((Date.now() - this.lastSuccessfulFetch) / 1000);
-    
-    console.log(`📊 SDSM ${connectionStatus}: ${this.vehicles.length}/${stableVehicles} vehicles shown, ${staleVehicles} stale, ${lowConfidenceVehicles} low-conf, ${this.consecutiveFailures} failures, ${timeSinceSuccess}s since success`);
-  }
-  
-  /**
    * Get smoothed position from history
    */
   private getSmoothedPosition(
@@ -466,7 +429,7 @@ export class VehicleDisplayViewModel {
   }
   
   /**
-   * Fetch data from RSU API with better error handling
+   * Fetch data from RSU API
    */
   private async fetchFromRSU(): Promise<any> {
     const controller = new AbortController();
@@ -523,8 +486,6 @@ export class VehicleDisplayViewModel {
    * Stop polling
    */
   stop(): void {
-    console.log('⏹️ Stopping SDSM...');
-    
     this.isPolling = false;
     
     runInAction(() => {
@@ -534,11 +495,6 @@ export class VehicleDisplayViewModel {
       this.lastMessageHash = null;
       this.error = null;
     });
-    
-    if (this.totalMessages > 0) {
-      const efficiency = ((this.duplicateMessages / this.totalMessages) * 100).toFixed(1);
-      console.log(`📈 Final Stats: ${this.newMessages} updates from ${this.totalMessages} messages (${efficiency}% duplicates filtered)`);
-    }
   }
   
   /**
@@ -632,8 +588,6 @@ export class VehicleDisplayViewModel {
       this.newMessages = 0;
       this.duplicateMessages = 0;
     });
-    
-    console.log('🧹 All vehicles cleared');
   }
   
   /**

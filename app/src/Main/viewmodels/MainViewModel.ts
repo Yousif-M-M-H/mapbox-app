@@ -37,7 +37,7 @@ export class MainViewModel {
 
     this.spatViewModel = new SpatViewModel();
     
-    // IMPORTANT: Link the ViewModels for integration
+    // Keep the ViewModel linking (but won't be used for activation)
     this.closestIntersectionViewModel.setViewModels(
       this.vehicleDisplayViewModel,
       this.spatViewModel
@@ -58,12 +58,25 @@ export class MainViewModel {
     
     makeAutoObservable(this);
     
+    // START APIS IMMEDIATELY ON APP LAUNCH
+    this.startAPIsImmediately();
+    
     this.startPedestrianMonitoring();
     this.startClosestIntersectionMonitoring();
     this.startSpatMonitoring();
-    this.startSDSMLatencyTracking();
-    this.startSDSMFrequencyMonitoring();
-    this.startDetectionLatencyTest();
+  }
+  
+  /**
+   * Start both SDSM and SPaT APIs immediately when app launches
+   */
+  private startAPIsImmediately(): void {
+    // Start SDSM API for Georgia immediately
+    if (TESTING_CONFIG.ENABLE_SDSM_API) {
+      this.vehicleDisplayViewModel.setApiUrl('georgia');
+      this.vehicleDisplayViewModel.start();
+    }
+    
+    // SPaT will start automatically through startSpatMonitoring()
   }
   
   private startPedestrianMonitoring(): void {
@@ -74,12 +87,12 @@ export class MainViewModel {
         this.pedestrianDetectorViewModel.startMonitoring();
       }
     } catch (error) {
-      // Suppressed to reduce noise
+      // Suppressed
     }
   }
   
   /**
-   * Start polygon-based intersection monitoring with automatic API calls
+   * Keep polygon monitoring but it won't control API activation
    */
   private startClosestIntersectionMonitoring(): void {
     const getUserLocation = (): [number, number] => {
@@ -98,12 +111,12 @@ export class MainViewModel {
   }
 
   /**
-   * Start SPaT monitoring - SIMPLIFIED
+   * Start SPaT monitoring
    */
   private startSpatMonitoring(): void {
     const startWhenReady = () => {
       if (this.userLocation.latitude !== 0 && this.userLocation.longitude !== 0) {
-        // Set initial position as [lat, lng]
+        // Set initial position
         this.spatViewModel.setUserPosition([
           this.userLocation.latitude, 
           this.userLocation.longitude
@@ -128,71 +141,6 @@ export class MainViewModel {
     };
 
     startWhenReady();
-  }
-  
-  /**
-   * Start SDSM latency tracking and automatic logging
-   */
-  private startSDSMLatencyTracking(): void {
-    try {
-      // Silent initialization
-    } catch (error) {
-      // Keep error logs for debugging critical issues
-    }
-  }
-
-  /**
-   * Start SDSM frequency monitoring for 60-second analysis
-   */
-  private startSDSMFrequencyMonitoring(): void {
-    try {
-      // Silent initialization
-    } catch (error) {
-      // Keep error logs for debugging critical issues
-    }
-  }
-  
-  /**
-   * Start Detection Latency Test (only in testing mode)
-   */
-  private startDetectionLatencyTest(): void {
-    if (!this.isTestingMode || !this.testingPedestrianDetectorViewModel) {
-      return;
-    }
-    
-    try {
-      const checkTestCompletion = setInterval(() => {
-        if (this.testingPedestrianDetectorViewModel?.hasCompletedDetectionLatencyTest()) {
-          const result = this.testingPedestrianDetectorViewModel.getDetectionLatencyResult();
-          if (result !== null) {
-            // Could be logged or processed further
-          }
-          clearInterval(checkTestCompletion);
-        }
-      }, 1000);
-    } catch (error) {
-      // Suppressed to reduce noise
-    }
-  }
-  
-  /**
-   * Get detection latency test result
-   */
-  get detectionLatencyResult(): number | null {
-    if (this.isTestingMode && this.testingPedestrianDetectorViewModel) {
-      return this.testingPedestrianDetectorViewModel.getDetectionLatencyResult();
-    }
-    return null;
-  }
-  
-  /**
-   * Check if detection latency test has completed
-   */
-  get hasCompletedDetectionLatencyTest(): boolean {
-    if (this.isTestingMode && this.testingPedestrianDetectorViewModel) {
-      return this.testingPedestrianDetectorViewModel.hasCompletedDetectionLatencyTest();
-    }
-    return false;
   }
   
   get activePedestrianDetector(): PedestrianDetectorViewModel | TestingPedestrianDetectorViewModel | null {
@@ -256,7 +204,7 @@ export class MainViewModel {
     try {
       this.vehicleDisplayViewModel?.cleanup();
     } catch (error) {
-      // Suppressed to reduce noise
+      // Suppressed
     }
     
     this.closestIntersectionViewModel.cleanup();
