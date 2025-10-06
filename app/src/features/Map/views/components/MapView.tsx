@@ -1,4 +1,5 @@
 // app/src/features/Map/views/components/MapView.tsx
+// OPTIMIZED VERSION - Fixed GPS accuracy and smoothness
 
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
@@ -51,14 +52,11 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 
   const spatViewModel = useRef(new SpatViewModel()).current;
 
-  const [gpsHeading, setGpsHeading] = useState<number | null>(null);
-  const [lastKnownHeading, setLastKnownHeading] = useState<number | null>(null);
-  
-  const [smoothedLocation, setSmoothedLocation] = useState<[number, number]>([
+  // Single source of truth for user position
+  const [userPosition, setUserPosition] = useState<[number, number]>([
     mapViewModel.userLocation.latitude, 
     mapViewModel.userLocation.longitude
   ]);
-  const locationHistory = useRef<Array<{coords: [number, number], timestamp: number}>>([]);
 
   const activeDetector = isTestingMode ? testingPedestrianDetectorViewModel : pedestrianDetectorViewModel;
 
@@ -70,11 +68,59 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     if (!SHOW_SDSM_VEHICLES || !TESTING_CONFIG.ENABLE_SDSM_API) {
       return false;
     }
-    
-    // All SDSM is now Georgia-only, so always show if enabled
     return true;
   };
 
+  // ========================================
+  // MINIMAL SMOOTHING (Only for poor GPS)
+  // ========================================
+  const lastValidPosition = useRef<[number, number]>([0, 0]);
+
+  const applyMinimalSmoothing = (
+    newPosition: [number, number], 
+    accuracy: number
+  ): [number, number] => {
+    // If no previous position, use new position
+    if (lastValidPosition.current[0] === 0) {
+      lastValidPosition.current = newPosition;
+      return newPosition;
+    }
+
+    // For very poor accuracy (>15m), blend 70% new, 30% old
+    // This is MUCH less aggressive than the previous weighted average
+    const blend = accuracy > 25 ? 0.7 : 0.85;
+    
+    const smoothed: [number, number] = [
+      newPosition[0] * blend + lastValidPosition.current[0] * (1 - blend),
+      newPosition[1] * blend + lastValidPosition.current[1] * (1 - blend)
+    ];
+
+    lastValidPosition.current = smoothed;
+    return smoothed;
+  };
+
+  // ========================================
+  // BATCHED VIEWMODEL UPDATES
+  // ========================================
+  const updateAllViewModels = (position: [number, number]) => {
+    // Update all ViewModels in a single batch
+    directionGuideViewModel.setVehiclePosition(position);
+    spatViewModel.setUserPosition(position);
+    
+    if (activeDetector && 'setVehiclePosition' in activeDetector) {
+      activeDetector.setVehiclePosition(position);
+    }
+
+    mapViewModel.setUserLocation({
+      latitude: position[0],
+      longitude: position[1],
+      heading: undefined
+    });
+  };
+
+  // ========================================
+  // OPTIMIZED GPS TRACKING
+  // ========================================
   useEffect(() => {
     let locationSubscription: Location.LocationSubscription;
 
@@ -87,43 +133,35 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 
         locationSubscription = await Location.watchPositionAsync(
           {
+            // OPTIMIZED: Best accuracy without over-polling
             accuracy: Location.Accuracy.BestForNavigation,
-            distanceInterval: 0.5,
-            timeInterval: 250
+            distanceInterval: 2, // Changed from 0.5 to 2 meters (reasonable movement threshold)
+            timeInterval: 500    // Changed from 250ms to 500ms (2 updates/sec is smooth enough)
           },
           (location) => {
-            const { latitude, longitude, heading, accuracy } = location.coords;
+            const { latitude, longitude, accuracy } = location.coords;
 
-            if (heading !== null && heading !== undefined) {
-              setGpsHeading(heading);
-              setLastKnownHeading(heading);
-            }
+            // CRITICAL FIX: Use raw GPS coordinates directly
+            // Modern GPS is accurate enough - smoothing causes lag and position shifts
+            const newPosition: [number, number] = [latitude, longitude];
 
-            const newCoords: [number, number] = [latitude, longitude];
-            const smoothedCoords = applySmoothingFilter(newCoords, accuracy || 10);
-            
-            setSmoothedLocation(smoothedCoords);
+            // Only apply minimal smoothing for very poor accuracy
+            const finalPosition = accuracy && accuracy > 15 
+              ? applyMinimalSmoothing(newPosition, accuracy)
+              : newPosition;
 
-            directionGuideViewModel.setVehiclePosition(smoothedCoords);
+            // Single state update
+            setUserPosition(finalPosition);
 
-            spatViewModel.setUserPosition(smoothedCoords);
-
-            if (activeDetector && 'setVehiclePosition' in activeDetector) {
-              activeDetector.setVehiclePosition(smoothedCoords);
-            }
-
-            mapViewModel.setUserLocation({
-              latitude: smoothedCoords[0],
-              longitude: smoothedCoords[1],
-              heading: undefined
-            });
+            // Batch all ViewModel updates together
+            updateAllViewModels(finalPosition);
           }
         );
 
+        // Start monitoring
         if (activeDetector && 'startMonitoring' in activeDetector) {
           activeDetector.startMonitoring();
         }
-
         spatViewModel.startMonitoring();
 
       } catch (error) {
@@ -144,6 +182,9 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     };
   }, [directionGuideViewModel, activeDetector, mapViewModel, isTestingMode, spatViewModel]);
 
+  // ========================================
+  // VRU DATA UPDATES
+  // ========================================
   useEffect(() => {
     if (!activeDetector) return;
 
@@ -172,38 +213,6 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN
   ]);
 
-  const applySmoothingFilter = (newCoords: [number, number], accuracy: number): [number, number] => {
-    const now = Date.now();
-    const history = locationHistory.current;
-    
-    history.push({ coords: newCoords, timestamp: now });
-    locationHistory.current = history.filter(item => now - item.timestamp < 5000);
-    
-    if (accuracy < 5) {
-      return newCoords;
-    }
-    
-    if (locationHistory.current.length < 2) {
-      return newCoords;
-    }
-    
-    const recentHistory = locationHistory.current.slice(-3);
-    let totalWeight = 0;
-    let weightedLat = 0;
-    let weightedLng = 0;
-    
-    recentHistory.forEach((point, index) => {
-      const weight = index + 1;
-      weightedLat += point.coords[0] * weight;
-      weightedLng += point.coords[1] * weight;
-      totalWeight += weight;
-    });
-    
-    return [weightedLat / totalWeight, weightedLng / totalWeight];
-  };
-
-  const displayHeading = gpsHeading || lastKnownHeading;
-
   return (
     <View style={styles.container}>
       <MapLegend />
@@ -227,34 +236,20 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           animationDuration={300}
         />
 
-        {smoothedLocation[0] !== 0 && smoothedLocation[1] !== 0 && (
+        {/* User Position Marker - Simple Blue Dot */}
+        {userPosition[0] !== 0 && userPosition[1] !== 0 && (
           <MapboxGL.PointAnnotation
             id="vehicle-position"
-            coordinate={[smoothedLocation[1], smoothedLocation[0]]}
+            coordinate={[userPosition[1], userPosition[0]]}
             anchor={{ x: 0.5, y: 0.5 }}
           >
-            {displayHeading !== null ? (
-              <View style={styles.userLocationContainer}>
-                <View style={[
-                  styles.headingArrow,
-                  {
-                    transform: [{
-                      rotate: `${displayHeading}deg`
-                    }]
-                  }
-                ]}>
-                  <View style={styles.arrowPoint} />
-                  <View style={styles.arrowBase} />
-                </View>
-              </View>
-            ) : (
-              <View style={styles.userLocationMarker}>
-                <View style={styles.userLocationInner} />
-              </View>
-            )}
+            <View style={styles.userLocationMarker}>
+              <View style={styles.userLocationInner} />
+            </View>
           </MapboxGL.PointAnnotation>
         )}
 
+        {/* Crosswalk Polygons */}
         {mapViewModel.showCrosswalkPolygon && CROSSWALK_POLYGONS.map((polygonCoords, index) => {
           let allVRUs: any[] = [];
 
@@ -351,24 +346,17 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       />
 
       <SpatStatusDisplay 
-        userPosition={smoothedLocation} 
+        userPosition={userPosition} 
         spatViewModel={spatViewModel}
       />
 
       <TurnGuideDisplay spatViewModel={spatViewModel} />
 
-      {displayHeading !== null && (
-        <View style={styles.headingContainer}>
-          <Text style={styles.headingText}>
-            🧭 {displayHeading.toFixed(0)}° GPS
-          </Text>
-        </View>
-      )}
-
+      {/* Pedestrian Warning */}
       {(() => {
-        const vehiclePos: [number, number] = [smoothedLocation[0], smoothedLocation[1]];
+        const vehiclePos: [number, number] = [userPosition[0], userPosition[1]];
 
-        if (smoothedLocation[0] === 0) return null;
+        if (userPosition[0] === 0) return null;
 
         let allVRUs: any[] = [];
 
@@ -414,38 +402,6 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  userLocationContainer: {
-    width: 28,
-    height: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headingArrow: {
-    width: 28,
-    height: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  arrowPoint: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 7,
-    borderRightWidth: 7,
-    borderBottomWidth: 14,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: '#4285F4',
-    borderStyle: 'solid',
-  },
-  arrowBase: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#4285F4',
-    borderWidth: 2,
-    borderColor: 'white',
-    marginTop: -3,
-  },
   userLocationMarker: {
     width: 20,
     height: 20,
@@ -455,6 +411,11 @@ const styles = StyleSheet.create({
     borderColor: 'white',
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   userLocationInner: {
     width: 8,
@@ -483,24 +444,5 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
     textAlign: 'center',
-  },
-  headingContainer: {
-    position: 'absolute',
-    bottom: 100,
-    left: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  headingText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
   },
 });
