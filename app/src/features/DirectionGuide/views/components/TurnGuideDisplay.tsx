@@ -11,26 +11,6 @@ interface TurnGuideDisplayProps {
   spatViewModel: SpatViewModel;
 }
 
-const LANE_ALLOWED_TURNS: Record<number, { 
-  left: boolean; 
-  straight: boolean;
-  right: boolean;
-  label: string;
-  yieldMode?: boolean;
-}> = {
-  1: { left: false, straight: true, right: true, label: 'Right Lane', yieldMode: true },
-  2: { left: true, straight: false, right: false, label: 'Turning Lane' },
-  4: { left: false, straight: true, right: true, label: 'Left Lane', yieldMode: true },
-  5: { left: true, straight: false, right: false, label: 'Turning Lane' },
-  8: { left: false, straight: true, right: true, label: 'Right Lane', yieldMode: true },
-  
-  103: { left: false, straight: true, right: true, label: 'Left Lane' },
-  104: { left: true, straight: false, right: false, label: 'Turning Lane' },
-  106: { left: false, straight: true, right: true, label: 'Right Lane' },
-  108: { left: false, straight: true, right: true, label: 'Right Lane' },
-  109: { left: true, straight: false, right: false, label: 'Middle Lane' },
-};
-
 function mapSignalStateToTurnState(signalState: SignalState): TurnSignalState {
   switch (signalState) {
     case SignalState.GREEN:
@@ -47,61 +27,28 @@ function mapSignalStateToTurnState(signalState: SignalState): TurnSignalState {
 export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({ 
   spatViewModel 
 }) => {
-  const currentLane = spatViewModel.currentLaneId;
-  const currentIntersection = spatViewModel.currentIntersection;
-  
-  if (currentLane === 6 || currentLane === 7) {
-    return null;
-  }
-  
   if (!spatViewModel.shouldShowDisplay) {
     return null;
   }
+
+  const currentLaneId = spatViewModel.currentLaneId;
   
-  const isGeorgiaLanes1_2 = currentLane === 1 || currentLane === 2;
-  const isGeorgiaLanes4_5 = currentLane === 4 || currentLane === 5;
-  const isGeorgiaLane8 = currentLane === 8;
-  const isHoustonLanes103_104 = currentLane === 103 || currentLane === 104;
-  const isHoustonLanes108_109 = currentLane === 108 || currentLane === 109;
-  const isHoustonLane106 = currentLane === 106;
-  
-  if (!isGeorgiaLanes1_2 && 
-      !isGeorgiaLanes4_5 && 
-      !isGeorgiaLane8 && 
-      !isHoustonLanes103_104 && 
-      !isHoustonLane106 && 
-      !isHoustonLanes108_109) {
+  if (!currentLaneId) {
     return null;
   }
 
   const turnState = mapSignalStateToTurnState(spatViewModel.signalState);
 
-  if (isGeorgiaLanes1_2) {
-    const lane2Config = LANE_ALLOWED_TURNS[2];
-    const lane1Config = LANE_ALLOWED_TURNS[1];
-    
+  const isGeorgiaLanes4_5 = currentLaneId === 4 || currentLaneId === 5;
+  const isGeorgiaLane1 = currentLaneId === 1;
+  const isGeorgiaLane8 = currentLaneId === 8;
+
+  if (isGeorgiaLane1) {
     return (
       <View style={styles.container}>
         <View style={styles.laneContainer}>
           <View style={styles.iconWrapper}>
-            <Text style={styles.laneLabel}>{lane2Config.label}</Text>
-            <View style={styles.iconContainer}>
-              <TurnIcon 
-                leftTurn={turnState}
-                straightTurn={TurnSignalState.PROHIBITED}
-                rightTurn={TurnSignalState.PROHIBITED}
-                showStraight={false}
-                showRight={false}
-                size={55}
-              />
-            </View>
-          </View>
-          <View style={styles.statusDot} />
-        </View>
-
-        <View style={styles.laneContainer}>
-          <View style={styles.iconWrapper}>
-            <Text style={styles.laneLabel}>{lane1Config.label}</Text>
+            <Text style={styles.laneLabel}>Right Lane</Text>
             <View style={styles.iconContainer}>
               <TurnIcon 
                 leftTurn={TurnSignalState.PROHIBITED}
@@ -120,13 +67,11 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
   }
 
   if (isGeorgiaLane8) {
-    const lane8Config = LANE_ALLOWED_TURNS[8];
-    
     return (
       <View style={styles.container}>
         <View style={styles.laneContainer}>
           <View style={styles.iconWrapper}>
-            <Text style={styles.laneLabel}>{lane8Config.label}</Text>
+            <Text style={styles.laneLabel}>Right Lane</Text>
             <View style={styles.iconContainer}>
               <TurnIcon 
                 leftTurn={TurnSignalState.PROHIBITED}
@@ -144,39 +89,12 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
     );
   }
 
-  if (isHoustonLane106) {
-    const lane106Config = LANE_ALLOWED_TURNS[106];
-    
+  if (isGeorgiaLanes4_5) {
     return (
       <View style={styles.container}>
         <View style={styles.laneContainer}>
           <View style={styles.iconWrapper}>
-            <Text style={styles.laneLabel}>{lane106Config.label}</Text>
-            <View style={styles.iconContainer}>
-              <TurnIcon 
-                leftTurn={TurnSignalState.PROHIBITED}
-                straightTurn={turnState}
-                rightTurn={turnState}
-                showLeft={false}
-                size={55}
-              />
-            </View>
-          </View>
-          <View style={styles.statusDot} />
-        </View>
-      </View>
-    );
-  }
-
-  if (isHoustonLanes108_109) {
-    const lane108Config = LANE_ALLOWED_TURNS[108];
-    const lane109Config = LANE_ALLOWED_TURNS[109];
-
-    return (
-      <View style={styles.container}>
-        <View style={styles.laneContainer}>
-          <View style={styles.iconWrapper}>
-            <Text style={styles.laneLabel}>{lane109Config.label}</Text>
+            <Text style={styles.laneLabel}>Turning Lane</Text>
             <View style={styles.iconContainer}>
               <TurnIcon 
                 leftTurn={turnState}
@@ -193,105 +111,25 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
 
         <View style={styles.laneContainer}>
           <View style={styles.iconWrapper}>
-            <Text style={styles.laneLabel}>{lane108Config.label}</Text>
+            <Text style={styles.laneLabel}>Left Lane</Text>
             <View style={styles.iconContainer}>
               <TurnIcon 
                 leftTurn={TurnSignalState.PROHIBITED}
                 straightTurn={turnState}
-                rightTurn={turnState}
+                rightTurn={TurnSignalState.ALLOWED}
                 showLeft={false}
                 size={55}
               />
             </View>
+            <Text style={styles.yieldWarning}>⚠️ YIELD</Text>
           </View>
-          <View style={styles.statusDot} />
+          <View style={[styles.statusDot, styles.yieldDot]} />
         </View>
       </View>
     );
   }
 
-  if (isHoustonLanes103_104) {
-    const lane103Config = LANE_ALLOWED_TURNS[103];
-    const lane104Config = LANE_ALLOWED_TURNS[104];
-
-    return (
-      <View style={styles.container}>
-        <View style={styles.laneContainer}>
-          <View style={styles.iconWrapper}>
-            <Text style={styles.laneLabel}>{lane104Config.label}</Text>
-            <View style={styles.iconContainer}>
-              <TurnIcon 
-                leftTurn={turnState}
-                straightTurn={TurnSignalState.PROHIBITED}
-                rightTurn={TurnSignalState.PROHIBITED}
-                showStraight={false}
-                showRight={false}
-                size={55}
-              />
-            </View>
-          </View>
-          <View style={styles.statusDot} />
-        </View>
-
-        <View style={styles.laneContainer}>
-          <View style={styles.iconWrapper}>
-            <Text style={styles.laneLabel}>{lane103Config.label}</Text>
-            <View style={styles.iconContainer}>
-              <TurnIcon 
-                leftTurn={TurnSignalState.PROHIBITED}
-                straightTurn={turnState}
-                rightTurn={turnState}
-                showLeft={false}
-                size={55}
-              />
-            </View>
-          </View>
-          <View style={styles.statusDot} />
-        </View>
-      </View>
-    );
-  }
-
-  const lane4Config = LANE_ALLOWED_TURNS[4];
-  const lane5Config = LANE_ALLOWED_TURNS[5];
-
-  return (
-    <View style={styles.container}>
-      <View style={styles.laneContainer}>
-        <View style={styles.iconWrapper}>
-          <Text style={styles.laneLabel}>{lane5Config.label}</Text>
-          <View style={styles.iconContainer}>
-            <TurnIcon 
-              leftTurn={turnState}
-              straightTurn={TurnSignalState.PROHIBITED}
-              rightTurn={TurnSignalState.PROHIBITED}
-              showStraight={false}
-              showRight={false}
-              size={55}
-            />
-          </View>
-        </View>
-        <View style={styles.statusDot} />
-      </View>
-
-      <View style={styles.laneContainer}>
-        <View style={styles.iconWrapper}>
-          <Text style={styles.laneLabel}>{lane4Config.label}</Text>
-          <View style={styles.iconContainer}>
-            <TurnIcon 
-              leftTurn={TurnSignalState.PROHIBITED}
-              straightTurn={turnState}
-              rightTurn={TurnSignalState.ALLOWED}
-              showLeft={false}
-              size={55}
-            />
-          </View>
-          <Text style={styles.yieldWarning}>⚠️ YIELD</Text>
-        </View>
-        <View style={[styles.statusDot, styles.yieldDot]} />
-      </View>
-    </View>
-  );
+  return null;
 });
 
 const styles = StyleSheet.create({

@@ -789,3 +789,9 @@ export function getLaneConfigForIntersection(intersection: 'georgia' | 'houston'
       return ALL_INTERSECTIONS_LANE_CONFIG;
   }
 }
+
+
+// lane 10: 
+// -85.30838998525093, 35.04579572782647
+// -85.30853372833835, 35.04581701202075,
+// -85.30864549661894, 35.045820475631444
