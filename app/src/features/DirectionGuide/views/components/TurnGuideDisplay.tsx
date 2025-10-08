@@ -42,7 +42,9 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
   const isGeorgiaLanes4_5 = currentLaneId === 4 || currentLaneId === 5;
   const isGeorgiaLane1 = currentLaneId === 1;
   const isGeorgiaLane8 = currentLaneId === 8;
+  const isGeorgiaLanes10_11 = currentLaneId === 10 || currentLaneId === 11;
 
+  // Lane 1: Right and Straight with Yield
   if (isGeorgiaLane1) {
     return (
       <View style={styles.container}>
@@ -66,6 +68,7 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
     );
   }
 
+  // Lane 8: Right and Straight (both follow traffic signal)
   if (isGeorgiaLane8) {
     return (
       <View style={styles.container}>
@@ -76,19 +79,19 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
               <TurnIcon 
                 leftTurn={TurnSignalState.PROHIBITED}
                 straightTurn={turnState}
-                rightTurn={TurnSignalState.ALLOWED}
+                rightTurn={turnState}
                 showLeft={false}
                 size={55}
               />
             </View>
-            <Text style={styles.yieldWarning}>⚠️ YIELD</Text>
           </View>
-          <View style={[styles.statusDot, styles.yieldDot]} />
+          <View style={styles.statusDot} />
         </View>
       </View>
     );
   }
 
+  // Lanes 4 & 5: Left Turn Lane + Left Lane (both follow traffic signal)
   if (isGeorgiaLanes4_5) {
     return (
       <View style={styles.container}>
@@ -116,14 +119,58 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
               <TurnIcon 
                 leftTurn={TurnSignalState.PROHIBITED}
                 straightTurn={turnState}
-                rightTurn={TurnSignalState.ALLOWED}
+                rightTurn={turnState}
                 showLeft={false}
                 size={55}
               />
             </View>
-            <Text style={styles.yieldWarning}>⚠️ YIELD</Text>
           </View>
-          <View style={[styles.statusDot, styles.yieldDot]} />
+          <View style={styles.statusDot} />
+        </View>
+      </View>
+    );
+  }
+
+  // Lanes 10 & 11: Show both lane containers
+  if (isGeorgiaLanes10_11) {
+    return (
+      <View style={styles.container}>
+        {/* Lane 11: Middle Lane - Left and Straight */}
+        <View style={styles.laneContainer}>
+          <View style={styles.iconWrapper}>
+            <Text style={styles.laneLabel}>Middle Lane</Text>
+            <View style={styles.iconContainer}>
+              <TurnIcon 
+                leftTurn={turnState}
+                straightTurn={turnState}
+                rightTurn={TurnSignalState.PROHIBITED}
+                showLeft={true}
+                showStraight={true}
+                showRight={false}
+                size={55}
+              />
+            </View>
+          </View>
+          <View style={styles.statusDot} />
+        </View>
+
+        {/* Lane 10: Right Lane - Right Turn and Straight */}
+        <View style={styles.laneContainer}>
+          <View style={styles.iconWrapper}>
+            <Text style={styles.laneLabel}>Right Lane</Text>
+            <View style={styles.iconContainer}>
+              <TurnIcon 
+                leftTurn={TurnSignalState.PROHIBITED}
+                straightTurn={turnState}
+                rightTurn={turnState}
+                showLeft={false}
+                showStraight={true}
+                showRight={true}
+                size={55}
+              />
+            </View>
+          </View>
+          <View style={styles.statusDot} />
         </View>
       </View>
     );

@@ -64,7 +64,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   ]);
 
   const lastCameraUpdate = useRef<number>(0);
-  const CAMERA_UPDATE_THROTTLE = 1000;
+  const CAMERA_UPDATE_THROTTLE = 2000;
 
   const activeDetector = isTestingMode ? testingPedestrianDetectorViewModel : pedestrianDetectorViewModel;
   const SHOW_SDSM_VEHICLES = true;
@@ -89,7 +89,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       cameraRef.current.setCamera({
         centerCoordinate: [position[1], position[0]],
         zoomLevel: 17,
-        animationDuration: 800,
+        animationDuration: 1500,
       });
     }
   };
@@ -122,8 +122,8 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         locationSubscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.BestForNavigation,
-            distanceInterval: 2,
-            timeInterval: 500
+            distanceInterval: 1,
+            timeInterval: 100
           },
           (location) => {
             const { latitude, longitude } = location.coords;
@@ -205,7 +205,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           centerCoordinate={[-85.3075, 35.0454]}
           zoomLevel={17}
           animationMode="flyTo"
-          animationDuration={800}
+          animationDuration={1500}
         />
 
         {userPosition[0] !== 0 && userPosition[1] !== 0 && (
@@ -214,8 +214,12 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
             coordinate={[userPosition[1], userPosition[0]]}
             anchor={{ x: 0.5, y: 0.5 }}
           >
-            <View style={styles.userLocationMarker}>
-              <View style={styles.userLocationInner} />
+            <View style={styles.userLocationContainer}>
+              <View style={styles.userLocationPulse} />
+              <View style={styles.userLocationMarker}>
+                <View style={styles.userLocationInner} />
+                <View style={styles.directionDot} />
+              </View>
             </View>
           </MapboxGL.PointAnnotation>
         )}
@@ -371,26 +375,52 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  userLocationMarker: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#4285F4',
-    borderWidth: 3,
-    borderColor: 'white',
+  userLocationContainer: {
+    width: 50,
+    height: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+  },
+  userLocationPulse: {
+    position: 'absolute',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+    borderWidth: 2,
+    borderColor: 'rgba(76, 175, 80, 0.4)',
+  },
+  userLocationMarker: {
+    width: 24,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#4CAF50',
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    position: 'relative',
   },
   userLocationInner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'white',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#FFFFFF',
+  },
+  directionDot: {
+    position: 'absolute',
+    top: -6,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFD700',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
   },
   warningContainer: {
     position: 'absolute',

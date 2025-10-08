@@ -16,6 +16,11 @@ export class SpatViewModel {
 
   private userPosition: [number, number] = [0, 0];
   private updateInterval: NodeJS.Timeout | null = null;
+  private currentZone: SpatZone | null = null;
+  private lastZoneCheckTime: number = 0;
+  
+  private readonly FAST_UPDATE_INTERVAL = 250;
+  private readonly ZONE_CHECK_THROTTLE = 100;
 
   constructor() {
     makeAutoObservable(this);
@@ -23,17 +28,22 @@ export class SpatViewModel {
 
   setUserPosition(position: [number, number]): void {
     this.userPosition = position;
-    this.checkSpatStatus();
+    
+    const now = Date.now();
+    if (now - this.lastZoneCheckTime >= this.ZONE_CHECK_THROTTLE) {
+      this.lastZoneCheckTime = now;
+      this.checkZoneAndUpdateState();
+    }
   }
 
   startMonitoring(): void {
     if (this.updateInterval) return;
     
-    this.checkSpatStatus();
+    this.checkZoneAndUpdateState();
     
     this.updateInterval = setInterval(() => {
-      this.checkSpatStatus();
-    }, 1000);
+      this.updateSpatData();
+    }, this.FAST_UPDATE_INTERVAL);
   }
 
   stopMonitoring(): void {
@@ -43,47 +53,75 @@ export class SpatViewModel {
     }
   }
 
-  private async checkSpatStatus(): Promise<void> {
-    try {
-      const zone = SpatZoneService.findZoneForPosition(this.userPosition);
+  private checkZoneAndUpdateState(): void {
+    const newZone = SpatZoneService.findZoneForPosition(this.userPosition);
+    
+    if (newZone?.id !== this.currentZone?.id) {
+      this.currentZone = newZone;
       
-      if (!zone) {
-        runInAction(() => {
-          this.currentIntersection = null;
-          this.currentLaneId = null;
-          this.currentSignalGroup = null;
-          this.currentZoneName = '';
-          this.signalState = SignalState.UNKNOWN;
-        });
-        return;
+      if (newZone) {
+        this.enterZone(newZone);
+      } else {
+        this.exitZone();
       }
+    }
+  }
 
-      const spatData = await SpatApiService.fetchSpatData(zone.intersection);
+  private enterZone(zone: SpatZone): void {
+    runInAction(() => {
+      this.currentIntersection = zone.intersection;
+      this.currentLaneId = zone.laneIds[0];
+      this.currentSignalGroup = zone.signalGroup;
+      this.currentZoneName = zone.name;
+      this.error = null;
+    });
+    
+    this.fetchSpatDataImmediate(zone.intersection, zone.signalGroup);
+  }
+
+  private exitZone(): void {
+    runInAction(() => {
+      this.currentIntersection = null;
+      this.currentLaneId = null;
+      this.currentSignalGroup = null;
+      this.currentZoneName = '';
+      this.signalState = SignalState.UNKNOWN;
+      this.error = null;
+    });
+  }
+
+  private async updateSpatData(): Promise<void> {
+    if (!this.currentZone || !this.currentIntersection || !this.currentSignalGroup) {
+      return;
+    }
+
+    await this.fetchSpatDataImmediate(this.currentIntersection, this.currentSignalGroup);
+  }
+
+  private async fetchSpatDataImmediate(
+    intersection: 'georgia' | 'houston',
+    signalGroup: number
+  ): Promise<void> {
+    try {
+      const spatData = await SpatApiService.fetchSpatData(intersection);
       
       if (!spatData) {
         runInAction(() => {
-          this.error = 'Failed to fetch SPaT data';
+          this.error = 'No SPaT data';
         });
         return;
       }
 
-      const signalState = SpatApiService.getSignalStateForGroup(
-        spatData, 
-        zone.signalGroup
-      );
+      const signalState = SpatApiService.getSignalStateForGroup(spatData, signalGroup);
 
       runInAction(() => {
-        this.currentIntersection = zone.intersection;
-        this.currentLaneId = zone.laneIds[0];
-        this.currentSignalGroup = zone.signalGroup;
-        this.currentZoneName = zone.name;
         this.signalState = signalState;
         this.error = null;
       });
 
     } catch (error) {
       runInAction(() => {
-        this.error = error instanceof Error ? error.message : 'Unknown error';
+        this.error = 'SPaT fetch failed';
       });
     }
   }
@@ -120,5 +158,6 @@ export class SpatViewModel {
 
   cleanup(): void {
     this.stopMonitoring();
+    this.currentZone = null;
   }
 }

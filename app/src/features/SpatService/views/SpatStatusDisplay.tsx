@@ -10,13 +10,14 @@ interface SpatStatusDisplayProps {
   spatViewModel?: SpatViewModel;
 }
 
-export const SpatStatusDisplay: React.FC<SpatStatusDisplayProps> = observer(({ userPosition, spatViewModel }) => {
+export const SpatStatusDisplay: React.FC<SpatStatusDisplayProps> = observer(({ 
+  userPosition, 
+  spatViewModel 
+}) => {
   const viewModelRef = useRef<SpatViewModel>(new SpatViewModel());
   const viewModel = spatViewModel || viewModelRef.current;
 
   useEffect(() => {
-    viewModel.setUserPosition(userPosition);
-
     if (!spatViewModel) {
       viewModel.startMonitoring();
     }

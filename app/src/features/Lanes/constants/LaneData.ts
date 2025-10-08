@@ -218,8 +218,9 @@ export const GEORGIA_INTERSECTION_LANES: Lane[] = [
   "geometry": {
     "type": "LineString",
     "coordinates": [
-      [-85.3084702, 35.0457724],
-      [-85.3086320, 35.0457746]
+      [-85.30864549661894, 35.045820475631444],
+      [-85.30853372833835, 35.04581701202075],
+      [-85.30838998525093, 35.04579572782647]
     ]
   },
   "connectsTo": [
@@ -244,14 +245,15 @@ export const GEORGIA_INTERSECTION_LANES: Lane[] = [
   "geometry": {
     "type": "LineString",
     "coordinates": [
-      [-85.3084628, 35.0457990],
-      [-85.3086292, 35.0458000]
+      [-85.3087094293545, 35.04584382789007],
+      [-85.30858949265765, 35.0458465062315],
+      [-85.30837966501937, 35.04581473412672]
     ]
   },
   "connectsTo": [
     {
       "connectingLane": { "lane": 6 },
-      "signalGroup": 13
+      "signalGroup": 2
     }
   ]
 },
@@ -789,9 +791,3 @@ export function getLaneConfigForIntersection(intersection: 'georgia' | 'houston'
       return ALL_INTERSECTIONS_LANE_CONFIG;
   }
 }
-
-
-// lane 10: 
-// -85.30838998525093, 35.04579572782647
-// -85.30853372833835, 35.04581701202075,
-// -85.30864549661894, 35.045820475631444
