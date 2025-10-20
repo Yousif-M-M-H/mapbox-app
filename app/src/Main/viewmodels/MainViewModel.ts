@@ -10,7 +10,7 @@ import { TESTING_CONFIG } from '../../testingFeatures/TestingConfig';
 import { VehicleDisplayViewModel } from '../../features/SDSM/viewmodels/VehicleDisplayViewModel';
 import { LanesViewModel } from '../../features/Lanes';
 import { SpatViewModel } from '../../features/SpatService/viewModels/SpatViewModel';
-import { startTracking } from '../../features/SDSM/SDSMObjectTracker'; // 🚀 ADD THIS IMPORT
+import { startSDSMTracking } from '../../features/SDSM/SDSMObjectTracker'; // 🚀 ADD THIS IMPORT
 
 export class MainViewModel {
   mapViewModel: MapViewModel;
@@ -59,7 +59,7 @@ export class MainViewModel {
     // Only start tracking if SDSM API is enabled
     if (TESTING_CONFIG.ENABLE_SDSM_API) {
       console.log('🎬 MainViewModel: Starting SDSM Object Tracker (60 second session)');
-      startTracking();
+      startSDSMTracking();
     } else {
       console.log('⚠️ MainViewModel: SDSM tracking skipped (API disabled in config)');
     }

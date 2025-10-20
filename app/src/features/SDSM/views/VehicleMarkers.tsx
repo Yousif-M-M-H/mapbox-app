@@ -1,9 +1,10 @@
 // app/src/features/SDSM/views/VehicleMarkers.tsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import { observer } from 'mobx-react-lite';
 import { VehicleDisplayViewModel } from '../viewmodels/VehicleDisplayViewModel';
+import { recordOverlayEvent } from '../SDSMObjectTracker';
 
 interface VehicleMarkersProps {
   viewModel: VehicleDisplayViewModel;
@@ -27,19 +28,37 @@ export const VehicleMarkers: React.FC<VehicleMarkersProps> = observer(({ viewMod
         if (!mapboxCoords || mapboxCoords[0] === 0 || mapboxCoords[1] === 0) return null;
 
         return (
-          <MapboxGL.PointAnnotation
+          <VehicleMarkerItem
             key={`sdsm-vehicle-${vehicle.id}`}
-            id={`sdsm-vehicle-${vehicle.id}`}
-            coordinate={mapboxCoords}
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
-            <VehicleIcon />
-          </MapboxGL.PointAnnotation>
+            vehicleId={vehicle.id}
+            coordinates={mapboxCoords}
+          />
         );
       })}
     </>
   );
 });
+
+// Separate component to track individual vehicle overlay events
+const VehicleMarkerItem: React.FC<{
+  vehicleId: number;
+  coordinates: [number, number];
+}> = ({ vehicleId, coordinates }) => {
+  // Record overlay event when this vehicle is first rendered
+  useEffect(() => {
+    recordOverlayEvent(vehicleId);
+  }, [vehicleId]);
+
+  return (
+    <MapboxGL.PointAnnotation
+      id={`sdsm-vehicle-${vehicleId}`}
+      coordinate={coordinates}
+      anchor={{ x: 0.5, y: 0.5 }}
+    >
+      <VehicleIcon />
+    </MapboxGL.PointAnnotation>
+  );
+};
 
 const styles = StyleSheet.create({
   vehicleIcon: {

@@ -1,10 +1,10 @@
 // app/src/features/SDSM/SDSMObjectTracker.ts
-
 import RNFS from 'react-native-fs';
 
 /**
  * SDSM Object Tracker
- * Tracks CV2X objects from the API for 1 minute and generates a CSV log
+ * Tracks API appearance timestamp and overlay timestamp for each object
+ * Shows when objects appear in API vs when they get displayed
  */
 
 interface SDSMObject {
@@ -24,237 +24,273 @@ interface SDSMResponse {
   objects: SDSMObject[];
 }
 
-interface TrackedObject {
+interface ObjectAppearance {
   objectId: number;
-  firstSeenTimestamp: string;
-  overlayTimestamp?: string;
+  apiTimestamp: string;
+  overlayTimestamp: string | null;
 }
 
 class SDSMObjectTracker {
-  private readonly API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events/MLK_Georgia';
-  private readonly TRACKING_DURATION_MS = 60000; // 1 minute
-  private readonly POLL_INTERVAL_MS = 1000; // Poll every second
-  
-  private trackedObjects: Map<number, TrackedObject> = new Map();
+  private readonly API_URL =
+    'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events/MLK_Georgia';
+  private readonly TRACKING_DURATION_MS = 300000; // 5 minutes
+  private readonly POLL_INTERVAL_MS = 500; // Poll twice per second
+  private readonly START_DELAY_MS = 10000; // Wait 10 seconds
+
+  private appearances: ObjectAppearance[] = [];
+  private recentObjects: Map<number, number> = new Map(); // objectId -> index in appearances array
   private isTracking = false;
+  private hasRun = false;
   private pollIntervalId: NodeJS.Timeout | null = null;
-  
-  /**
-   * Start the 1-minute tracking session
-   */
-  public startTracking(): void {
+  private endTimeoutId: NodeJS.Timeout | null = null;
+  private startTimeoutId: NodeJS.Timeout | null = null;
+
+  /** Initialize tracking */
+  public initializeTracking(): void {
+    if (this.hasRun) {
+      console.log('[SDSMTracker] Tracking already completed, skipping...');
+      return;
+    }
     if (this.isTracking) {
-      console.log('[SDSMTracker] Already tracking');
+      console.log('[SDSMTracker] Tracking already in progress');
       return;
     }
+
+    console.log('[SDSMTracker] Tracking will start in 10 seconds...');
+    console.log('[SDSMTracker] Current time:', this.formatTime(Date.now()));
     
-    console.log('[SDSMTracker] Starting 60-second tracking session');
+    this.startTimeoutId = setTimeout(() => {
+      this.startTracking();
+    }, this.START_DELAY_MS);
+  }
+
+  /** Start tracking */
+  private startTracking(): void {
+    if (this.hasRun || this.isTracking) return;
+
+    console.log('[SDSMTracker] ========================================');
+    console.log('[SDSMTracker] Starting 5-minute tracking session');
+    console.log('[SDSMTracker] Start time:', this.formatTime(Date.now()));
+    console.log('[SDSMTracker] ========================================');
+    
     this.isTracking = true;
-    this.trackedObjects.clear();
-    
-    // Start polling the API every second
-    this.pollIntervalId = setInterval(() => {
-      this.pollAPI();
-    }, this.POLL_INTERVAL_MS);
-    
-    // End tracking after 1 minute
-    setTimeout(() => {
-      this.endTracking();
-    }, this.TRACKING_DURATION_MS);
+    this.appearances = [];
+    this.recentObjects.clear();
+
+    this.pollIntervalId = setInterval(() => this.pollAPI(), this.POLL_INTERVAL_MS);
+    this.endTimeoutId = setTimeout(() => this.endTracking(), this.TRACKING_DURATION_MS);
   }
-  
-  /**
-   * Record when an object is overlaid in the UI
-   * Call this from your UI layer when displaying an object
-   */
+
+  /** Record overlay event from UI */
   public recordOverlayEvent(objectId: number): void {
-    const tracked = this.trackedObjects.get(objectId);
+    if (!this.isTracking) return;
+
+    const overlayTime = this.formatTime(Date.now());
     
-    if (!tracked) {
-      console.log(`[SDSMTracker] ⚠️ Overlay event for unknown object ${objectId}`);
-      return;
-    }
+    // Find the most recent API appearance of this object that doesn't have an overlay yet
+    const recentIndex = this.recentObjects.get(objectId);
     
-    // Only record first overlay
-    if (!tracked.overlayTimestamp) {
-      tracked.overlayTimestamp = this.formatTimestamp(new Date());
-      console.log(`[SDSMTracker] 🎨 Overlay recorded for object ${objectId}`);
+    if (recentIndex !== undefined && recentIndex < this.appearances.length) {
+      const appearance = this.appearances[recentIndex];
+      
+      if (!appearance.overlayTimestamp) {
+        appearance.overlayTimestamp = overlayTime;
+        console.log(`[SDSMTracker] 🎨 OVERLAY - Object ${objectId} at ${overlayTime}`);
+      }
+    } else {
+      // Object overlaid but we haven't seen it in API yet (rare)
+      // Create a placeholder entry
+      const index = this.appearances.length;
+      this.appearances.push({
+        objectId,
+        apiTimestamp: '',
+        overlayTimestamp: overlayTime
+      });
+      this.recentObjects.set(objectId, index);
+      console.log(`[SDSMTracker] 🎨 OVERLAY (before API) - Object ${objectId} at ${overlayTime}`);
     }
   }
-  
-  /**
-   * Poll the API and track new objects
-   */
+
+  /** Poll the API */
   private async pollAPI(): Promise<void> {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2000);
-      
+
       const response = await fetch(this.API_URL, {
         method: 'GET',
         signal: controller.signal,
         headers: {
-          'Accept': 'application/json',
+          Accept: 'application/json',
           'Cache-Control': 'no-cache'
         }
       });
-      
+
       clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
-        console.log(`[SDSMTracker]  API error: ${response.status}`);
         return;
       }
-      
+
       const data: SDSMResponse = await response.json();
-      this.processAPIResponse(data);
+      
+      const receivedTime = this.formatTime(Date.now());
+      this.processAPIResponse(data, receivedTime);
       
     } catch (error) {
       if (error instanceof Error && error.name !== 'AbortError') {
-        console.log('[SDSMTracker]  Poll error:', error.message);
+        console.log('[SDSMTracker] Poll error:', error.message);
       }
     }
   }
-  
-  /**
-   * Process API response and track new objects
-   */
-  private processAPIResponse(data: SDSMResponse): void {
-    if (!data?.objects || !Array.isArray(data.objects)) {
-      return;
-    }
-    
-    const currentTimestamp = this.formatTimestamp(new Date());
-    
+
+  /** Process API response */
+  private processAPIResponse(data: SDSMResponse, receivedTime: string): void {
+    if (!data?.objects || !Array.isArray(data.objects)) return;
+
     for (const obj of data.objects) {
-      const objectId = obj.objectID;
+      // Create new appearance entry for this API poll
+      const index = this.appearances.length;
       
-      // Skip already tracked objects
-      if (this.trackedObjects.has(objectId)) {
-        continue;
-      }
-      
-      // Track new object
-      this.trackedObjects.set(objectId, {
-        objectId,
-        firstSeenTimestamp: currentTimestamp,
+      this.appearances.push({
+        objectId: obj.objectID,
+        apiTimestamp: receivedTime,
+        overlayTimestamp: null
       });
       
-      console.log(`[SDSMTracker]  New object: ${objectId} at ${currentTimestamp}`);
+      // Update the most recent index for this object
+      this.recentObjects.set(obj.objectID, index);
+      
+      console.log(`[SDSMTracker] 📡 API - Object ${obj.objectID} at ${receivedTime}`);
     }
   }
-  
-  /**
-   * End tracking and generate CSV
-   */
+
+  /** Stop tracking */
   private async endTracking(): Promise<void> {
-    console.log('[SDSMTracker]  Session ended, generating CSV...');
+    const endTime = this.formatTime(Date.now());
     
-    // Stop polling
-    if (this.pollIntervalId) {
-      clearInterval(this.pollIntervalId);
-      this.pollIntervalId = null;
-    }
-    
+    console.log('[SDSMTracker] ========================================');
+    console.log('[SDSMTracker] Session ended at:', endTime);
+    console.log('[SDSMTracker] Generating CSV...');
+    console.log('[SDSMTracker] ========================================');
+
+    if (this.pollIntervalId) clearInterval(this.pollIntervalId);
+    if (this.endTimeoutId) clearTimeout(this.endTimeoutId);
+
+    this.pollIntervalId = this.endTimeoutId = null;
     this.isTracking = false;
-    
-    // Generate and save CSV
+    this.hasRun = true;
+
     await this.generateCSV();
   }
-  
-  /**
-   * Generate CSV file from tracked data
-   */
+
+  /** Generate CSV */
   private async generateCSV(): Promise<void> {
     try {
       const csvRows: string[] = [];
       
-      // CSV Header
-      csvRows.push('object_id,first_seen_api_timestamp,overlay_timestamp');
-      
-      // Data rows
-      for (const tracked of this.trackedObjects.values()) {
-        const overlayTime = tracked.overlayTimestamp || '';
-        csvRows.push(`${tracked.objectId},${tracked.firstSeenTimestamp},${overlayTime}`);
+      // Header
+      csvRows.push('api_timestamp,overlay_timestamp,object_id');
+
+      // Add all appearances
+      for (const appearance of this.appearances) {
+        const apiTime = appearance.apiTimestamp || '';
+        const overlayTime = appearance.overlayTimestamp || '';
+        csvRows.push(`${apiTime},${overlayTime},${appearance.objectId}`);
       }
-      
+
       const csvContent = csvRows.join('\n');
-      const filePath = `${RNFS.DocumentDirectoryPath}/sdsms_log.csv`;
+      const fileTimestamp = this.getFileTimestamp();
+      const filePath = `${RNFS.DocumentDirectoryPath}/sdsms_log_${fileTimestamp}.csv`;
       
       await RNFS.writeFile(filePath, csvContent, 'utf8');
-      
-      // Summary
-      const overlaidCount = Array.from(this.trackedObjects.values())
-        .filter(obj => obj.overlayTimestamp).length;
-      
-      console.log('[SDSMTracker] CSV saved to:', filePath);
-      console.log(`[SDSMTracker]  Stats: ${this.trackedObjects.size} objects tracked, ${overlaidCount} overlaid`);
+
+      // Statistics
+      const totalAppearances = this.appearances.length;
+      const withOverlay = this.appearances.filter(a => a.overlayTimestamp !== null).length;
+      const withoutOverlay = totalAppearances - withOverlay;
+      const uniqueObjects = new Set(this.appearances.map(a => a.objectId)).size;
+
+      console.log('[SDSMTracker] ========================================');
+      console.log('[SDSMTracker] ✅ CSV FILE SAVED SUCCESSFULLY');
+      console.log('[SDSMTracker] ========================================');
+      console.log('[SDSMTracker] File:', filePath);
+      console.log(`[SDSMTracker] Total API appearances: ${totalAppearances}`);
+      console.log(`[SDSMTracker] - With overlay: ${withOverlay}`);
+      console.log(`[SDSMTracker] - Without overlay: ${withoutOverlay}`);
+      console.log(`[SDSMTracker] Unique objects: ${uniqueObjects}`);
+      console.log('[SDSMTracker] ========================================');
+
+      this.logFileInstructions(filePath);
       
     } catch (error) {
-      console.error('[SDSMTracker]  CSV generation failed:', error);
+      console.error('[SDSMTracker] ❌ CSV generation failed:', error);
     }
   }
-  
-  /**
-   * Format timestamp as YYYY-MM-DD HH:mm:ss
-   */
-  private formatTimestamp(date: Date): string {
+
+  /** File instructions */
+  private logFileInstructions(filePath: string): void {
+    console.log('\n[SDSMTracker] 📁 HOW TO GET YOUR CSV:');
+    console.log('[SDSMTracker] ========================================');
+    console.log('[SDSMTracker] Path:', filePath);
+    console.log('[SDSMTracker]');
+    console.log('[SDSMTracker] ANDROID:');
+    console.log('[SDSMTracker]   adb pull', filePath);
+    console.log('[SDSMTracker] ========================================\n');
+  }
+
+  /** Format timestamp */
+  private formatTime(timestampMs: number): string {
+    const date = new Date(timestampMs);
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     const seconds = String(date.getSeconds()).padStart(2, '0');
+    const ms = String(date.getMilliseconds()).padStart(3, '0');
     
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
   }
-  
-  /**
-   * Get tracking status
-   */
+
+  /** Get file timestamp */
+  private getFileTimestamp(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return `${year}${month}${day}_${hours}${minutes}${seconds}`;
+  }
+
+  /** Status helpers */
   public isCurrentlyTracking(): boolean {
     return this.isTracking;
   }
-  
-  /**
-   * Get tracked object count
-   */
-  public getTrackedCount(): number {
-    return this.trackedObjects.size;
+
+  public hasAlreadyRun(): boolean {
+    return this.hasRun;
+  }
+
+  public getAppearanceCount(): number {
+    return this.appearances.length;
+  }
+
+  public cleanup(): void {
+    if (this.startTimeoutId) clearTimeout(this.startTimeoutId);
+    if (this.pollIntervalId) clearInterval(this.pollIntervalId);
+    if (this.endTimeoutId) clearTimeout(this.endTimeoutId);
+    this.startTimeoutId = this.pollIntervalId = this.endTimeoutId = null;
   }
 }
 
-// Singleton instance
+// Singleton
 const tracker = new SDSMObjectTracker();
 
-/**
- * Start the SDSM tracking session (runs for 1 minute)
- * Call this once when you want to begin tracking
- */
-export const startTracking = (): void => {
-  tracker.startTracking();
-};
-
-/**
- * Record when an object is overlaid/displayed in the UI
- * Call this whenever an SDSM object appears on the map
- * 
- * @param objectId - The objectID from the SDSM API response
- */
-export const recordOverlayEvent = (objectId: number): void => {
-  tracker.recordOverlayEvent(objectId);
-};
-
-/**
- * Check if tracking is currently active
- */
-export const isTracking = (): boolean => {
-  return tracker.isCurrentlyTracking();
-};
-
-/**
- * Get the current count of tracked objects
- */
-export const getTrackedObjectCount = (): number => {
-  return tracker.getTrackedCount();
-};
+export const startSDSMTracking = (): void => tracker.initializeTracking();
+export const recordOverlayEvent = (objectId: number): void => tracker.recordOverlayEvent(objectId);
+export const isTracking = (): boolean => tracker.isCurrentlyTracking();
+export const hasTrackingCompleted = (): boolean => tracker.hasAlreadyRun();
+export const getAppearanceCount = (): number => tracker.getAppearanceCount();

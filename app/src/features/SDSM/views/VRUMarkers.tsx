@@ -1,9 +1,10 @@
 // app/src/features/SDSM/views/VRUMarkers.tsx
-import React, { memo } from 'react';
+import React, { memo, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import { observer } from 'mobx-react-lite';
 import { VRUData } from '../models/SDSMTypes';
+import { recordOverlayEvent } from '../SDSMObjectTracker';
 
 interface VRUMarkersProps {
   vrus: VRUData[];
@@ -21,6 +22,11 @@ const VRUMarker = memo<{
   vru: VRUData;
   mapboxCoords: [number, number];
 }>(({ vru, mapboxCoords }) => {
+  // Record overlay event when this VRU is first rendered
+  useEffect(() => {
+    recordOverlayEvent(vru.id);
+  }, [vru.id]);
+
   return (
     <MapboxGL.PointAnnotation
       key={`sdsm-vru-${vru.id}`}
