@@ -4,6 +4,7 @@ import { makeAutoObservable, runInAction } from 'mobx';
 import { SignalState } from '../models/SpatModels';
 import { SpatApiService } from '../services/SpatApiService';
 import { SpatZoneService, SpatZone } from '../services/SpatZoneService';
+import { onUserEnteredSPATZone } from '../SPATObjectTracker';
 
 export class SpatViewModel {
   signalState: SignalState = SignalState.UNKNOWN;
@@ -75,6 +76,9 @@ export class SpatViewModel {
       this.currentZoneName = zone.name;
       this.error = null;
     });
+    
+    // START SPAT TRACKING when user enters zone
+    onUserEnteredSPATZone();
     
     this.fetchSpatDataImmediate(zone.intersection, zone.signalGroup);
   }

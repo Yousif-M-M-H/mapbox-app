@@ -1,11 +1,12 @@
 // app/src/features/DirectionGuide/views/components/TurnGuideDisplay.tsx
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { TurnIcon, TurnSignalState } from './TurnIcon';
 import { SpatViewModel } from '../../../SpatService/viewModels/SpatViewModel';
 import { SignalState } from '../../../SpatService/models/SpatModels';
+import { recordSPATDisplayEvent } from '../../../SpatService/SPATObjectTracker';
 
 interface TurnGuideDisplayProps {
   spatViewModel: SpatViewModel;
@@ -27,6 +28,23 @@ function mapSignalStateToTurnState(signalState: SignalState): TurnSignalState {
 export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({ 
   spatViewModel 
 }) => {
+  // Record display event - SIMPLIFIED FOR GEORGIA ONLY
+  useEffect(() => {
+    if (spatViewModel.shouldShowDisplay && 
+        spatViewModel.currentSignalGroup !== null &&
+        spatViewModel.signalState !== SignalState.UNKNOWN) {
+      
+      recordSPATDisplayEvent(
+        spatViewModel.currentSignalGroup,
+        spatViewModel.signalState
+      );
+    }
+  }, [
+    spatViewModel.shouldShowDisplay,
+    spatViewModel.currentSignalGroup,
+    spatViewModel.signalState
+  ]);
+
   if (!spatViewModel.shouldShowDisplay) {
     return null;
   }

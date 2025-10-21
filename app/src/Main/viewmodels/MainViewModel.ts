@@ -10,7 +10,7 @@ import { TESTING_CONFIG } from '../../testingFeatures/TestingConfig';
 import { VehicleDisplayViewModel } from '../../features/SDSM/viewmodels/VehicleDisplayViewModel';
 import { LanesViewModel } from '../../features/Lanes';
 import { SpatViewModel } from '../../features/SpatService/viewModels/SpatViewModel';
-import { startSDSMTracking } from '../../features/SDSM/SDSMObjectTracker'; // 🚀 ADD THIS IMPORT
+import { startSDSMTracking } from '../../features/SDSM/SDSMObjectTracker';
 
 export class MainViewModel {
   mapViewModel: MapViewModel;
@@ -45,9 +45,9 @@ export class MainViewModel {
     this.startApisOnLaunch();
     this.startPedestrianMonitoring();
     this.startSpatMonitoring();
-    
-    // 🚀 START SDSM OBJECT TRACKING (60 second session)
-    this.startSDSMTracking();
+
+    // 🚀 START SDSM OBJECT TRACKING (5 minute session)
+    startSDSMTracking();
   }
   
   /**
@@ -55,15 +55,7 @@ export class MainViewModel {
    * Automatically tracks all objects from CV2X API for 60 seconds
    * and generates a CSV log at the end
    */
-  private startSDSMTracking(): void {
-    // Only start tracking if SDSM API is enabled
-    if (TESTING_CONFIG.ENABLE_SDSM_API) {
-      console.log('🎬 MainViewModel: Starting SDSM Object Tracker (60 second session)');
-      startSDSMTracking();
-    } else {
-      console.log('⚠️ MainViewModel: SDSM tracking skipped (API disabled in config)');
-    }
-  }
+ 
   
   private startApisOnLaunch(): void {
     if (TESTING_CONFIG.ENABLE_SDSM_API) {
