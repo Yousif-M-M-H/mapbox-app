@@ -21,20 +21,37 @@ export class HeadingService {
   private static isTracking: boolean = false;
 
   /**
-   * Start tracking device heading using magnetometer
+   * Start tracking device heading - SIMPLIFIED VERSION
    */
   static async startTracking(): Promise<void> {
-    if (this.isTracking) return;
+    if (this.isTracking) {
+      console.log('HeadingService: Already tracking');
+      return;
+    }
 
     try {
+      console.log('HeadingService: Requesting permissions...');
       const { status } = await Location.requestForegroundPermissionsAsync();
+
       if (status !== 'granted') {
+        console.error('HeadingService: Permission denied');
         throw new Error('Location permission not granted');
       }
 
+      console.log('HeadingService: Starting watchHeadingAsync...');
+
+      // Simple, straightforward heading tracking
       this.headingSubscription = await Location.watchHeadingAsync((headingData) => {
+        console.log('HeadingService: Raw heading update:', headingData);
+
+        // Use trueHeading if available, otherwise magHeading
+        const rawHeading = headingData.trueHeading ?? headingData.magHeading;
+        const normalizedHeading = this.normalizeHeading(rawHeading);
+
+        console.log('HeadingService: Normalized heading:', normalizedHeading);
+
         const data: HeadingData = {
-          heading: headingData.trueHeading ?? headingData.magHeading,
+          heading: normalizedHeading,
           accuracy: headingData.accuracy,
           timestamp: Date.now()
         };
@@ -44,7 +61,9 @@ export class HeadingService {
       });
 
       this.isTracking = true;
+      console.log('HeadingService: Successfully started tracking');
     } catch (error) {
+      console.error('HeadingService: Failed to start:', error);
       throw new Error(`Failed to start heading tracking: ${error}`);
     }
   }
@@ -65,7 +84,7 @@ export class HeadingService {
    */
   static subscribe(callback: HeadingCallback): () => void {
     this.callbacks.add(callback);
-    
+
     // Immediately provide current heading if available
     if (this.currentHeading.heading !== 0) {
       callback(this.currentHeading);

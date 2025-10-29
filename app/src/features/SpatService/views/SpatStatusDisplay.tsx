@@ -42,21 +42,7 @@ export const SpatStatusDisplay: React.FC<SpatStatusDisplayProps> = observer(({
   }
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.signalIndicator, { backgroundColor: viewModel.signalColor }]} />
-
-      <Text style={[styles.signalText, { color: viewModel.signalColor }]}>
-        {viewModel.signalStatusText}
-      </Text>
-
-      <Text style={styles.laneText}>
-        {viewModel.laneDisplayText}
-      </Text>
-
-      {viewModel.isLoading && (
-        <Text style={styles.loadingText}>...</Text>
-      )}
-    </View>
+  <></>
   );
 });
 
@@ -108,3 +94,5 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
 });
+
+

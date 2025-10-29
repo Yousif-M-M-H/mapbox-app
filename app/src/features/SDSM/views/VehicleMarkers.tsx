@@ -4,7 +4,6 @@ import { View, StyleSheet } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import { observer } from 'mobx-react-lite';
 import { VehicleDisplayViewModel } from '../viewmodels/VehicleDisplayViewModel';
-import { recordOverlayEvent } from '../SDSMObjectTracker';
 
 interface VehicleMarkersProps {
   viewModel: VehicleDisplayViewModel;
@@ -46,7 +45,6 @@ const VehicleMarkerItem: React.FC<{
 }> = ({ vehicleId, coordinates }) => {
   // Record overlay event when this vehicle is first rendered
   useEffect(() => {
-    recordOverlayEvent(vehicleId);
   }, [vehicleId]);
 
   return (

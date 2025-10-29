@@ -11,7 +11,7 @@ export const TESTING_CONFIG = {
   ENABLE_SDSM_API: true,
 
   // Fixed pedestrian coordinates for testing [lat, lon]
-  FIXED_PEDESTRIAN_COORDINATES: [35.04475484458253, -85.30557334560115] as [number, number],
+  FIXED_PEDESTRIAN_COORDINATES: [35.04573837534117, -85.3081989270337] as [number, number],
   
   // Detection Latency Test Configuration
   DETECTION_LATENCY_TEST: {

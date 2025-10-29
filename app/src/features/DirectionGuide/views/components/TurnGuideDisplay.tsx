@@ -6,7 +6,6 @@ import { observer } from 'mobx-react-lite';
 import { TurnIcon, TurnSignalState } from './TurnIcon';
 import { SpatViewModel } from '../../../SpatService/viewModels/SpatViewModel';
 import { SignalState } from '../../../SpatService/models/SpatModels';
-import { recordSPATDisplayEvent } from '../../../SpatService/SPATObjectTracker';
 
 interface TurnGuideDisplayProps {
   spatViewModel: SpatViewModel;
@@ -34,10 +33,7 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
         spatViewModel.currentSignalGroup !== null &&
         spatViewModel.signalState !== SignalState.UNKNOWN) {
       
-      recordSPATDisplayEvent(
-        spatViewModel.currentSignalGroup,
-        spatViewModel.signalState
-      );
+
     }
   }, [
     spatViewModel.shouldShowDisplay,

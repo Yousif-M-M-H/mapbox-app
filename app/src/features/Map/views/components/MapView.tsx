@@ -11,7 +11,6 @@ import { TestingPedestrianDetectorViewModel } from '../../../../testingFeatures/
 import { VehicleDisplayViewModel } from '../../../SDSM/viewmodels/VehicleDisplayViewModel';
 import { DirectionGuideViewModel } from '../../../DirectionGuide/viewModels/DirectionGuideViewModel';
 import { TurnGuideDisplay } from '../../../DirectionGuide/views/components/TurnGuideDisplay';
-import { SpatStatusDisplay } from '../../../SpatService/views/SpatStatusDisplay';
 import { SpatViewModel } from '../../../SpatService/viewModels/SpatViewModel';
 import { VehicleMarkers } from '../../../SDSM/views/VehicleMarkers';
 import { VRUMarkers } from '../../../SDSM/views/VRUMarkers';
@@ -24,6 +23,7 @@ import { ProximityDetectionService } from '../../../PedestrianDetector/services/
 import { TESTING_CONFIG } from '../../../../testingFeatures/TestingConfig';
 import { MainViewModel } from '../../../../Main/viewmodels/MainViewModel';
 import { MapLegend } from './MapLegend';
+import { HeadingDisplay } from './HeadingDisplay';
 
 interface MapViewProps {
   mapViewModel: MapViewModel;
@@ -319,12 +319,15 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         testingVehicleDisplayViewModel={testingVehicleDisplayViewModel}
       />
 
-      <SpatStatusDisplay 
-        userPosition={userPosition} 
+      {/* SpatStatusDisplay - Hidden in favor of TurnGuideDisplay */}
+      {/* <SpatStatusDisplay
+        userPosition={userPosition}
         spatViewModel={spatViewModel}
-      />
+      /> */}
 
       <TurnGuideDisplay spatViewModel={spatViewModel} />
+
+      <HeadingDisplay />
 
       {(() => {
         const vehiclePos: [number, number] = [userPosition[0], userPosition[1]];

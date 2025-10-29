@@ -10,7 +10,6 @@ import { TESTING_CONFIG } from '../../testingFeatures/TestingConfig';
 import { VehicleDisplayViewModel } from '../../features/SDSM/viewmodels/VehicleDisplayViewModel';
 import { LanesViewModel } from '../../features/Lanes';
 import { SpatViewModel } from '../../features/SpatService/viewModels/SpatViewModel';
-import { startSDSMTracking } from '../../features/SDSM/SDSMObjectTracker';
 
 export class MainViewModel {
   mapViewModel: MapViewModel;
@@ -46,8 +45,7 @@ export class MainViewModel {
     this.startPedestrianMonitoring();
     this.startSpatMonitoring();
 
-    // 🚀 START SDSM OBJECT TRACKING (5 minute session)
-    startSDSMTracking();
+
   }
   
   /**
