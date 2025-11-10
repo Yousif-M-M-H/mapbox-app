@@ -27,13 +27,13 @@ export class SpatViewModel {
   private readonly FAST_UPDATE_INTERVAL = 250;
   private readonly ZONE_CHECK_THROTTLE = 100;
 
-  // Lane 4 & 5: 250° to 380° (wraps around 360°/0° = 250° to 360° OR 0° to 20°)
-  private readonly LANE_4_5_HEADING_MIN = 250;
-  private readonly LANE_4_5_HEADING_MAX = 380; // Will be normalized to handle wraparound
+  // Lane 4 & 5: 200° to 250°
+  private readonly LANE_4_5_HEADING_MIN = 200;
+  private readonly LANE_4_5_HEADING_MAX = 250;
 
-  // Lane 10 & 11: 100° to 110°
+  // Lane 10 & 11: 100° to 190°
   private readonly LANE_10_11_HEADING_MIN = 100;
-  private readonly LANE_10_11_HEADING_MAX = 110;
+  private readonly LANE_10_11_HEADING_MAX = 190;
 
   // Hysteresis buffer to prevent flickering (degrees)
   private readonly HEADING_HYSTERESIS_BUFFER = 5;
@@ -128,6 +128,7 @@ export class SpatViewModel {
       const unsubscribe = HeadingService.subscribe((headingData) => {
         runInAction(() => {
           this.userHeading = headingData.heading;
+          this.updateHeadingRangeState();
         });
       });
 
@@ -226,29 +227,28 @@ export class SpatViewModel {
                          this.signalState !== SignalState.UNKNOWN;
 
     if (!hasValidData) {
-      this.isCurrentlyInValidHeadingRange = false;
       return false;
     }
 
     // Apply heading check for Lane 4 and Lane 5
     const isLane4or5 = this.currentLaneId === 4 || this.currentLaneId === 5;
     if (isLane4or5) {
-      const isValid = this.isHeadingValidForLanes4_5();
-      this.isCurrentlyInValidHeadingRange = isValid;
-      return isValid;
+      return this.isHeadingValidForLanes4_5();
     }
 
     // Apply heading check for Lane 10 and Lane 11
     const isLane10or11 = this.currentLaneId === 10 || this.currentLaneId === 11;
     if (isLane10or11) {
-      const isValid = this.isHeadingValidForLanes10_11();
-      this.isCurrentlyInValidHeadingRange = isValid;
-      return isValid;
+      return this.isHeadingValidForLanes10_11();
     }
 
     // For other lanes, no heading restriction
-    this.isCurrentlyInValidHeadingRange = true;
     return true;
+  }
+
+  private updateHeadingRangeState(): void {
+    // Update the hysteresis state based on current display status
+    this.isCurrentlyInValidHeadingRange = this.shouldShowDisplay;
   }
 
   get signalStatusText(): string {

@@ -17,10 +17,10 @@ export const HeadingDisplay: React.FC<HeadingDisplayProps> = ({ showDebug = true
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Check if heading is in Lane 4/5 range (250-380° = 250-360° OR 0-20°)
-  const isInLane45Range = (heading >= 250 && heading <= 360) || (heading >= 0 && heading <= 20);
-  // Check if heading is in Lane 10/11 range (100-110°)
-  const isInLane1011Range = heading >= 100 && heading <= 110;
+  // Check if heading is in Lane 4/5 range (200-250°)
+  const isInLane45Range = heading >= 200 && heading <= 250;
+  // Check if heading is in Lane 10/11 range (100-190°)
+  const isInLane1011Range = heading >= 100 && heading <= 190;
 
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;

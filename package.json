@@ -56,7 +56,8 @@
     "react-native-vector-icons": "^10.3.0",
     "react-native-web": "~0.19.13",
     "react-native-webview": "13.12.5",
-    "realm": "^12.14.1"
+    "realm": "^12.14.1",
+    "expo-sensors": "~14.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
