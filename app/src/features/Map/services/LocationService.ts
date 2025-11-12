@@ -14,16 +14,30 @@ export class LocationService {
 
   static async getCurrentLocation(): Promise<Coordinate | null> {
     try {
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.BestForNavigation
+      // Add timeout to prevent hanging on simulator
+      const timeoutPromise = new Promise<null>((_, reject) =>
+        setTimeout(() => reject(new Error('Location timeout')), 10000)
+      );
+
+      const locationPromise = Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced, // Use Balanced instead of BestForNavigation for simulator
+        timeoutInterval: 10000,
+        maximumAge: 10000
       });
-      
+
+      const location = await Promise.race([locationPromise, timeoutPromise]);
+
+      if (!location) {
+        return null;
+      }
+
       return {
         longitude: location.coords.longitude,
         latitude: location.coords.latitude,
         heading: location.coords.heading !== null ? location.coords.heading : undefined
       };
     } catch (error) {
+      console.log('Location error:', error);
       return null;
     }
   }

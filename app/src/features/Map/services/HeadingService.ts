@@ -1,7 +1,10 @@
-// Simple Native Compass using Location.watchHeadingAsync
-// Following Expo docs: https://docs.expo.dev/versions/latest/sdk/location/#locationwatchheadingasynccallback
+// Platform-specific heading tracking
+// iOS: Location.watchHeadingAsync (stable)
+// Android: DeviceMotion (more reliable than Location.watchHeadingAsync on Android)
 
 import * as Location from 'expo-location';
+import { DeviceMotion } from 'expo-sensors';
+import { Platform } from 'react-native';
 
 export interface HeadingData {
   heading: number;
@@ -20,6 +23,7 @@ export interface CalibrationStatus {
 
 export class HeadingService {
   private static headingSubscription: Location.LocationSubscription | null = null;
+  private static deviceMotionSubscription: { remove: () => void } | null = null;
   private static callbacks: Set<HeadingCallback> = new Set();
 
   private static currentHeading: HeadingData = {
@@ -39,26 +43,57 @@ export class HeadingService {
         throw new Error('Location permission not granted');
       }
 
-      // Start watching compass heading
-      this.headingSubscription = await Location.watchHeadingAsync((headingData) => {
-        // Use trueHeading if available (true north), otherwise magHeading (magnetic north)
-        const heading = headingData.trueHeading >= 0 ? headingData.trueHeading : headingData.magHeading;
+      if (Platform.OS === 'android') {
+        // Android: Use DeviceMotion for more stable heading
+        DeviceMotion.setUpdateInterval(16); // ~62.5 Hz for smooth updates
 
-        const data: HeadingData = {
-          heading: Math.round(heading),
-          accuracy: headingData.accuracy,
-          timestamp: Date.now(),
-          source: 'compass'
-        };
+        this.deviceMotionSubscription = DeviceMotion.addListener(({ rotation }) => {
+          const { alpha } = rotation;
 
-        this.currentHeading = data;
-        this.notifyCallbacks(data);
+          // Calculate heading from device rotation
+          let calculatedHeading = 360 - (alpha * 180 / Math.PI);
+          if (calculatedHeading < 0) {
+            calculatedHeading += 360;
+          }
+          if (calculatedHeading > 360) {
+            calculatedHeading -= 360;
+          }
 
-        console.log(`🧭 [HeadingService] Heading: ${data.heading}° (accuracy: ${data.accuracy})`);
-      });
+          const data: HeadingData = {
+            heading: parseFloat(calculatedHeading.toFixed(1)), // Round to 1 decimal for performance
+            accuracy: 0, // DeviceMotion doesn't provide accuracy
+            timestamp: Date.now(),
+            source: 'compass'
+          };
+
+          this.currentHeading = data;
+          this.notifyCallbacks(data);
+        });
+
+        console.log('✅ [HeadingService] Android DeviceMotion tracking started');
+      } else {
+        // iOS: Use Location.watchHeadingAsync (stable on iOS)
+        this.headingSubscription = await Location.watchHeadingAsync((headingData) => {
+          // Use trueHeading if available (true north), otherwise magHeading (magnetic north)
+          const heading = headingData.trueHeading >= 0 ? headingData.trueHeading : headingData.magHeading;
+
+          const data: HeadingData = {
+            heading: Math.round(heading),
+            accuracy: headingData.accuracy,
+            timestamp: Date.now(),
+            source: 'compass'
+          };
+
+          this.currentHeading = data;
+          this.notifyCallbacks(data);
+
+          console.log(`🧭 [HeadingService] Heading: ${data.heading}° (accuracy: ${data.accuracy})`);
+        });
+
+        console.log('✅ [HeadingService] iOS Compass tracking started');
+      }
 
       this.isTracking = true;
-      console.log('✅ [HeadingService] Compass tracking started');
     } catch (error) {
       console.error('❌ [HeadingService] Failed to start tracking:', error);
       throw error;
@@ -69,6 +104,10 @@ export class HeadingService {
     if (this.headingSubscription) {
       this.headingSubscription.remove();
       this.headingSubscription = null;
+    }
+    if (this.deviceMotionSubscription) {
+      this.deviceMotionSubscription.remove();
+      this.deviceMotionSubscription = null;
     }
     this.isTracking = false;
     console.log('⏹️ [HeadingService] Tracking stopped');
