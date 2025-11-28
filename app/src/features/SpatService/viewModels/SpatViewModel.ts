@@ -4,10 +4,6 @@ import { makeAutoObservable, runInAction } from 'mobx';
 import { SignalState } from '../models/SpatModels';
 import { SpatApiService } from '../services/SpatApiService';
 import { SpatZoneService, SpatZone } from '../services/SpatZoneService';
-import { HeadingService } from '../../Map/services/HeadingService';
-
-// Store unsubscribe functions outside of observable state to avoid MobX warnings
-const headingUnsubscribers = new WeakMap<SpatViewModel, () => void>();
 
 export class SpatViewModel {
   signalState: SignalState = SignalState.UNKNOWN;
@@ -19,25 +15,12 @@ export class SpatViewModel {
   error: string | null = null;
 
   private userPosition: [number, number] = [0, 0];
-  private userHeading: number = 0;
   private updateInterval: NodeJS.Timeout | null = null;
   private currentZone: SpatZone | null = null;
   private lastZoneCheckTime: number = 0;
 
   private readonly FAST_UPDATE_INTERVAL = 250;
   private readonly ZONE_CHECK_THROTTLE = 100;
-
-  // Lane 4 & 5: 250° to 300°
-  private readonly LANE_4_5_HEADING_MIN = 250;
-  private readonly LANE_4_5_HEADING_MAX = 320;
-
-  // Lane 10 & 11: 100° to 190°
-  private readonly LANE_10_11_HEADING_MIN = 100;
-  private readonly LANE_10_11_HEADING_MAX = 190;
-
-  // Hysteresis buffer to prevent flickering (degrees)
-  private readonly HEADING_HYSTERESIS_BUFFER = 5;
-  private isCurrentlyInValidHeadingRange: boolean = false;
 
   constructor() {
     makeAutoObservable(this);
@@ -53,55 +36,6 @@ export class SpatViewModel {
     }
   }
 
-  private isHeadingInRange(heading: number, min: number, max: number, withHysteresis: boolean = true): boolean {
-    // Normalize all values to 0-360 range
-    const normalizedHeading = ((heading % 360) + 360) % 360;
-
-    // Apply hysteresis buffer to prevent flickering at boundaries
-    let effectiveMin = min;
-    let effectiveMax = max;
-
-    if (withHysteresis) {
-      if (this.isCurrentlyInValidHeadingRange) {
-        // Already in valid range - expand the boundaries (easier to stay in)
-        effectiveMin = min - this.HEADING_HYSTERESIS_BUFFER;
-        effectiveMax = max + this.HEADING_HYSTERESIS_BUFFER;
-      } else {
-        // Not in valid range - shrink the boundaries (harder to enter)
-        effectiveMin = min + this.HEADING_HYSTERESIS_BUFFER;
-        effectiveMax = max - this.HEADING_HYSTERESIS_BUFFER;
-      }
-    }
-
-    const normalizedMin = ((effectiveMin % 360) + 360) % 360;
-    const normalizedMax = effectiveMax % 360;
-
-    // Check if range wraps around 360°/0° (e.g., 250° to 380° = 250° to 360° + 0° to 20°)
-    if (effectiveMax > 360) {
-      // Range wraps around: check if heading is >= min OR <= (max - 360)
-      const wrappedMax = normalizedMax;
-      return normalizedHeading >= normalizedMin || normalizedHeading <= wrappedMax;
-    } else {
-      // Normal range: simple comparison
-      return normalizedHeading >= normalizedMin && normalizedHeading <= normalizedMax;
-    }
-  }
-
-  private isHeadingValidForLanes4_5(): boolean {
-    return this.isHeadingInRange(
-      this.userHeading,
-      this.LANE_4_5_HEADING_MIN,
-      this.LANE_4_5_HEADING_MAX
-    );
-  }
-
-  private isHeadingValidForLanes10_11(): boolean {
-    return this.isHeadingInRange(
-      this.userHeading,
-      this.LANE_10_11_HEADING_MIN,
-      this.LANE_10_11_HEADING_MAX
-    );
-  }
 
   startMonitoring(): void {
     if (this.updateInterval) return;
@@ -111,32 +45,6 @@ export class SpatViewModel {
     this.updateInterval = setInterval(() => {
       this.updateSpatData();
     }, this.FAST_UPDATE_INTERVAL);
-
-    // Initialize heading tracking
-    this.initializeHeadingTracking();
-  }
-
-  private async initializeHeadingTracking(): Promise<void> {
-    // Don't re-initialize if already subscribed
-    if (headingUnsubscribers.has(this)) {
-      return;
-    }
-
-    try {
-      await HeadingService.startTracking();
-
-      const unsubscribe = HeadingService.subscribe((headingData) => {
-        runInAction(() => {
-          this.userHeading = headingData.heading;
-          this.updateHeadingRangeState();
-        });
-      });
-
-      // Store unsubscribe function outside observable state
-      headingUnsubscribers.set(this, unsubscribe);
-    } catch (error) {
-      // Heading tracking failed - will default to 0
-    }
   }
 
   stopMonitoring(): void {
@@ -222,34 +130,12 @@ export class SpatViewModel {
   }
 
   get shouldShowDisplay(): boolean {
-    const hasValidData = this.currentLaneId !== null &&
-                         this.currentSignalGroup !== null &&
-                         this.signalState !== SignalState.UNKNOWN;
-
-    if (!hasValidData) {
-      return false;
-    }
-
-    // Apply heading check for Lane 4 and Lane 5
-    const isLane4or5 = this.currentLaneId === 4 || this.currentLaneId === 5;
-    if (isLane4or5) {
-      return this.isHeadingValidForLanes4_5();
-    }
-
-    // Apply heading check for Lane 10 and Lane 11
-    const isLane10or11 = this.currentLaneId === 10 || this.currentLaneId === 11;
-    if (isLane10or11) {
-      return this.isHeadingValidForLanes10_11();
-    }
-
-    // For other lanes, no heading restriction
-    return true;
+    // Zone-only logic: Show SPAT if user is in a valid zone with valid data
+    return this.currentLaneId !== null &&
+           this.currentSignalGroup !== null &&
+           this.signalState !== SignalState.UNKNOWN;
   }
 
-  private updateHeadingRangeState(): void {
-    // Update the hysteresis state based on current display status
-    this.isCurrentlyInValidHeadingRange = this.shouldShowDisplay;
-  }
 
   get signalStatusText(): string {
     switch (this.signalState) {
@@ -278,12 +164,5 @@ export class SpatViewModel {
   cleanup(): void {
     this.stopMonitoring();
     this.currentZone = null;
-
-    // Unsubscribe from heading updates
-    const unsubscribe = headingUnsubscribers.get(this);
-    if (unsubscribe) {
-      unsubscribe();
-      headingUnsubscribers.delete(this);
-    }
   }
 }

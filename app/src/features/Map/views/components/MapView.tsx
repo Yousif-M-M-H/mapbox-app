@@ -23,7 +23,6 @@ import { ProximityDetectionService } from '../../../PedestrianDetector/services/
 import { TESTING_CONFIG } from '../../../../testingFeatures/TestingConfig';
 import { MainViewModel } from '../../../../Main/viewmodels/MainViewModel';
 import { MapLegend } from './MapLegend';
-import { HeadingDisplay } from './HeadingDisplay';
 
 interface MapViewProps {
   mapViewModel: MapViewModel;
@@ -326,8 +325,6 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       /> */}
 
       <TurnGuideDisplay spatViewModel={spatViewModel} />
-
-      <HeadingDisplay />
 
       {(() => {
         const vehiclePos: [number, number] = [userPosition[0], userPosition[1]];
