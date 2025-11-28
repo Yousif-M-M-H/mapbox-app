@@ -48,10 +48,9 @@ export class SpatViewModel {
   }
 
   private checkLineCrossing(prevPos: [number, number], currPos: [number, number]): void {
-    // Check Lane 4&5
+    // Only check line crossing for lanes with entry/exit logic
+    // Check both zones since user might be transitioning between them
     this.checkLane4_5Crossing(prevPos, currPos);
-
-    // Check Lane 10&11
     this.checkLane10_11Crossing(prevPos, currPos);
   }
 
