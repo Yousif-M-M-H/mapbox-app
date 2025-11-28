@@ -59,9 +59,6 @@ export class SpatViewModel {
     const lane4_5Zone = SpatZoneService.findZoneById('georgia_lanes_4_5');
     if (!lane4_5Zone) return;
 
-    const prevInside = SpatZoneService.isPointInZone(prevPos, lane4_5Zone);
-    const currInside = SpatZoneService.isPointInZone(currPos, lane4_5Zone);
-
     // Check if segment crosses entry line (entering zone)
     if (SpatZoneService.crossesEntryLine(prevPos, currPos, lane4_5Zone)) {
       this.shouldDisplayLane4_5 = true;
@@ -76,19 +73,13 @@ export class SpatViewModel {
       return;
     }
 
-    // Both dots inside zone - continue displaying
-    if (prevInside && currInside) {
-      this.shouldDisplayLane4_5 = true;
-      return;
-    }
+    // Both dots inside OR both dots outside - Do NOTHING (keep current state)
+    // State only changes when crossing entry/exit lines
   }
 
   private checkLane10_11Crossing(prevPos: [number, number], currPos: [number, number]): void {
     const lane10_11Zone = SpatZoneService.findZoneById('georgia_lanes_10_11');
     if (!lane10_11Zone) return;
-
-    const prevInside = SpatZoneService.isPointInZone(prevPos, lane10_11Zone);
-    const currInside = SpatZoneService.isPointInZone(currPos, lane10_11Zone);
 
     // Check if segment crosses entry line (entering zone)
     if (SpatZoneService.crossesEntryLine(prevPos, currPos, lane10_11Zone)) {
@@ -104,11 +95,8 @@ export class SpatViewModel {
       return;
     }
 
-    // Both dots inside zone - continue displaying
-    if (prevInside && currInside) {
-      this.shouldDisplayLane10_11 = true;
-      return;
-    }
+    // Both dots inside OR both dots outside - Do NOTHING (keep current state)
+    // State only changes when crossing entry/exit lines
   }
 
 
@@ -152,18 +140,8 @@ export class SpatViewModel {
       this.error = null;
     });
 
-    // If entering zones, display SPAT immediately
-    if (zone.id === 'georgia_lanes_4_5') {
-      this.shouldDisplayLane4_5 = true;
-      console.log('🟢 [SPAT] Entered Lane 4&5 zone - Display ON (initial)');
-    }
-
-    if (zone.id === 'georgia_lanes_10_11') {
-      this.shouldDisplayLane10_11 = true;
-      console.log('🟢 [SPAT] Entered Lane 10&11 zone - Display ON (initial)');
-    }
-
     // START SPAT TRACKING when user enters zone
+    // Note: SPAT will only DISPLAY after crossing entry line
     this.fetchSpatDataImmediate(zone.intersection, zone.signalGroup);
   }
 
