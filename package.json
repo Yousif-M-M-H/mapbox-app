@@ -34,7 +34,9 @@
     "expo-linear-gradient": "~14.0.2",
     "expo-linking": "~7.0.5",
     "expo-location": "~18.0.10",
+    "expo-orientation-sensor": "^2.1.0",
     "expo-router": "~4.0.21",
+    "expo-sensors": "~14.0.2",
     "expo-splash-screen": "~0.29.24",
     "expo-sqlite": "~15.1.4",
     "expo-status-bar": "~2.0.1",
@@ -56,8 +58,7 @@
     "react-native-vector-icons": "^10.3.0",
     "react-native-web": "~0.19.13",
     "react-native-webview": "13.12.5",
-    "realm": "^12.14.1",
-    "expo-sensors": "~14.0.2"
+    "realm": "^12.14.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
