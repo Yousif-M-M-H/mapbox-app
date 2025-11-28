@@ -1,10 +1,8 @@
-// Platform-specific heading tracking
-// iOS: Location.watchHeadingAsync (stable)
-// Android: DeviceMotion (more reliable than Location.watchHeadingAsync on Android)
+// GPS-based heading for moving users (direction of travel)
+// Uses Location.watchPositionAsync() to get coords.heading
+// This is the direction the user is moving (GPS bearing), not device orientation
 
 import * as Location from 'expo-location';
-import { DeviceMotion } from 'expo-sensors';
-import { Platform } from 'react-native';
 
 export interface HeadingData {
   heading: number;
@@ -22,8 +20,7 @@ export interface CalibrationStatus {
 }
 
 export class HeadingService {
-  private static headingSubscription: Location.LocationSubscription | null = null;
-  private static deviceMotionSubscription: { remove: () => void } | null = null;
+  private static locationSubscription: Location.LocationSubscription | null = null;
   private static callbacks: Set<HeadingCallback> = new Set();
 
   private static currentHeading: HeadingData = {
@@ -33,6 +30,7 @@ export class HeadingService {
     source: 'compass'
   };
   private static isTracking: boolean = false;
+  private static currentSpeed: number = 0;
 
   static async startTracking(): Promise<void> {
     if (this.isTracking) return;
@@ -43,57 +41,40 @@ export class HeadingService {
         throw new Error('Location permission not granted');
       }
 
-      if (Platform.OS === 'android') {
-        // Android: Use DeviceMotion for more stable heading
-        DeviceMotion.setUpdateInterval(16); // ~62.5 Hz for smooth updates
+      // Use GPS position updates to get heading (direction of travel)
+      this.locationSubscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.BestForNavigation,
+          timeInterval: 500, // Update every 0.5 seconds (faster updates)
+          distanceInterval: 0.5, // Update every 0.5 meters (more sensitive to direction changes)
+        },
+        (location) => {
+          const { heading, speed, accuracy } = location.coords;
 
-        this.deviceMotionSubscription = DeviceMotion.addListener(({ rotation }) => {
-          const { alpha } = rotation;
+          // heading is the direction of travel (GPS bearing)
+          // Only update if heading is valid (not null and >= 0)
+          if (heading !== null && heading >= 0) {
+            this.currentSpeed = speed ?? 0;
 
-          // Calculate heading from device rotation
-          let calculatedHeading = 360 - (alpha * 180 / Math.PI);
-          if (calculatedHeading < 0) {
-            calculatedHeading += 360;
+            const headingData: HeadingData = {
+              heading: parseFloat(heading.toFixed(1)), // Round to 1 decimal
+              accuracy: accuracy ?? 0,
+              timestamp: Date.now(),
+              source: 'compass'
+            };
+
+            this.currentHeading = headingData;
+            this.notifyCallbacks(headingData);
+
+            console.log(`🧭 [HeadingService] GPS Heading: ${headingData.heading}° Speed: ${(this.currentSpeed * 3.6).toFixed(1)} km/h`);
+          } else {
+            console.log('⏸️ [HeadingService] No heading available (user might be stationary)');
           }
-          if (calculatedHeading > 360) {
-            calculatedHeading -= 360;
-          }
-
-          const data: HeadingData = {
-            heading: parseFloat(calculatedHeading.toFixed(1)), // Round to 1 decimal for performance
-            accuracy: 0, // DeviceMotion doesn't provide accuracy
-            timestamp: Date.now(),
-            source: 'compass'
-          };
-
-          this.currentHeading = data;
-          this.notifyCallbacks(data);
-        });
-
-        console.log('✅ [HeadingService] Android DeviceMotion tracking started');
-      } else {
-        // iOS: Use Location.watchHeadingAsync (stable on iOS)
-        this.headingSubscription = await Location.watchHeadingAsync((headingData) => {
-          // Use trueHeading if available (true north), otherwise magHeading (magnetic north)
-          const heading = headingData.trueHeading >= 0 ? headingData.trueHeading : headingData.magHeading;
-
-          const data: HeadingData = {
-            heading: Math.round(heading),
-            accuracy: headingData.accuracy,
-            timestamp: Date.now(),
-            source: 'compass'
-          };
-
-          this.currentHeading = data;
-          this.notifyCallbacks(data);
-
-          console.log(`🧭 [HeadingService] Heading: ${data.heading}° (accuracy: ${data.accuracy})`);
-        });
-
-        console.log('✅ [HeadingService] iOS Compass tracking started');
-      }
+        }
+      );
 
       this.isTracking = true;
+      console.log('✅ [HeadingService] GPS heading tracking started');
     } catch (error) {
       console.error('❌ [HeadingService] Failed to start tracking:', error);
       throw error;
@@ -101,16 +82,16 @@ export class HeadingService {
   }
 
   static stopTracking(): void {
-    if (this.headingSubscription) {
-      this.headingSubscription.remove();
-      this.headingSubscription = null;
-    }
-    if (this.deviceMotionSubscription) {
-      this.deviceMotionSubscription.remove();
-      this.deviceMotionSubscription = null;
+    if (this.locationSubscription) {
+      this.locationSubscription.remove();
+      this.locationSubscription = null;
     }
     this.isTracking = false;
     console.log('⏹️ [HeadingService] Tracking stopped');
+  }
+
+  static getCurrentSpeed(): number {
+    return this.currentSpeed;
   }
 
   static subscribe(callback: HeadingCallback): () => void {

@@ -27,9 +27,9 @@ export class SpatViewModel {
   private readonly FAST_UPDATE_INTERVAL = 250;
   private readonly ZONE_CHECK_THROTTLE = 100;
 
-  // Lane 4 & 5: 200° to 250°
-  private readonly LANE_4_5_HEADING_MIN = 200;
-  private readonly LANE_4_5_HEADING_MAX = 250;
+  // Lane 4 & 5: 250° to 300°
+  private readonly LANE_4_5_HEADING_MIN = 250;
+  private readonly LANE_4_5_HEADING_MAX = 320;
 
   // Lane 10 & 11: 100° to 190°
   private readonly LANE_10_11_HEADING_MIN = 100;

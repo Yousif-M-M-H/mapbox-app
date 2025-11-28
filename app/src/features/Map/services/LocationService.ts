@@ -20,9 +20,7 @@ export class LocationService {
       );
 
       const locationPromise = Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced, // Use Balanced instead of BestForNavigation for simulator
-        timeoutInterval: 10000,
-        maximumAge: 10000
+        accuracy: Location.Accuracy.Balanced // Use Balanced instead of BestForNavigation for simulator
       });
 
       const location = await Promise.race([locationPromise, timeoutPromise]);
