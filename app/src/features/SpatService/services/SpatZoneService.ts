@@ -144,15 +144,8 @@ export class SpatZoneService {
     currPos: [number, number],
     zone: SpatZone
   ): boolean {
-    if (!zone.entryLine || zone.entryLine.length !== 2) {
-      console.log(`[DEBUG] Entry line missing or invalid for zone ${zone.id}`);
-      return false;
-    }
-    const result = this.doSegmentsIntersect(prevPos, currPos, zone.entryLine[0], zone.entryLine[1]);
-    if (result) {
-      console.log(`✅ [DEBUG] ENTRY LINE CROSSED for ${zone.id}!`);
-    }
-    return result;
+    if (!zone.entryLine || zone.entryLine.length !== 2) return false;
+    return this.doSegmentsIntersect(prevPos, currPos, zone.entryLine[0], zone.entryLine[1]);
   }
 
   /**
@@ -163,15 +156,8 @@ export class SpatZoneService {
     currPos: [number, number],
     zone: SpatZone
   ): boolean {
-    if (!zone.exitLine || zone.exitLine.length !== 2) {
-      console.log(`[DEBUG] Exit line missing or invalid for zone ${zone.id}`);
-      return false;
-    }
-    const result = this.doSegmentsIntersect(prevPos, currPos, zone.exitLine[0], zone.exitLine[1]);
-    if (result) {
-      console.log(`❌ [DEBUG] EXIT LINE CROSSED for ${zone.id}!`);
-    }
-    return result;
+    if (!zone.exitLine || zone.exitLine.length !== 2) return false;
+    return this.doSegmentsIntersect(prevPos, currPos, zone.exitLine[0], zone.exitLine[1]);
   }
 
   private static isPointInPolygon(point: [number, number], polygon: [number, number][]): boolean {

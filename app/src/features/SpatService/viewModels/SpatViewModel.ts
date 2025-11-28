@@ -56,26 +56,17 @@ export class SpatViewModel {
 
   private checkLane4_5Crossing(prevPos: [number, number], currPos: [number, number]): void {
     const lane4_5Zone = SpatZoneService.findZoneById('georgia_lanes_4_5');
-    if (!lane4_5Zone) {
-      console.log('❌ [DEBUG] Lane 4&5 zone not found!');
-      return;
-    }
-
-    const crossedEntry = SpatZoneService.crossesEntryLine(prevPos, currPos, lane4_5Zone);
-    const crossedExit = SpatZoneService.crossesExitLine(prevPos, currPos, lane4_5Zone);
-
-    console.log(`[DEBUG L4&5] Prev: [${prevPos[0].toFixed(6)}, ${prevPos[1].toFixed(6)}] → Curr: [${currPos[0].toFixed(6)}, ${currPos[1].toFixed(6)}]`);
-    console.log(`[DEBUG L4&5] Entry: ${crossedEntry}, Exit: ${crossedExit}, CurrentState: ${this.shouldDisplayLane4_5}`);
+    if (!lane4_5Zone) return;
 
     // Check if segment crosses entry line (entering zone)
-    if (crossedEntry) {
+    if (SpatZoneService.crossesEntryLine(prevPos, currPos, lane4_5Zone)) {
       this.shouldDisplayLane4_5 = true;
       console.log('🟢 [SPAT] Crossed ENTRY line for Lane 4&5 - Display ON');
       return;
     }
 
     // Check if segment crosses exit line (exiting zone)
-    if (crossedExit) {
+    if (SpatZoneService.crossesExitLine(prevPos, currPos, lane4_5Zone)) {
       this.shouldDisplayLane4_5 = false;
       console.log('🔴 [SPAT] Crossed EXIT line for Lane 4&5 - Display OFF');
       return;
@@ -87,26 +78,17 @@ export class SpatViewModel {
 
   private checkLane10_11Crossing(prevPos: [number, number], currPos: [number, number]): void {
     const lane10_11Zone = SpatZoneService.findZoneById('georgia_lanes_10_11');
-    if (!lane10_11Zone) {
-      console.log('❌ [DEBUG] Lane 10&11 zone not found!');
-      return;
-    }
-
-    const crossedEntry = SpatZoneService.crossesEntryLine(prevPos, currPos, lane10_11Zone);
-    const crossedExit = SpatZoneService.crossesExitLine(prevPos, currPos, lane10_11Zone);
-
-    console.log(`[DEBUG L10&11] Prev: [${prevPos[0].toFixed(6)}, ${prevPos[1].toFixed(6)}] → Curr: [${currPos[0].toFixed(6)}, ${currPos[1].toFixed(6)}]`);
-    console.log(`[DEBUG L10&11] Entry: ${crossedEntry}, Exit: ${crossedExit}, CurrentState: ${this.shouldDisplayLane10_11}`);
+    if (!lane10_11Zone) return;
 
     // Check if segment crosses entry line (entering zone)
-    if (crossedEntry) {
+    if (SpatZoneService.crossesEntryLine(prevPos, currPos, lane10_11Zone)) {
       this.shouldDisplayLane10_11 = true;
       console.log('🟢 [SPAT] Crossed ENTRY line for Lane 10&11 - Display ON');
       return;
     }
 
     // Check if segment crosses exit line (exiting zone)
-    if (crossedExit) {
+    if (SpatZoneService.crossesExitLine(prevPos, currPos, lane10_11Zone)) {
       this.shouldDisplayLane10_11 = false;
       console.log('🔴 [SPAT] Crossed EXIT line for Lane 10&11 - Display OFF');
       return;
@@ -149,8 +131,6 @@ export class SpatViewModel {
   }
 
   private enterZone(zone: SpatZone): void {
-    console.log(`🔵 [DEBUG] Entered zone: ${zone.name} (${zone.id})`);
-
     runInAction(() => {
       this.currentIntersection = zone.intersection;
       this.currentLaneId = zone.laneIds[0];
