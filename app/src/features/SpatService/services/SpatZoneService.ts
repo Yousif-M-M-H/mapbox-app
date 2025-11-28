@@ -7,6 +7,8 @@ export interface SpatZone {
   laneIds: number[];
   signalGroup: number;
   intersection: 'georgia' | 'houston';
+  entryLine?: [number, number][]; // Line user crosses to enter zone
+  exitLine?: [number, number][]; // Line user crosses to exit zone
 }
 
 export const SPAT_ZONES: SpatZone[] = [
@@ -22,7 +24,15 @@ export const SPAT_ZONES: SpatZone[] = [
     ],
     laneIds: [4, 5],
     signalGroup: 2,
-    intersection: 'georgia'
+    intersection: 'georgia',
+    entryLine: [
+      [-85.3078772725392, 35.045701327254704],
+      [-85.30798530743753, 35.04564597038842]
+    ],
+    exitLine: [
+      [-85.30818819724583, 35.04581087515382],
+      [-85.30821557668192, 35.04573220847037]
+    ]
   },
   {
     id: 'georgia_lane_1',
@@ -70,7 +80,7 @@ export const SPAT_ZONES: SpatZone[] = [
 
 export class SpatZoneService {
   private static zoneCache: Map<string, boolean> = new Map();
-  
+
   static findZoneForPosition(userPosition: [number, number]): SpatZone | null {
     if (!userPosition || userPosition[0] === 0 || userPosition[1] === 0) {
       return null;
@@ -81,12 +91,65 @@ export class SpatZoneService {
         return zone;
       }
     }
-    
+
     return null;
+  }
+
+  static findZoneById(zoneId: string): SpatZone | null {
+    return SPAT_ZONES.find(zone => zone.id === zoneId) || null;
   }
 
   static isPointInZone(userPosition: [number, number], zone: SpatZone): boolean {
     return this.isPointInPolygon(userPosition, zone.polygon);
+  }
+
+  /**
+   * Check if line segment (p1 -> p2) intersects with a line (lineStart -> lineEnd)
+   * Returns true if segments intersect
+   */
+  static doSegmentsIntersect(
+    p1: [number, number],
+    p2: [number, number],
+    lineStart: [number, number],
+    lineEnd: [number, number]
+  ): boolean {
+    const [x1, y1] = p1;
+    const [x2, y2] = p2;
+    const [x3, y3] = lineStart;
+    const [x4, y4] = lineEnd;
+
+    const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+
+    if (Math.abs(denom) < 1e-10) return false; // Parallel lines
+
+    const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+    const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+
+    return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+  }
+
+  /**
+   * Check if segment crosses the entry line (entering zone)
+   */
+  static crossesEntryLine(
+    prevPos: [number, number],
+    currPos: [number, number],
+    zone: SpatZone
+  ): boolean {
+    if (!zone.entryLine || zone.entryLine.length !== 2) return false;
+    return this.doSegmentsIntersect(prevPos, currPos, zone.entryLine[0], zone.entryLine[1]);
+  }
+
+  /**
+   * Check if segment crosses the exit line (exiting zone)
+   */
+  static crossesExitLine(
+    prevPos: [number, number],
+    currPos: [number, number],
+    zone: SpatZone
+  ): boolean {
+    if (!zone.exitLine || zone.exitLine.length !== 2) return false;
+    return this.doSegmentsIntersect(prevPos, currPos, zone.exitLine[0], zone.exitLine[1]);
   }
 
   private static isPointInPolygon(point: [number, number], polygon: [number, number][]): boolean {

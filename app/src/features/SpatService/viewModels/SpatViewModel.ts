@@ -15,9 +15,13 @@ export class SpatViewModel {
   error: string | null = null;
 
   private userPosition: [number, number] = [0, 0];
+  private previousPosition: [number, number] | null = null;
   private updateInterval: NodeJS.Timeout | null = null;
   private currentZone: SpatZone | null = null;
   private lastZoneCheckTime: number = 0;
+
+  // Track if user has entered Lane 4&5 and should display SPAT
+  private shouldDisplayLane4_5: boolean = false;
 
   private readonly FAST_UPDATE_INTERVAL = 250;
   private readonly ZONE_CHECK_THROTTLE = 100;
@@ -27,12 +31,53 @@ export class SpatViewModel {
   }
 
   setUserPosition(position: [number, number]): void {
+    // Track segment: previousPosition -> currentPosition
+    if (this.previousPosition && this.previousPosition[0] !== 0 && this.previousPosition[1] !== 0) {
+      this.checkLineCrossing(this.previousPosition, position);
+    }
+
     this.userPosition = position;
+    this.previousPosition = position;
 
     const now = Date.now();
     if (now - this.lastZoneCheckTime >= this.ZONE_CHECK_THROTTLE) {
       this.lastZoneCheckTime = now;
       this.checkZoneAndUpdateState();
+    }
+  }
+
+  private checkLineCrossing(prevPos: [number, number], currPos: [number, number]): void {
+    // Find Lane 4&5 zone
+    const lane4_5Zone = SpatZoneService.findZoneById('georgia_lanes_4_5');
+    if (!lane4_5Zone) return;
+
+    const prevInside = SpatZoneService.isPointInZone(prevPos, lane4_5Zone);
+    const currInside = SpatZoneService.isPointInZone(currPos, lane4_5Zone);
+
+    // Check if segment crosses entry line (entering zone)
+    if (SpatZoneService.crossesEntryLine(prevPos, currPos, lane4_5Zone)) {
+      this.shouldDisplayLane4_5 = true;
+      console.log('🟢 [SPAT] Crossed ENTRY line for Lane 4&5 - Display ON');
+      return;
+    }
+
+    // Check if segment crosses exit line (exiting zone)
+    if (SpatZoneService.crossesExitLine(prevPos, currPos, lane4_5Zone)) {
+      this.shouldDisplayLane4_5 = false;
+      console.log('🔴 [SPAT] Crossed EXIT line for Lane 4&5 - Display OFF');
+      return;
+    }
+
+    // Both dots inside zone - continue displaying
+    if (prevInside && currInside) {
+      this.shouldDisplayLane4_5 = true;
+      console.log('🟡 [SPAT] Both dots inside Lane 4&5 - Display ON');
+      return;
+    }
+
+    // Both dots outside zone - don't display
+    if (!prevInside && !currInside) {
+      // Don't change state, keep previous value
     }
   }
 
@@ -76,9 +121,14 @@ export class SpatViewModel {
       this.currentZoneName = zone.name;
       this.error = null;
     });
-    
+
+    // If entering Lane 4&5 zone, display SPAT immediately
+    if (zone.id === 'georgia_lanes_4_5') {
+      this.shouldDisplayLane4_5 = true;
+      console.log('🟢 [SPAT] Entered Lane 4&5 zone - Display ON (initial)');
+    }
+
     // START SPAT TRACKING when user enters zone
-    
     this.fetchSpatDataImmediate(zone.intersection, zone.signalGroup);
   }
 
@@ -91,6 +141,9 @@ export class SpatViewModel {
       this.signalState = SignalState.UNKNOWN;
       this.error = null;
     });
+
+    // Reset Lane 4&5 display flag
+    this.shouldDisplayLane4_5 = false;
   }
 
   private async updateSpatData(): Promise<void> {
@@ -130,10 +183,20 @@ export class SpatViewModel {
   }
 
   get shouldShowDisplay(): boolean {
-    // Zone-only logic: Show SPAT if user is in a valid zone with valid data
-    return this.currentLaneId !== null &&
-           this.currentSignalGroup !== null &&
-           this.signalState !== SignalState.UNKNOWN;
+    const hasValidData = this.currentLaneId !== null &&
+                         this.currentSignalGroup !== null &&
+                         this.signalState !== SignalState.UNKNOWN;
+
+    if (!hasValidData) return false;
+
+    // Lane 4 & 5: Use entry/exit line logic
+    const isLane4or5 = this.currentLaneId === 4 || this.currentLaneId === 5;
+    if (isLane4or5) {
+      return this.shouldDisplayLane4_5;
+    }
+
+    // Other lanes: Simple zone-only logic
+    return true;
   }
 
 
@@ -164,5 +227,7 @@ export class SpatViewModel {
   cleanup(): void {
     this.stopMonitoring();
     this.currentZone = null;
+    this.previousPosition = null;
+    this.shouldDisplayLane4_5 = false;
   }
 }
