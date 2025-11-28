@@ -20,8 +20,9 @@ export class SpatViewModel {
   private currentZone: SpatZone | null = null;
   private lastZoneCheckTime: number = 0;
 
-  // Track if user has entered Lane 4&5 and should display SPAT
+  // Track if user has entered lanes and should display SPAT
   private shouldDisplayLane4_5: boolean = false;
+  private shouldDisplayLane10_11: boolean = false;
 
   private readonly FAST_UPDATE_INTERVAL = 250;
   private readonly ZONE_CHECK_THROTTLE = 100;
@@ -47,7 +48,14 @@ export class SpatViewModel {
   }
 
   private checkLineCrossing(prevPos: [number, number], currPos: [number, number]): void {
-    // Find Lane 4&5 zone
+    // Check Lane 4&5
+    this.checkLane4_5Crossing(prevPos, currPos);
+
+    // Check Lane 10&11
+    this.checkLane10_11Crossing(prevPos, currPos);
+  }
+
+  private checkLane4_5Crossing(prevPos: [number, number], currPos: [number, number]): void {
     const lane4_5Zone = SpatZoneService.findZoneById('georgia_lanes_4_5');
     if (!lane4_5Zone) return;
 
@@ -71,13 +79,35 @@ export class SpatViewModel {
     // Both dots inside zone - continue displaying
     if (prevInside && currInside) {
       this.shouldDisplayLane4_5 = true;
-      console.log('🟡 [SPAT] Both dots inside Lane 4&5 - Display ON');
+      return;
+    }
+  }
+
+  private checkLane10_11Crossing(prevPos: [number, number], currPos: [number, number]): void {
+    const lane10_11Zone = SpatZoneService.findZoneById('georgia_lanes_10_11');
+    if (!lane10_11Zone) return;
+
+    const prevInside = SpatZoneService.isPointInZone(prevPos, lane10_11Zone);
+    const currInside = SpatZoneService.isPointInZone(currPos, lane10_11Zone);
+
+    // Check if segment crosses entry line (entering zone)
+    if (SpatZoneService.crossesEntryLine(prevPos, currPos, lane10_11Zone)) {
+      this.shouldDisplayLane10_11 = true;
+      console.log('🟢 [SPAT] Crossed ENTRY line for Lane 10&11 - Display ON');
       return;
     }
 
-    // Both dots outside zone - don't display
-    if (!prevInside && !currInside) {
-      // Don't change state, keep previous value
+    // Check if segment crosses exit line (exiting zone)
+    if (SpatZoneService.crossesExitLine(prevPos, currPos, lane10_11Zone)) {
+      this.shouldDisplayLane10_11 = false;
+      console.log('🔴 [SPAT] Crossed EXIT line for Lane 10&11 - Display OFF');
+      return;
+    }
+
+    // Both dots inside zone - continue displaying
+    if (prevInside && currInside) {
+      this.shouldDisplayLane10_11 = true;
+      return;
     }
   }
 
@@ -122,10 +152,15 @@ export class SpatViewModel {
       this.error = null;
     });
 
-    // If entering Lane 4&5 zone, display SPAT immediately
+    // If entering zones, display SPAT immediately
     if (zone.id === 'georgia_lanes_4_5') {
       this.shouldDisplayLane4_5 = true;
       console.log('🟢 [SPAT] Entered Lane 4&5 zone - Display ON (initial)');
+    }
+
+    if (zone.id === 'georgia_lanes_10_11') {
+      this.shouldDisplayLane10_11 = true;
+      console.log('🟢 [SPAT] Entered Lane 10&11 zone - Display ON (initial)');
     }
 
     // START SPAT TRACKING when user enters zone
@@ -142,8 +177,9 @@ export class SpatViewModel {
       this.error = null;
     });
 
-    // Reset Lane 4&5 display flag
+    // Reset display flags
     this.shouldDisplayLane4_5 = false;
+    this.shouldDisplayLane10_11 = false;
   }
 
   private async updateSpatData(): Promise<void> {
@@ -195,6 +231,12 @@ export class SpatViewModel {
       return this.shouldDisplayLane4_5;
     }
 
+    // Lane 10 & 11: Use entry/exit line logic
+    const isLane10or11 = this.currentLaneId === 10 || this.currentLaneId === 11;
+    if (isLane10or11) {
+      return this.shouldDisplayLane10_11;
+    }
+
     // Other lanes: Simple zone-only logic
     return true;
   }
@@ -229,5 +271,6 @@ export class SpatViewModel {
     this.currentZone = null;
     this.previousPosition = null;
     this.shouldDisplayLane4_5 = false;
+    this.shouldDisplayLane10_11 = false;
   }
 }
