@@ -1,6 +1,6 @@
 // app/src/features/Map/views/components/MapView.tsx
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import { observer } from 'mobx-react-lite';
@@ -22,7 +22,12 @@ import { CrosswalkDetectionService } from '../../../PedestrianDetector/services/
 import { ProximityDetectionService } from '../../../PedestrianDetector/services/ProximityDetectionService';
 import { TESTING_CONFIG } from '../../../../testingFeatures/TestingConfig';
 import { MainViewModel } from '../../../../Main/viewmodels/MainViewModel';
+import { SpatZone, SpatZoneService } from '../../../SpatService/services/SpatZoneService';
 import { MapLegend } from './MapLegend';
+import {
+  PreemptionButton,
+  PreemptionViewModel,
+} from '../../../preemption';
 
 interface MapViewProps {
   mapViewModel: MapViewModel;
@@ -53,22 +58,70 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   const cameraRef = useRef<MapboxGL.Camera>(null);
   const spatViewModelRef = useRef<SpatViewModel>(new SpatViewModel());
   const lanesViewModelRef = useRef<LanesViewModel>(new LanesViewModel());
+  const preemptionViewModelRef = useRef<PreemptionViewModel>(new PreemptionViewModel());
   
   const spatViewModel = providedSpatViewModel || spatViewModelRef.current;
   const lanesViewModel = providedLanesViewModel || lanesViewModelRef.current;
+  const preemptionViewModel = preemptionViewModelRef.current;
 
   const [userPosition, setUserPosition] = useState<[number, number]>([
     mapViewModel.userLocation.latitude, 
     mapViewModel.userLocation.longitude
   ]);
+  const [spatZones, setSpatZones] = useState<SpatZone[]>(() => SpatZoneService.getActiveZones());
+  const [activeSpatZoneId, setActiveSpatZoneId] = useState<string | null>(null);
+
+  const configuredPreemptionZone = useMemo(() => {
+    const configuredZoneId = preemptionViewModel.configuredZoneId;
+    if (!configuredZoneId) return null;
+    return spatZones.find((zone) => zone.id === configuredZoneId) || null;
+  }, [spatZones, preemptionViewModel.configuredZoneId]);
 
   const lastCameraUpdate = useRef<number>(0);
   const CAMERA_UPDATE_THROTTLE = 2000;
+  const DASHBOARD_INTERSECTION_NUMBER = 1;
 
   const activeDetector = isTestingMode ? testingPedestrianDetectorViewModel : pedestrianDetectorViewModel;
   const SHOW_SDSM_VEHICLES = true;
 
-  const shouldShowSDSMForViewModel = (viewModel: VehicleDisplayViewModel): boolean => {
+
+  const getZonesSignature = (zones: SpatZone[]): string => (
+    zones
+      .map((zone) => `${zone.id}:${zone.name}:${zone.signalGroup}:${zone.polygon.length}:${zone.entryLine?.length || 0}:${zone.exitLine?.length || 0}`)
+      .join('|')
+  );
+
+  const toLngLatLine = (line?: [number, number][]): [number, number][] | null => {
+    if (!line || line.length !== 2) return null;
+    return line.map(([lat, lng]) => [lng, lat]);
+  };
+
+  const createZonePolygonFeature = (zone: SpatZone) => ({
+    type: 'Feature' as const,
+    properties: {
+      zoneId: zone.id,
+      name: zone.name,
+      signalGroup: zone.signalGroup,
+      laneIds: zone.laneIds.join(', '),
+    },
+    geometry: {
+      type: 'Polygon' as const,
+      coordinates: [zone.polygon],
+    },
+  });
+
+  const createLineFeature = (lineCoords: [number, number][], lineType: 'entry' | 'exit') => ({
+    type: 'Feature' as const,
+    properties: {
+      lineType,
+    },
+    geometry: {
+      type: 'LineString' as const,
+      coordinates: lineCoords,
+    },
+  });
+
+  const shouldShowSDSMForViewModel = (_viewModel: VehicleDisplayViewModel): boolean => {
     if (!SHOW_SDSM_VEHICLES || !TESTING_CONFIG.ENABLE_SDSM_API) {
       return false;
     }
@@ -108,6 +161,47 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     });
   };
 
+
+  useEffect(() => {
+    const syncZones = () => {
+      const nextZones = SpatZoneService.getActiveZones();
+      setSpatZones((previousZones) => (
+        getZonesSignature(previousZones) === getZonesSignature(nextZones)
+          ? previousZones
+          : nextZones
+      ));
+    };
+
+    syncZones();
+    const intervalId = setInterval(syncZones, 1000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    preemptionViewModel.loadZoneConfig(DASHBOARD_INTERSECTION_NUMBER);
+  }, [preemptionViewModel, DASHBOARD_INTERSECTION_NUMBER]);
+
+  useEffect(() => {
+    if (userPosition[0] === 0 || userPosition[1] === 0) return;
+
+    const activeZone = SpatZoneService.findZoneForPosition(userPosition);
+    const nextZoneId = activeZone?.id || null;
+
+    if (nextZoneId !== activeSpatZoneId) {
+      if (nextZoneId && activeZone) {
+        console.log(`[SPAT] User entered zone: ${activeZone.name} (id=${activeZone.id}, signalGroup=${activeZone.signalGroup})`);
+      } else if (activeSpatZoneId) {
+        console.log(`[SPAT] User exited zone: ${activeSpatZoneId}`);
+      }
+      setActiveSpatZoneId(nextZoneId);
+    }
+  }, [userPosition, spatZones, activeSpatZoneId]);
+
+  useEffect(() => {
+    preemptionViewModel.syncPosition(userPosition, configuredPreemptionZone);
+  }, [preemptionViewModel, userPosition, configuredPreemptionZone]);
+
   useEffect(() => {
     let locationSubscription: Location.LocationSubscription;
 
@@ -115,9 +209,24 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
+          console.log('[Location] Permission not granted');
           return;
         }
 
+        // Get initial position first
+        try {
+          const initialLocation = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.BestForNavigation,
+          });
+          const { latitude, longitude } = initialLocation.coords;
+          const initialPosition: [number, number] = [latitude, longitude];
+          setUserPosition(initialPosition);
+          updateAllViewModels(initialPosition);
+        } catch (posError) {
+          console.log('[Location] Could not get initial position:', posError);
+        }
+
+        // Then set up continuous tracking
         locationSubscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.BestForNavigation,
@@ -139,7 +248,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
         }
 
       } catch (error) {
-        // Silent error handling
+        console.log('[Location] Setup error:', error);
       }
     };
 
@@ -209,16 +318,13 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 
         {userPosition[0] !== 0 && userPosition[1] !== 0 && (
           <MapboxGL.PointAnnotation
-            id="vehicle-position"
+            id="user-location"
             coordinate={[userPosition[1], userPosition[0]]}
             anchor={{ x: 0.5, y: 0.5 }}
           >
-            <View style={styles.userLocationContainer}>
-              <View style={styles.userLocationPulse} />
-              <View style={styles.userLocationMarker}>
-                <View style={styles.userLocationInner} />
-                <View style={styles.directionDot} />
-              </View>
+            <View style={styles.userLocationMarker}>
+              <View style={[styles.userLocationPulse, activeSpatZoneId ? styles.userLocationPulseInSpat : null]} />
+              <View style={[styles.userLocationDot, activeSpatZoneId ? styles.userLocationDotInSpat : null]} />
             </View>
           </MapboxGL.PointAnnotation>
         )}
@@ -276,6 +382,68 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           );
         })}
 
+
+        {TESTING_CONFIG.SHOW_SPAT_ZONES && spatZones.map((zone, index) => {
+          const zoneId = `spat-zone-${zone.id}-${index}`;
+          const entryLine = toLngLatLine(zone.entryLine);
+          const exitLine = toLngLatLine(zone.exitLine);
+          const isActiveZone = activeSpatZoneId === zone.id;
+
+          return (
+            <React.Fragment key={zoneId}>
+              <MapboxGL.ShapeSource
+                id={`${zoneId}-source`}
+                shape={createZonePolygonFeature(zone)}
+              >
+                <MapboxGL.FillLayer
+                  id={`${zoneId}-fill`}
+                  style={{
+                    fillColor: isActiveZone ? 'rgba(249, 115, 22, 0.32)' : 'rgba(16, 185, 129, 0.16)',
+                    fillOutlineColor: isActiveZone ? 'rgba(249, 115, 22, 1)' : 'rgba(16, 185, 129, 0.8)',
+                  }}
+                />
+                <MapboxGL.LineLayer
+                  id={`${zoneId}-outline`}
+                  style={{
+                    lineColor: isActiveZone ? '#F97316' : '#10B981',
+                    lineWidth: isActiveZone ? 3 : 2,
+                  }}
+                />
+              </MapboxGL.ShapeSource>
+
+              {entryLine && (
+                <MapboxGL.ShapeSource
+                  id={`${zoneId}-entry-source`}
+                  shape={createLineFeature(entryLine, 'entry')}
+                >
+                  <MapboxGL.LineLayer
+                    id={`${zoneId}-entry`}
+                    style={{
+                      lineColor: '#22C55E',
+                      lineWidth: 4,
+                    }}
+                  />
+                </MapboxGL.ShapeSource>
+              )}
+
+              {exitLine && (
+                <MapboxGL.ShapeSource
+                  id={`${zoneId}-exit-source`}
+                  shape={createLineFeature(exitLine, 'exit')}
+                >
+                  <MapboxGL.LineLayer
+                    id={`${zoneId}-exit`}
+                    style={{
+                      lineColor: '#EF4444',
+                      lineWidth: 4,
+                    }}
+                  />
+                </MapboxGL.ShapeSource>
+              )}
+            </React.Fragment>
+          );
+        })}
+
         <LaneOverlay lanesViewModel={lanesViewModel} />
 
         {mainViewModel?.vehicleDisplayViewModel && shouldShowSDSMForViewModel(mainViewModel.vehicleDisplayViewModel) && (
@@ -326,6 +494,14 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 
       <TurnGuideDisplay spatViewModel={spatViewModel} />
 
+      <PreemptionButton
+        visible={preemptionViewModel.isButtonVisible}
+        zoneName={configuredPreemptionZone?.name || preemptionViewModel.configuredZoneName}
+        onPress={() => {
+          preemptionViewModel.requestPriority(configuredPreemptionZone);
+        }}
+      />
+
       {(() => {
         const vehiclePos: [number, number] = [userPosition[0], userPosition[1]];
 
@@ -375,7 +551,7 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  userLocationContainer: {
+  userLocationMarker: {
     width: 50,
     height: 50,
     justifyContent: 'center',
@@ -383,44 +559,27 @@ const styles = StyleSheet.create({
   },
   userLocationPulse: {
     position: 'absolute',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(34, 197, 94, 0.2)',
     borderWidth: 2,
-    borderColor: 'rgba(76, 175, 80, 0.4)',
+    borderColor: 'rgba(34, 197, 94, 0.4)',
   },
-  userLocationMarker: {
-    width: 24,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#4CAF50',
-    borderWidth: 4,
+  userLocationPulseInSpat: {
+    backgroundColor: 'rgba(249, 115, 22, 0.25)',
+    borderColor: 'rgba(249, 115, 22, 0.6)',
+  },
+  userLocationDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#22C55E',
+    borderWidth: 3,
     borderColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
-    shadowColor: '#4CAF50',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    position: 'relative',
   },
-  userLocationInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#FFFFFF',
-  },
-  directionDot: {
-    position: 'absolute',
-    top: -6,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#FFD700',
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
+  userLocationDotInSpat: {
+    backgroundColor: '#F97316',
   },
   warningContainer: {
     position: 'absolute',
