@@ -21,17 +21,13 @@ const S_TOP = HALF + GAP;
 const SOUTH_PTS = `1,${S_TOP} ${SVG_W - 1},${S_TOP} ${SVG_W / 2},${SVG_H}`;
 
 export const Compass: React.FC<CompassProps> = ({ heading }) => {
-  const dialRotation = -heading;
-
   return (
     <View style={styles.outer}>
-      <View
-        style={[styles.dial, { transform: [{ rotate: `${dialRotation}deg` }] }]}
-      >
-        {/* N label — absolute, sits at top without displacing needle */}
-        <Text style={styles.labelNorth}>N</Text>
+      {/* N label — fixed at top, never rotates */}
+      <Text style={styles.labelNorth}>N</Text>
 
-        {/* SVG needle: north (yellow) + gap + south (white), centered */}
+      {/* Only the needle rotates */}
+      <View style={{ transform: [{ rotate: `${-heading}deg` }] }}>
         <Svg width={SVG_W} height={SVG_H}>
           <Polygon
             points={NORTH_PTS}
@@ -68,13 +64,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.35,
     shadowRadius: 4,
-  },
-  dial: {
-    width: COMPASS_SIZE - 8,
-    height: COMPASS_SIZE - 8,
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
   },
   labelNorth: {
     position: "absolute",

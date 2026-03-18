@@ -28,14 +28,13 @@ const VRUMarker = memo<{
   }, [vru.id]);
 
   return (
-    <MapboxGL.PointAnnotation
-      key={`sdsm-vru-${vru.id}`}
+    <MapboxGL.MarkerView
       id={`sdsm-vru-${vru.id}`}
       coordinate={mapboxCoords}
       anchor={{ x: 0.5, y: 0.5 }}
     >
       <VRUIcon />
-    </MapboxGL.PointAnnotation>
+    </MapboxGL.MarkerView>
   );
 });
 

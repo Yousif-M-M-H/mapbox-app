@@ -1,7 +1,8 @@
 // app/src/features/Map/views/components/MapView.tsx
 
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, Image, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import MapboxGL from "@rnmapbox/maps";
 import { observer } from "mobx-react-lite";
 import * as Location from "expo-location";
@@ -27,6 +28,7 @@ import { MapLegend } from "./MapLegend";
 import { MapOverlayMenu } from "./MapOverlayMenu";
 import { SearchBar } from "./SearchBar";
 import { ZoomControls } from "./mapoverlay/ZoomControls";
+import { TrafficLightPanel } from "../../../preemption/components/TrafficLightPanel";
 
 interface MapViewProps {
   mapViewModel: MapViewModel;
@@ -262,6 +264,11 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(
           onZoomOut={handleZoomOut}
           onLocateUser={handleLocateUser}
         />
+
+        {/* Traffic light preemption panel — left side, opposite zoom controls */}
+        <View style={styles.trafficLightAnchor}>
+          <TrafficLightPanel />
+        </View>
         <MapOverlayMenu
           isDarkMode={isDarkMode}
           onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
@@ -290,27 +297,27 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(
           />
 
           {userPosition[0] !== 0 && userPosition[1] !== 0 && (
-            <MapboxGL.PointAnnotation
+            <MapboxGL.MarkerView
               id="vehicle-position"
               coordinate={[userPosition[1], userPosition[0]]}
               anchor={{ x: 0.5, y: 0.5 }}
             >
-              <View
-                style={[
-                  styles.userMarkerWrapper,
-                  { transform: [{ rotate: `${userHeading}deg` }] },
-                ]}
-              >
-                {/* Directional cone pointing in direction of travel */}
-                <View style={styles.directionCone} />
-                {/* User icon tinted orange */}
-                <Image
-                  source={require("@/assets/images/usericon.png")}
-                  style={styles.userIcon}
-                  resizeMode="contain"
-                />
+              <View style={styles.userMarkerWrapper}>
+                {/* Outer glow ring — stays static (circle) */}
+                <View style={styles.markerGlow}>
+                  {/* Inner circle with live heading rotation */}
+                  <View style={styles.markerCircle}>
+                    {/* navigate icon points NE by default; -45° corrects to North, then +heading orients it */}
+                    <Ionicons
+                      name="navigate"
+                      size={18}
+                      color="#ffffff"
+                      style={{ transform: [{ rotate: `${userHeading - 45}deg` }] }}
+                    />
+                  </View>
+                </View>
               </View>
-            </MapboxGL.PointAnnotation>
+            </MapboxGL.MarkerView>
           )}
 
           {mapViewModel.showCrosswalkPolygon &&
@@ -516,23 +523,39 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   userMarkerWrapper: {
+    width: 46,
+    height: 46,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  markerGlow: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "rgba(255, 140, 0, 0.22)",
+    justifyContent: "center",
     alignItems: "center",
   },
-  directionCone: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 9,
-    borderRightWidth: 9,
-    borderBottomWidth: 18,
-    borderLeftColor: "transparent",
-    borderRightColor: "transparent",
-    borderBottomColor: "rgba(255, 140, 0, 0.85)",
-    marginBottom: 2,
+  markerCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#FF8C00",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2.5,
+    borderColor: "#ffffff",
+    shadowColor: "#FF8C00",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.75,
+    shadowRadius: 10,
+    elevation: 10,
   },
-  userIcon: {
-    width: 32,
-    height: 40,
-    tintColor: "#FF8C00",
+  trafficLightAnchor: {
+    position: 'absolute',
+    left: 16,
+    bottom: 110,
+    zIndex: 100,
   },
   warningContainer: {
     position: "absolute",

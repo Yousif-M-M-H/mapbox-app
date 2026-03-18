@@ -1,5 +1,5 @@
 // app/src/features/SDSM/views/VehicleMarkers.tsx
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import { observer } from 'mobx-react-lite';
@@ -43,18 +43,14 @@ const VehicleMarkerItem: React.FC<{
   vehicleId: number;
   coordinates: [number, number];
 }> = ({ vehicleId, coordinates }) => {
-  // Record overlay event when this vehicle is first rendered
-  useEffect(() => {
-  }, [vehicleId]);
-
   return (
-    <MapboxGL.PointAnnotation
+    <MapboxGL.MarkerView
       id={`sdsm-vehicle-${vehicleId}`}
       coordinate={coordinates}
       anchor={{ x: 0.5, y: 0.5 }}
     >
       <VehicleIcon />
-    </MapboxGL.PointAnnotation>
+    </MapboxGL.MarkerView>
   );
 };
 
