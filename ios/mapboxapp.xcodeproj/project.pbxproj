@@ -12,6 +12,7 @@
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
 		17B6FF8CD9CA747028F4880E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B93D70A4C4FC52AD76316B27 /* PrivacyInfo.xcprivacy */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
+		4B2ABEAE2EDD15770037907C /* chattanooga-route.gpx in Resources */ = {isa = PBXBuildFile; fileRef = 4B2ABEAD2EDD15550037907C /* chattanooga-route.gpx */; };
 		942CD7CE5E6B483FAAFD170A /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0CC7B0ACFD34F6EB6F6D26C /* noop-file.swift */; };
 		96905EF65AED1B983A6B3ABC /* libPods-mapboxapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 58EEBF8E8E6FB1BC6CAF49B5 /* libPods-mapboxapp.a */; };
 		B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */; };
@@ -25,6 +26,7 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = mapboxapp/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = mapboxapp/Info.plist; sourceTree = "<group>"; };
 		13B07FB71A68108700A75B9A /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = main.m; path = mapboxapp/main.m; sourceTree = "<group>"; };
+		4B2ABEAD2EDD15550037907C /* chattanooga-route.gpx */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "chattanooga-route.gpx"; sourceTree = "<group>"; };
 		58EEBF8E8E6FB1BC6CAF49B5 /* libPods-mapboxapp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-mapboxapp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		6C2E3173556A471DD304B334 /* Pods-mapboxapp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-mapboxapp.debug.xcconfig"; path = "Target Support Files/Pods-mapboxapp/Pods-mapboxapp.debug.xcconfig"; sourceTree = "<group>"; };
 		7A4D352CD337FB3A3BF06240 /* Pods-mapboxapp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-mapboxapp.release.xcconfig"; path = "Target Support Files/Pods-mapboxapp/Pods-mapboxapp.release.xcconfig"; sourceTree = "<group>"; };
@@ -85,6 +87,7 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
+				4B2ABEAD2EDD15550037907C /* chattanooga-route.gpx */,
 				13B07FAE1A68108700A75B9A /* mapboxapp */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
@@ -204,6 +207,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
+				4B2ABEAE2EDD15770037907C /* chattanooga-route.gpx in Resources */,
 				17B6FF8CD9CA747028F4880E /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

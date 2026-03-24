@@ -4,7 +4,21 @@ import { View, Text, StyleSheet } from 'react-native';
 
 export const MapLegend: React.FC = () => {
   return (
-<></>
+    <View style={styles.container}>
+      <View style={styles.legendItem}>
+        <View style={styles.vehicleIcon}>
+          <View style={styles.vehicleIconInner} />
+        </View>
+        <Text style={styles.legendText}>Vehicle</Text>
+      </View>
+
+      <View style={styles.legendItem}>
+        <View style={styles.pedestrianIcon}>
+          <View style={styles.pedestrianIconInner} />
+        </View>
+        <Text style={styles.legendText}>Pedestrian</Text>
+      </View>
+    </View>
   );
 };
 

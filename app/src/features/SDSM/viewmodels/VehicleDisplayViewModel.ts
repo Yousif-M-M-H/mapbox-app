@@ -118,7 +118,7 @@ export class VehicleDisplayViewModel {
     if (this.isActive) {
       return;
     }
-    
+
     runInAction(() => {
       this.isActive = true;
       this.error = null;
@@ -126,7 +126,7 @@ export class VehicleDisplayViewModel {
       this.lastSuccessfulFetch = Date.now();
       this.isConnectionHealthy = true;
     });
-    
+
     this.runPollingLoop();
   }
   
@@ -434,7 +434,7 @@ export class VehicleDisplayViewModel {
   private async fetchFromRSU(): Promise<any> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.FETCH_TIMEOUT_MS);
-    
+
     try {
       const response = await fetch(this.API_URL, {
         method: 'GET',
@@ -445,22 +445,22 @@ export class VehicleDisplayViewModel {
           'Pragma': 'no-cache'
         }
       });
-      
+
       clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
         return null;
       }
-      
+
       return await response.json();
-      
+
     } catch (error) {
       clearTimeout(timeoutId);
-      
+
       if (error instanceof Error && error.name === 'AbortError') {
         return null;
       }
-      
+
       throw error;
     }
   }

@@ -1,22 +1,15 @@
-<?xml version="1.0"?>
-<gpx version="1.1" creator="Xcode">
-    
-    <!--
-     Provide one or more waypoints containing a latitude/longitude pair. If you provide one
-     waypoint, Xcode will simulate that specific location. If you provide multiple waypoints,
-     Xcode will simulate a route visiting each waypoint.
-     -->
-    <wpt lat="37.331705" lon="-122.030237">
-        <name>Cupertino</name>
-        
-        <!--
-         Optionally provide a time element for each waypoint. Xcode will interpolate movement
-         at a rate of speed based on the time elapsed between each waypoint. If you do not provide
-         a time element, then Xcode will use a fixed rate of speed.
-         
-         Waypoints must be sorted by time in ascending order.
-         -->
-        <time>2014-09-24T14:55:37Z</time>
-    </wpt>
-    
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="ChatGPT">
+  <trk>
+    <name>Chattanooga Drive</name>
+    <trkseg>
+      <trkpt lat="35.046031" lon="-85.302541"></trkpt>
+      <trkpt lat="35.045600" lon="-85.304400"></trkpt>
+      <trkpt lat="35.045300" lon="-85.306000"></trkpt>
+      <trkpt lat="35.045120" lon="-85.307980"></trkpt>
+      <trkpt lat="35.044900" lon="-85.309400"></trkpt>
+      <trkpt lat="35.044500" lon="-85.310900"></trkpt>
+      <trkpt lat="35.044051" lon="-85.312210"></trkpt>
+    </trkseg>
+  </trk>
 </gpx>

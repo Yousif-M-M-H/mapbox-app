@@ -2,6 +2,9 @@
 <Workspace
    version = "1.0">
    <FileRef
+      location = "group:chattanooga-route.gpx">
+   </FileRef>
+   <FileRef
       location = "group:mapboxapp.xcodeproj">
    </FileRef>
    <FileRef

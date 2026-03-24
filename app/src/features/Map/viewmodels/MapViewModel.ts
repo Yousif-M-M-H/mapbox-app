@@ -1,6 +1,5 @@
 // app/src/features/Map/viewmodels/MapViewModel.ts
 import { makeAutoObservable, runInAction } from 'mobx';
-import { Alert } from 'react-native';
 import { Coordinate, toGeoJSONCoordinate } from '../models/Location';
 import { LocationService } from '../services/LocationService';
 
@@ -12,7 +11,7 @@ export class MapViewModel {
   userHeading: number = 0;
   isInitialized: boolean = false;
   loading: boolean = false;
-  showCrosswalkPolygon: boolean = true; // Toggle for polygon visibility
+  showCrosswalkPolygon: boolean = false; // Toggle for polygon visibility
   private headingSubscription: HeadingSubscription | null = null;
 
   constructor() {
@@ -73,7 +72,9 @@ export class MapViewModel {
         });
         return location;
       } else {
-        Alert.alert('Error', 'Unable to get your location.');
+        // Silently fall back to default location instead of showing an error
+        // This commonly happens on emulators without location configured
+        console.log('Location unavailable, using default location');
         runInAction(() => {
           this.isInitialized = true;
         });

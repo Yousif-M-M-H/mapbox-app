@@ -46,17 +46,20 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
   }
 
   const currentLaneId = spatViewModel.currentLaneId;
-  
-  if (!currentLaneId) {
+  const currentLaneIds = spatViewModel.currentLaneIds;
+
+  if (!currentLaneId && currentLaneIds.length === 0) {
     return null;
   }
 
   const turnState = mapSignalStateToTurnState(spatViewModel.signalState);
 
-  const isGeorgiaLanes4_5 = currentLaneId === 4 || currentLaneId === 5;
-  const isGeorgiaLane1 = currentLaneId === 1;
-  const isGeorgiaLane8 = currentLaneId === 8;
-  const isGeorgiaLanes10_11 = currentLaneId === 10 || currentLaneId === 11;
+  const hasLane = (laneId: number): boolean => currentLaneIds.includes(laneId) || currentLaneId === laneId;
+
+  const isGeorgiaLanes4_5 = hasLane(4) || hasLane(5);
+  const isGeorgiaLane1 = hasLane(1);
+  const isGeorgiaLane8 = hasLane(8);
+  const isGeorgiaLanes10_11 = hasLane(10) || hasLane(11);
 
   // Lane 1: Right and Straight with Yield
   if (isGeorgiaLane1) {
@@ -190,7 +193,27 @@ export const TurnGuideDisplay: React.FC<TurnGuideDisplayProps> = observer(({
     );
   }
 
-  return null;
+  return (
+    <View style={styles.container}>
+      <View style={styles.laneContainer}>
+        <View style={styles.iconWrapper}>
+          <Text style={styles.laneLabel}>{spatViewModel.currentZoneName || 'Active Zone'}</Text>
+          <View style={styles.iconContainer}>
+            <TurnIcon
+              leftTurn={TurnSignalState.PROHIBITED}
+              straightTurn={turnState}
+              rightTurn={TurnSignalState.PROHIBITED}
+              showLeft={false}
+              showRight={false}
+              size={55}
+            />
+          </View>
+          <Text style={styles.zoneMeta}>SG {spatViewModel.currentSignalGroup ?? '-'}</Text>
+        </View>
+        <View style={styles.statusDot} />
+      </View>
+    </View>
+  );
 });
 
 const styles = StyleSheet.create({
@@ -243,6 +266,13 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(245, 158, 11, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
+  },
+  zoneMeta: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#6b7280',
+    marginTop: 6,
+    textAlign: 'center',
   },
   statusDot: {
     width: 4,
