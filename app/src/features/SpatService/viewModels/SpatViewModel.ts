@@ -24,7 +24,7 @@ export class SpatViewModel {
   // Zone-level display gate driven by entry/exit line crossing.
   private zoneDisplayState: Map<string, boolean> = new Map();
 
-  private readonly FAST_UPDATE_INTERVAL = 250;
+  private readonly FAST_UPDATE_INTERVAL = 500;
   private readonly ZONE_CHECK_THROTTLE = 100;
 
   constructor() {
@@ -49,13 +49,16 @@ export class SpatViewModel {
   private checkLineCrossing(prevPos: [number, number], currPos: [number, number]): void {
     const zones = SpatZoneService.getActiveZones();
 
-    for (const zone of zones) {
-      const crossedEntry = SpatZoneService.crossesEntryLine(prevPos, currPos, zone);
-      const crossedExit = SpatZoneService.crossesExitLine(prevPos, currPos, zone);
+    // Check if segment crosses entry line (entering zone)
+    if (SpatZoneService.crossesEntryLine(prevPos, currPos, lane4_5Zone)) {
+      this.shouldDisplayLane4_5 = true;
+      return;
+    }
 
-      if (!crossedEntry && !crossedExit) {
-        continue;
-      }
+    if (SpatZoneService.crossesExitLine(prevPos, currPos, lane4_5Zone)) {
+      this.shouldDisplayLane4_5 = false;
+      return;
+    }
 
       const previousDisplayState = this.zoneDisplayState.get(zone.id) === true;
 
@@ -69,15 +72,15 @@ export class SpatViewModel {
         nextDisplayState = false;
       }
 
-      if (nextDisplayState !== previousDisplayState) {
-        this.zoneDisplayState.set(zone.id, nextDisplayState);
+    // Check if segment crosses entry line (entering zone)
+    if (SpatZoneService.crossesEntryLine(prevPos, currPos, lane10_11Zone)) {
+      this.shouldDisplayLane10_11 = true;
+      return;
+    }
 
-        if (nextDisplayState) {
-          console.log(`🟢 [SPAT] Crossed ENTRY line for zone '${zone.name}' - Display ON`);
-        } else {
-          console.log(`🔴 [SPAT] Crossed EXIT line for zone '${zone.name}' - Display OFF`);
-        }
-      }
+    if (SpatZoneService.crossesExitLine(prevPos, currPos, lane10_11Zone)) {
+      this.shouldDisplayLane10_11 = false;
+      return;
     }
   }
 
