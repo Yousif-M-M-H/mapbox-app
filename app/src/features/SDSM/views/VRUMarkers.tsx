@@ -11,31 +11,6 @@ interface VRUMarkersProps {
   getMapboxCoordinates: (vru: VRUData) => [number, number];
 }
 
-const VRUIcon = memo(() => (
-  <View style={styles.vruIcon}>
-    <View style={styles.vruIconInner} />
-  </View>
-));
-
-const VRUMarker = memo<{
-  vru: VRUData;
-  mapboxCoords: [number, number];
-}>(({ vru, mapboxCoords }) => {
-  // Record overlay event when this VRU is first rendered
-  useEffect(() => {
-    recordOverlayEvent(vru.id);
-  }, [vru.id]);
-
-  return (
-    <MapboxGL.MarkerView
-      id={`sdsm-vru-${vru.id}`}
-      coordinate={mapboxCoords}
-      anchor={{ x: 0.5, y: 0.5 }}
-    >
-      <VRUIcon />
-    </MapboxGL.MarkerView>
-  );
-});
 
 export const VRUMarkers: React.FC<VRUMarkersProps> = observer(({ vrus, isActive, getMapboxCoordinates }) => {
   if (!isActive || vrus.length === 0) {
