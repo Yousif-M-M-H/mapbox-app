@@ -54,7 +54,7 @@ export class VehicleDisplayViewModel {
   
   // Configuration - Georgia only
   private API_URL = 'http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events/MLK_Georgia';
-  private readonly POLL_DELAY_MS = 100; // 100ms = 10Hz
+  private readonly POLL_DELAY_MS = 1000; // 1000ms = 1Hz
   private readonly FETCH_TIMEOUT_MS = 3000;
   
   // Stability settings
@@ -135,7 +135,6 @@ export class VehicleDisplayViewModel {
    */
   private async runPollingLoop(): Promise<void> {
     this.isPolling = true;
-    console.log('[SDSM] Polling loop started');
 
     while (this.isActive && this.isPolling) {
       try {
@@ -384,13 +383,6 @@ export class VehicleDisplayViewModel {
         speed: v.speed
       }));
     
-    if (displayableVehicles.length > 0 || displayableVRUs.length > 0) {
-      console.log(`[SDSM] Displaying ${displayableVehicles.length} vehicles, ${displayableVRUs.length} VRUs`);
-    } else if (this.vehicleHistory.size > 0 && this.updateCount % 20 === 0) {
-      const firstVehicle = Array.from(this.vehicleHistory.values())[0];
-      console.log(`[SDSM] ${this.vehicleHistory.size} tracked but none stable yet. Sample: isStable=${firstVehicle?.isStable}, confidence=${firstVehicle?.confidenceLevel?.toFixed(2)}, historyLen=${firstVehicle?.positionHistory?.length}, agems=${Date.now() - (firstVehicle?.firstSeenTime ?? 0)}`);
-    }
-
     runInAction(() => {
       this.vehicles = displayableVehicles;
       this.vrus = displayableVRUs;

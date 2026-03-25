@@ -19,6 +19,7 @@ export class MainViewModel {
   vehicleDisplayViewModel: VehicleDisplayViewModel;
   lanesViewModel: LanesViewModel;
   spatViewModel: SpatViewModel;
+  private positionSyncInterval: NodeJS.Timeout | null = null;
   
   isTestingMode: boolean = TESTING_CONFIG.USE_TESTING_MODE;
   
@@ -84,10 +85,10 @@ export class MainViewModel {
         
         this.spatViewModel.startMonitoring();
 
-        setInterval(() => {
+        this.positionSyncInterval = setInterval(() => {
           if (this.userLocation.latitude !== 0 && this.userLocation.longitude !== 0) {
             this.spatViewModel.setUserPosition([
-              this.userLocation.latitude, 
+              this.userLocation.latitude,
               this.userLocation.longitude
             ]);
           }
@@ -158,12 +159,17 @@ export class MainViewModel {
   }
   
   cleanup() {
+    if (this.positionSyncInterval) {
+      clearInterval(this.positionSyncInterval);
+      this.positionSyncInterval = null;
+    }
+
     try {
       this.vehicleDisplayViewModel?.cleanup();
     } catch (error) {
       // Silent
     }
-    
+
     this.spatViewModel.cleanup();
     
     if (this.isTestingMode && this.testingPedestrianDetectorViewModel) {

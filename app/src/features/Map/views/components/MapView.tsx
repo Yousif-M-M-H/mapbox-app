@@ -20,7 +20,6 @@ import { LaneOverlay } from "../../../Lanes/views/components/LaneOverlay";
 import { LanesViewModel } from "../../../Lanes/viewmodels/LanesViewModel";
 import { CROSSWALK_POLYGONS } from "../../../Crosswalk/constants/CrosswalkCoordinates";
 import { CrosswalkDetectionService } from "../../../PedestrianDetector/services/CrosswalkDetectionService";
-import { ProximityDetectionService } from "../../../PedestrianDetector/services/ProximityDetectionService";
 import { TESTING_CONFIG } from "../../../../testingFeatures/TestingConfig";
 import { MainViewModel } from "../../../../Main/viewmodels/MainViewModel";
 
@@ -29,6 +28,101 @@ import { MapOverlayMenu } from "./MapOverlayMenu";
 import { SearchBar } from "./SearchBar";
 import { ZoomControls } from "./mapoverlay/ZoomControls";
 import { TrafficLightPanel } from "../../../preemption/components/TrafficLightPanel";
+
+// ---------------------------------------------------------------------------
+// CrosswalkLayer — own observer so it only re-renders when VRUs change (1Hz)
+// ---------------------------------------------------------------------------
+
+interface CrosswalkLayerProps {
+  vehicleDisplayVM: VehicleDisplayViewModel | null;
+  testingPedestrianVM: TestingPedestrianDetectorViewModel | null;
+  show: boolean;
+}
+
+const CrosswalkLayer: React.FC<CrosswalkLayerProps> = observer(
+  ({ vehicleDisplayVM, testingPedestrianVM, show }) => {
+    if (!show) return null;
+
+    const vrus: { coordinates: [number, number] }[] = [];
+    if (TESTING_CONFIG.ENABLE_SDSM_API && vehicleDisplayVM?.vrus) {
+      vrus.push(...vehicleDisplayVM.vrus);
+    }
+    if (TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN && testingPedestrianVM?.vrus) {
+      vrus.push(...testingPedestrianVM.vrus);
+    }
+
+    return (
+      <>
+        {CROSSWALK_POLYGONS.map((polygonCoords, index) => {
+          const count = CrosswalkDetectionService.countPedestriansInSpecificCrosswalk(
+            vrus,
+            index,
+          );
+          const shape = {
+            type: "Feature" as const,
+            properties: { crosswalkId: index, name: `Crosswalk ${index + 1}` },
+            geometry: {
+              type: "Polygon" as const,
+              coordinates: [polygonCoords],
+            },
+          };
+          return (
+            <MapboxGL.ShapeSource
+              key={`crosswalk-${index}`}
+              id={`crosswalk-polygon-source-${index}`}
+              shape={shape}
+            >
+              <MapboxGL.FillLayer
+                id={`crosswalk-polygon-fill-${index}`}
+                style={{
+                  fillColor:
+                    count > 0
+                      ? "rgba(255, 59, 48, 0.4)"
+                      : "rgba(255, 255, 0, 0.4)",
+                  fillOutlineColor: "#FFCC00",
+                }}
+              />
+              <MapboxGL.LineLayer
+                id={`crosswalk-polygon-outline-${index}`}
+                style={{ lineColor: "#FFCC00", lineWidth: 2 }}
+              />
+            </MapboxGL.ShapeSource>
+          );
+        })}
+      </>
+    );
+  },
+);
+
+// ---------------------------------------------------------------------------
+// PedestrianWarning — own observer so it only re-renders when detector state
+// changes, not on every heading/position update
+// ---------------------------------------------------------------------------
+
+type AnyDetector =
+  | PedestrianDetectorViewModel
+  | TestingPedestrianDetectorViewModel;
+
+interface PedestrianWarningProps {
+  activeDetector: AnyDetector | null;
+}
+
+const PedestrianWarning: React.FC<PedestrianWarningProps> = observer(
+  ({ activeDetector }) => {
+    if (!activeDetector?.isVehicleNearPedestrianInCrosswalk) return null;
+    return (
+      <View style={styles.warningContainer}>
+        <Text style={styles.warningText}>
+          ⚠️ Pedestrian crossing detected ahead!
+        </Text>
+      </View>
+    );
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Main MapViewComponent
+// ---------------------------------------------------------------------------
 
 interface MapViewProps {
   mapViewModel: MapViewModel;
@@ -127,11 +221,11 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(
     const shouldShowSDSMForViewModel = (
       viewModel: VehicleDisplayViewModel,
     ): boolean => {
-      if (!SHOW_SDSM_VEHICLES || !TESTING_CONFIG.ENABLE_SDSM_API) {
-        return false;
-      }
-      return true;
+      return SHOW_SDSM_VEHICLES && TESTING_CONFIG.ENABLE_SDSM_API;
     };
+
+    const vehicleDisplayVM =
+      mainViewModel?.vehicleDisplayViewModel || testingVehicleDisplayViewModel;
 
     const updateCameraPosition = (position: [number, number]) => {
       const now = Date.now();
@@ -179,8 +273,8 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(
           locationSubscription = await Location.watchPositionAsync(
             {
               accuracy: Location.Accuracy.BestForNavigation,
-              distanceInterval: 1,
-              timeInterval: 100,
+              distanceInterval: 2,
+              timeInterval: 500,
             },
             (location) => {
               const { latitude, longitude, heading } = location.coords;
@@ -222,37 +316,28 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(
       spatViewModel,
     ]);
 
+    // Feed combined VRU data into the active detector whenever it changes
     useEffect(() => {
       if (!activeDetector) return;
 
-      let allVRUs: any[] = [];
+      const vrus: any[] = [];
 
-      if (TESTING_CONFIG.ENABLE_SDSM_API) {
-        const vehicleDisplayVM =
-          mainViewModel?.vehicleDisplayViewModel ||
-          testingVehicleDisplayViewModel;
-        if (vehicleDisplayVM?.vrus) {
-          if (shouldShowSDSMForViewModel(vehicleDisplayVM)) {
-            allVRUs = [...allVRUs, ...vehicleDisplayVM.vrus];
-          }
-        }
+      if (TESTING_CONFIG.ENABLE_SDSM_API && vehicleDisplayVM?.vrus) {
+        vrus.push(...vehicleDisplayVM.vrus);
       }
 
       if (
         TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN &&
         testingPedestrianDetectorViewModel?.vrus
       ) {
-        allVRUs = [...allVRUs, ...testingPedestrianDetectorViewModel.vrus];
+        vrus.push(...testingPedestrianDetectorViewModel.vrus);
       }
 
-      activeDetector.updateVRUData(allVRUs);
+      activeDetector.updateVRUData(vrus);
     }, [
       activeDetector,
-      mainViewModel?.vehicleDisplayViewModel?.vrus,
-      testingVehicleDisplayViewModel?.vrus,
+      vehicleDisplayVM?.vrus,
       testingPedestrianDetectorViewModel?.vrus,
-      TESTING_CONFIG.ENABLE_SDSM_API,
-      TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN,
     ]);
 
     return (
@@ -265,7 +350,6 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(
           onLocateUser={handleLocateUser}
         />
 
-        {/* Traffic light preemption panel — left side, opposite zoom controls */}
         <View style={styles.trafficLightAnchor}>
           <TrafficLightPanel />
         </View>
@@ -303,11 +387,8 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(
               anchor={{ x: 0.5, y: 0.5 }}
             >
               <View style={styles.userMarkerWrapper}>
-                {/* Outer glow ring — stays static (circle) */}
                 <View style={styles.markerGlow}>
-                  {/* Inner circle with live heading rotation */}
                   <View style={styles.markerCircle}>
-                    {/* navigate icon points NE by default; -45° corrects to North, then +heading orients it */}
                     <Ionicons
                       name="navigate"
                       size={18}
@@ -320,83 +401,17 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(
             </MapboxGL.MarkerView>
           )}
 
-          {mapViewModel.showCrosswalkPolygon &&
-            CROSSWALK_POLYGONS.map((polygonCoords, index) => {
-              let allVRUs: any[] = [];
-
-              if (TESTING_CONFIG.ENABLE_SDSM_API) {
-                const vehicleDisplayVM =
-                  mainViewModel?.vehicleDisplayViewModel ||
-                  testingVehicleDisplayViewModel;
-                if (
-                  vehicleDisplayVM?.vrus &&
-                  shouldShowSDSMForViewModel(vehicleDisplayVM)
-                ) {
-                  allVRUs = [...allVRUs, ...vehicleDisplayVM.vrus];
-                }
-              }
-
-              if (
-                TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN &&
-                testingPedestrianDetectorViewModel?.vrus
-              ) {
-                allVRUs = [
-                  ...allVRUs,
-                  ...testingPedestrianDetectorViewModel.vrus,
-                ];
-              }
-
-              const pedestriansInThisCrosswalk =
-                CrosswalkDetectionService.countPedestriansInSpecificCrosswalk(
-                  allVRUs,
-                  index,
-                );
-
-              const crosswalkPolygon = {
-                type: "Feature" as const,
-                properties: {
-                  crosswalkId: index,
-                  name: `Crosswalk ${index + 1}`,
-                },
-                geometry: {
-                  type: "Polygon" as const,
-                  coordinates: [polygonCoords],
-                },
-              };
-
-              return (
-                <MapboxGL.ShapeSource
-                  key={`crosswalk-${index}`}
-                  id={`crosswalk-polygon-source-${index}`}
-                  shape={crosswalkPolygon}
-                >
-                  <MapboxGL.FillLayer
-                    id={`crosswalk-polygon-fill-${index}`}
-                    style={{
-                      fillColor:
-                        pedestriansInThisCrosswalk > 0
-                          ? "rgba(255, 59, 48, 0.4)"
-                          : "rgba(255, 255, 0, 0.4)",
-                      fillOutlineColor: "#FFCC00",
-                    }}
-                  />
-                  <MapboxGL.LineLayer
-                    id={`crosswalk-polygon-outline-${index}`}
-                    style={{
-                      lineColor: "#FFCC00",
-                      lineWidth: 2,
-                    }}
-                  />
-                </MapboxGL.ShapeSource>
-              );
-            })}
+          {/* Crosswalk polygons — isolated observer, re-renders only when VRUs change */}
+          <CrosswalkLayer
+            vehicleDisplayVM={vehicleDisplayVM ?? null}
+            testingPedestrianVM={testingPedestrianDetectorViewModel ?? null}
+            show={mapViewModel.showCrosswalkPolygon}
+          />
 
           <LaneOverlay lanesViewModel={lanesViewModel} />
 
           {mainViewModel?.vehicleDisplayViewModel &&
-            shouldShowSDSMForViewModel(
-              mainViewModel.vehicleDisplayViewModel,
-            ) && (
+            shouldShowSDSMForViewModel(mainViewModel.vehicleDisplayViewModel) && (
               <VehicleMarkers
                 viewModel={mainViewModel.vehicleDisplayViewModel}
               />
@@ -408,9 +423,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(
             )}
 
           {mainViewModel?.vehicleDisplayViewModel &&
-            shouldShowSDSMForViewModel(
-              mainViewModel.vehicleDisplayViewModel,
-            ) && (
+            shouldShowSDSMForViewModel(mainViewModel.vehicleDisplayViewModel) && (
               <VRUMarkers
                 vrus={mainViewModel.vehicleDisplayViewModel.vrus}
                 isActive={mainViewModel.vehicleDisplayViewModel.isActive}
@@ -451,65 +464,11 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(
           testingVehicleDisplayViewModel={testingVehicleDisplayViewModel}
         />
 
-        {/* SpatStatusDisplay - Hidden in favor of TurnGuideDisplay */}
-        {/* <SpatStatusDisplay
-        userPosition={userPosition}
-        spatViewModel={spatViewModel}
-      /> */}
-
         <TurnGuideDisplay spatViewModel={spatViewModel} />
 
-        {(() => {
-          const vehiclePos: [number, number] = [
-            userPosition[0],
-            userPosition[1],
-          ];
-
-          if (userPosition[0] === 0) return null;
-
-          let allVRUs: any[] = [];
-
-          if (TESTING_CONFIG.ENABLE_SDSM_API) {
-            const vehicleDisplayVM =
-              mainViewModel?.vehicleDisplayViewModel ||
-              testingVehicleDisplayViewModel;
-            if (
-              vehicleDisplayVM?.vrus &&
-              shouldShowSDSMForViewModel(vehicleDisplayVM)
-            ) {
-              allVRUs = [...allVRUs, ...vehicleDisplayVM.vrus];
-            }
-          }
-
-          if (
-            TESTING_CONFIG.SHOW_FIXED_PEDESTRIAN &&
-            testingPedestrianDetectorViewModel?.vrus
-          ) {
-            allVRUs = [...allVRUs, ...testingPedestrianDetectorViewModel.vrus];
-          }
-
-          const hasPedestriansNearby = allVRUs.some((vru) => {
-            const isPedestrianInCrosswalk =
-              CrosswalkDetectionService.isInCrosswalk(vru.coordinates);
-            if (!isPedestrianInCrosswalk) return false;
-
-            const isVehicleNearPedestrian =
-              ProximityDetectionService.isVehicleCloseToPosition(
-                vehiclePos,
-                vru.coordinates,
-              );
-
-            return isVehicleNearPedestrian;
-          });
-
-          return hasPedestriansNearby ? (
-            <View style={styles.warningContainer}>
-              <Text style={styles.warningText}>
-                ⚠️ Pedestrian crossing detected ahead!
-              </Text>
-            </View>
-          ) : null;
-        })()}
+        {/* Pedestrian warning — isolated observer, re-renders only when
+            isVehicleNearPedestrianInCrosswalk changes */}
+        <PedestrianWarning activeDetector={activeDetector ?? null} />
       </View>
     );
   },

@@ -24,7 +24,7 @@ export class SpatViewModel {
   private shouldDisplayLane4_5: boolean = false;
   private shouldDisplayLane10_11: boolean = false;
 
-  private readonly FAST_UPDATE_INTERVAL = 250;
+  private readonly FAST_UPDATE_INTERVAL = 500;
   private readonly ZONE_CHECK_THROTTLE = 100;
 
   constructor() {
@@ -61,14 +61,11 @@ export class SpatViewModel {
     // Check if segment crosses entry line (entering zone)
     if (SpatZoneService.crossesEntryLine(prevPos, currPos, lane4_5Zone)) {
       this.shouldDisplayLane4_5 = true;
-      console.log('🟢 [SPAT] Crossed ENTRY line for Lane 4&5 - Display ON');
       return;
     }
 
-    // Check if segment crosses exit line (exiting zone)
     if (SpatZoneService.crossesExitLine(prevPos, currPos, lane4_5Zone)) {
       this.shouldDisplayLane4_5 = false;
-      console.log('🔴 [SPAT] Crossed EXIT line for Lane 4&5 - Display OFF');
       return;
     }
 
@@ -83,14 +80,11 @@ export class SpatViewModel {
     // Check if segment crosses entry line (entering zone)
     if (SpatZoneService.crossesEntryLine(prevPos, currPos, lane10_11Zone)) {
       this.shouldDisplayLane10_11 = true;
-      console.log('🟢 [SPAT] Crossed ENTRY line for Lane 10&11 - Display ON');
       return;
     }
 
-    // Check if segment crosses exit line (exiting zone)
     if (SpatZoneService.crossesExitLine(prevPos, currPos, lane10_11Zone)) {
       this.shouldDisplayLane10_11 = false;
-      console.log('🔴 [SPAT] Crossed EXIT line for Lane 10&11 - Display OFF');
       return;
     }
 
