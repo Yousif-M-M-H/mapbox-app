@@ -1,5 +1,4 @@
 export { PreemptionButton } from './components/PreemptionButton';
-export { PreemptionRequestPreviewModal } from './components/PreemptionRequestPreviewModal';
 export { PreemptionViewModel } from './viewModels/PreemptionViewModel';
 export { PreemptionApiService } from './services/PreemptionApiService';
 export { PreemptionConfigService } from './services/PreemptionConfigService';

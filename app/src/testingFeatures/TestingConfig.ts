@@ -10,6 +10,9 @@ export const TESTING_CONFIG = {
   // Toggle to enable/disable SDSM API calls and display
   ENABLE_SDSM_API: true,
 
+  // Toggle to show/hide SPaT zone polygons + entry/exit lines on map
+  SHOW_SPAT_ZONES: true,
+
   // Fixed pedestrian coordinates for testing [lat, lon]
   FIXED_PEDESTRIAN_COORDINATES: [35.04573837534117, -85.3081989270337] as [number, number],
   

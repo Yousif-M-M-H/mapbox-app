@@ -516,6 +516,9 @@ const styles = StyleSheet.create({
     bottom: 110,
     zIndex: 100,
   },
+  userLocationDotInSpat: {
+    backgroundColor: '#F97316',
+  },
   warningContainer: {
     position: "absolute",
     top: 50,

@@ -1,5 +1,7 @@
 // app/src/features/SpatService/services/SpatZoneService.ts
 
+import { API_CONFIG } from '../../../core/api/config';
+
 export interface SpatZone {
   id: string;
   name: string;
@@ -9,6 +11,17 @@ export interface SpatZone {
   intersection: 'georgia' | 'houston';
   entryLine?: [number, number][]; // Line user crosses to enter zone
   exitLine?: [number, number][]; // Line user crosses to exit zone
+}
+
+
+interface DashboardSpatZoneApiResponse {
+  id: number;
+  name: string;
+  lane_ids: number[];
+  signal_group: number;
+  polygon: { type: 'Polygon'; coordinates: [number, number][][] };
+  entry_line: { type: 'LineString'; coordinates: [number, number][] };
+  exit_line: { type: 'LineString'; coordinates: [number, number][] };
 }
 
 export const SPAT_ZONES: SpatZone[] = [
@@ -38,29 +51,45 @@ export const SPAT_ZONES: SpatZone[] = [
     id: 'georgia_lane_1',
     name: 'Georgia Lane 1',
     polygon: [
-   [-85.30824541727874, 35.045894301661576],
-      [-85.30823118032862, 35.045936553466916],
-      [-85.30819391488009, 35.04592815421519],
-      [-85.30821501066924, 35.04588245772791],
-      [-85.30824541727874, 35.045894301661576],
+  [-85.30828953861565, 35.04585035701702],
+      [-85.3081953147176, 35.04581536599744],
+      [-85.30813483909343, 35.045932689327415],
+      [-85.30823562301588, 35.04595040716744],
+      [-85.30828953861565, 35.04585035701702],
     ],
     laneIds: [1],
     signalGroup: 4,
-    intersection: 'georgia'
+    intersection: 'georgia',
+    entryLine: [
+      [35.045932689327415, -85.30813483909343],
+      [35.04595040716744, -85.30823562301588]
+    ],
+    exitLine: [
+      [35.04585035701702, -85.30828953861565],
+      [35.04581536599744, -85.3081953147176]
+    ]
   },
   {
     id: 'georgia_lane_8',
     name: 'Georgia Lane 8',
     polygon: [
-     [-85.30831157935737, 35.04571115061532],
-      [-85.30825834640959, 35.04569492583184],
-      [-85.30833500284682, 35.04552041109105],
-      [-85.30839359610162, 35.0455372659322],
-      [-85.30831157935737, 35.04571115061532],
+    [-85.30833844397954, 35.04574351301403],
+    [-85.30850998193206, 35.045427179358015],
+    [-85.30841874813754, 35.045407857101765],
+    [-85.30826329917411, 35.045712107167205],
+    [-85.30833844397954, 35.04574351301403]
     ],
     laneIds: [8],
     signalGroup: 4,
-    intersection: 'georgia'
+    intersection: 'georgia',
+    entryLine: [
+      [35.04574351301403, -85.30833844397954],
+      [35.045712107167205, -85.30826329917411]
+    ],
+    exitLine: [
+      [35.045427179358015, -85.30850998193206],
+      [35.045407857101765, -85.30841874813754]
+    ]
   },
   {
     id: 'georgia_lanes_10_11',
@@ -88,13 +117,62 @@ export const SPAT_ZONES: SpatZone[] = [
 
 export class SpatZoneService {
   private static zoneCache: Map<string, boolean> = new Map();
+  private static dashboardZones: SpatZone[] = [];
+
+  private static toLatLng(coord: [number, number]): [number, number] {
+    // Dashboard/GeoJSON is [lng, lat], app movement tracking uses [lat, lng].
+    return [coord[1], coord[0]];
+  }
+
+  private static inferIntersection(name: string): 'georgia' | 'houston' {
+    return name.toLowerCase().includes('houston') ? 'houston' : 'georgia';
+  }
+
+  static async loadZonesFromDashboard(intersectionNumber: number = 1): Promise<void> {
+    try {
+      const endpoint = `${API_CONFIG.DASHBOARD_API_URL}/api/spat-zones?intersection_number=${intersectionNumber}`;
+      const response = await fetch(endpoint, { method: 'GET' });
+      if (!response.ok) {
+        console.log(`[SPAT] Dashboard zone fetch failed: ${response.status}`);
+        return;
+      }
+
+      const data: DashboardSpatZoneApiResponse[] = await response.json();
+      if (!Array.isArray(data)) {
+        console.log('[SPAT] Dashboard zone fetch returned non-array payload');
+        return;
+      }
+
+      this.dashboardZones = data
+        .filter((z) => z?.polygon?.coordinates?.[0]?.length >= 4 && z?.entry_line?.coordinates?.length === 2 && z?.exit_line?.coordinates?.length === 2)
+        .map((z) => ({
+          id: String(z.id),
+          name: z.name,
+          polygon: z.polygon.coordinates[0],
+          laneIds: Array.isArray(z.lane_ids) ? z.lane_ids : [],
+          signalGroup: z.signal_group,
+          intersection: this.inferIntersection(z.name),
+          entryLine: z.entry_line.coordinates.map((c) => this.toLatLng(c as [number, number])) as [number, number][],
+          exitLine: z.exit_line.coordinates.map((c) => this.toLatLng(c as [number, number])) as [number, number][],
+        }));
+
+      console.log(`[SPAT] Loaded ${this.dashboardZones.length} zone(s) from dashboard API`);
+    } catch (error) {
+      console.log('[SPAT] Dashboard zone fetch error:', error);
+    }
+  }
+
+  static getActiveZones(): SpatZone[] {
+    return this.dashboardZones.length > 0 ? this.dashboardZones : SPAT_ZONES;
+  }
+
 
   static findZoneForPosition(userPosition: [number, number]): SpatZone | null {
     if (!userPosition || userPosition[0] === 0 || userPosition[1] === 0) {
       return null;
     }
 
-    for (const zone of SPAT_ZONES) {
+    for (const zone of this.getActiveZones()) {
       if (this.isPointInZone(userPosition, zone)) {
         return zone;
       }
@@ -104,7 +182,7 @@ export class SpatZoneService {
   }
 
   static findZoneById(zoneId: string): SpatZone | null {
-    return SPAT_ZONES.find(zone => zone.id === zoneId) || null;
+    return this.getActiveZones().find(zone => zone.id === zoneId) || null;
   }
 
   static isPointInZone(userPosition: [number, number], zone: SpatZone): boolean {

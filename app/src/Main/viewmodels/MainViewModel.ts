@@ -10,6 +10,7 @@ import { TESTING_CONFIG } from '../../testingFeatures/TestingConfig';
 import { VehicleDisplayViewModel } from '../../features/SDSM/viewmodels/VehicleDisplayViewModel';
 import { LanesViewModel } from '../../features/Lanes';
 import { SpatViewModel } from '../../features/SpatService/viewModels/SpatViewModel';
+import { SpatZoneService } from '../../features/SpatService/services/SpatZoneService';
 
 export class MainViewModel {
   mapViewModel: MapViewModel;
@@ -76,6 +77,10 @@ export class MainViewModel {
   }
 
   private startSpatMonitoring(): void {
+    // First-step integration: load SPaT zones from dashboard/backend API.
+    // Runtime still falls back to local constants if API is unreachable.
+    SpatZoneService.loadZonesFromDashboard(1);
+
     const startWhenReady = () => {
       if (this.userLocation.latitude !== 0 && this.userLocation.longitude !== 0) {
         this.spatViewModel.setUserPosition([

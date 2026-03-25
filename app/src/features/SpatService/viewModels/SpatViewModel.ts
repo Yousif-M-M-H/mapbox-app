@@ -8,6 +8,7 @@ import { SpatZoneService, SpatZone } from '../services/SpatZoneService';
 export class SpatViewModel {
   signalState: SignalState = SignalState.UNKNOWN;
   currentLaneId: number | null = null;
+  currentLaneIds: number[] = [];
   currentSignalGroup: number | null = null;
   currentIntersection: 'georgia' | 'houston' | null = null;
   currentZoneName: string = '';
@@ -20,9 +21,8 @@ export class SpatViewModel {
   private currentZone: SpatZone | null = null;
   private lastZoneCheckTime: number = 0;
 
-  // Track if user has entered lanes and should display SPAT
-  private shouldDisplayLane4_5: boolean = false;
-  private shouldDisplayLane10_11: boolean = false;
+  // Zone-level display gate driven by entry/exit line crossing.
+  private zoneDisplayState: Map<string, boolean> = new Map();
 
   private readonly FAST_UPDATE_INTERVAL = 500;
   private readonly ZONE_CHECK_THROTTLE = 100;
@@ -32,7 +32,6 @@ export class SpatViewModel {
   }
 
   setUserPosition(position: [number, number]): void {
-    // Track segment: previousPosition -> currentPosition
     if (this.previousPosition && this.previousPosition[0] !== 0 && this.previousPosition[1] !== 0) {
       this.checkLineCrossing(this.previousPosition, position);
     }
@@ -48,15 +47,7 @@ export class SpatViewModel {
   }
 
   private checkLineCrossing(prevPos: [number, number], currPos: [number, number]): void {
-    // Only check line crossing for lanes with entry/exit logic
-    // Check both zones since user might be transitioning between them
-    this.checkLane4_5Crossing(prevPos, currPos);
-    this.checkLane10_11Crossing(prevPos, currPos);
-  }
-
-  private checkLane4_5Crossing(prevPos: [number, number], currPos: [number, number]): void {
-    const lane4_5Zone = SpatZoneService.findZoneById('georgia_lanes_4_5');
-    if (!lane4_5Zone) return;
+    const zones = SpatZoneService.getActiveZones();
 
     // Check if segment crosses entry line (entering zone)
     if (SpatZoneService.crossesEntryLine(prevPos, currPos, lane4_5Zone)) {
@@ -69,13 +60,17 @@ export class SpatViewModel {
       return;
     }
 
-    // Both dots inside OR both dots outside - Do NOTHING (keep current state)
-    // State only changes when crossing entry/exit lines
-  }
+      const previousDisplayState = this.zoneDisplayState.get(zone.id) === true;
 
-  private checkLane10_11Crossing(prevPos: [number, number], currPos: [number, number]): void {
-    const lane10_11Zone = SpatZoneService.findZoneById('georgia_lanes_10_11');
-    if (!lane10_11Zone) return;
+      let nextDisplayState = previousDisplayState;
+      if (crossedEntry && crossedExit) {
+        // If both are hit (coarse GPS step), resolve by where current point landed.
+        nextDisplayState = SpatZoneService.isPointInZone(currPos, zone);
+      } else if (crossedEntry) {
+        nextDisplayState = true;
+      } else if (crossedExit) {
+        nextDisplayState = false;
+      }
 
     // Check if segment crosses entry line (entering zone)
     if (SpatZoneService.crossesEntryLine(prevPos, currPos, lane10_11Zone)) {
@@ -87,11 +82,7 @@ export class SpatViewModel {
       this.shouldDisplayLane10_11 = false;
       return;
     }
-
-    // Both dots inside OR both dots outside - Do NOTHING (keep current state)
-    // State only changes when crossing entry/exit lines
   }
-
 
   startMonitoring(): void {
     if (this.updateInterval) return;
@@ -112,10 +103,10 @@ export class SpatViewModel {
 
   private checkZoneAndUpdateState(): void {
     const newZone = SpatZoneService.findZoneForPosition(this.userPosition);
-    
+
     if (newZone?.id !== this.currentZone?.id) {
       this.currentZone = newZone;
-      
+
       if (newZone) {
         this.enterZone(newZone);
       } else {
@@ -124,17 +115,36 @@ export class SpatViewModel {
     }
   }
 
+  private pickDisplayLaneId(laneIds: number[]): number | null {
+    if (!laneIds.length) return null;
+
+    // Preserve old lane-specific UI behaviors when these lane numbers exist.
+    const preferredLaneOrder = [1, 4, 5, 8, 10, 11];
+    const preferredLane = preferredLaneOrder.find((laneId) => laneIds.includes(laneId));
+
+    return preferredLane ?? laneIds[0];
+  }
+
   private enterZone(zone: SpatZone): void {
+    const laneIds = Array.isArray(zone.laneIds) ? zone.laneIds : [];
+    const displayLaneId = this.pickDisplayLaneId(laneIds);
+
     runInAction(() => {
       this.currentIntersection = zone.intersection;
-      this.currentLaneId = zone.laneIds[0];
+      this.currentLaneId = displayLaneId;
+      this.currentLaneIds = [...laneIds];
       this.currentSignalGroup = zone.signalGroup;
       this.currentZoneName = zone.name;
       this.error = null;
     });
 
-    // START SPAT TRACKING when user enters zone
-    // Note: SPAT will only DISPLAY after crossing entry line
+    if (!this.zoneDisplayState.has(zone.id)) {
+      this.zoneDisplayState.set(zone.id, false);
+    }
+
+    console.log(`[SPAT] In zone '${zone.name}'. Polling signal group ${zone.signalGroup}.`);
+
+    // Start pulling SPaT immediately once user is in-zone.
     this.fetchSpatDataImmediate(zone.intersection, zone.signalGroup);
   }
 
@@ -142,19 +152,17 @@ export class SpatViewModel {
     runInAction(() => {
       this.currentIntersection = null;
       this.currentLaneId = null;
+      this.currentLaneIds = [];
       this.currentSignalGroup = null;
       this.currentZoneName = '';
       this.signalState = SignalState.UNKNOWN;
       this.error = null;
+      this.isLoading = false;
     });
-
-    // Reset display flags
-    this.shouldDisplayLane4_5 = false;
-    this.shouldDisplayLane10_11 = false;
   }
 
   private async updateSpatData(): Promise<void> {
-    if (!this.currentZone || !this.currentIntersection || !this.currentSignalGroup) {
+    if (!this.currentZone || !this.currentSignalGroup || !this.currentIntersection) {
       return;
     }
 
@@ -165,12 +173,21 @@ export class SpatViewModel {
     intersection: 'georgia' | 'houston',
     signalGroup: number
   ): Promise<void> {
+    runInAction(() => {
+      this.isLoading = true;
+    });
+
     try {
-      const spatData = await SpatApiService.fetchSpatData(intersection);
-      
+      // Requested runtime path: use MLK_Georgia feed when in the active zone.
+      const spatData = intersection === 'georgia'
+        ? await SpatApiService.fetchMlkGeorgiaSpatData()
+        : await SpatApiService.fetchSpatData(intersection);
+
       if (!spatData) {
         runInAction(() => {
           this.error = 'No SPaT data';
+          this.signalState = SignalState.UNKNOWN;
+          this.isLoading = false;
         });
         return;
       }
@@ -180,68 +197,82 @@ export class SpatViewModel {
       runInAction(() => {
         this.signalState = signalState;
         this.error = null;
+        this.isLoading = false;
       });
-
-    } catch (error) {
+    } catch (_error) {
       runInAction(() => {
         this.error = 'SPaT fetch failed';
+        this.signalState = SignalState.UNKNOWN;
+        this.isLoading = false;
       });
     }
   }
 
   get shouldShowDisplay(): boolean {
-    const hasValidData = this.currentLaneId !== null &&
-                         this.currentSignalGroup !== null &&
-                         this.signalState !== SignalState.UNKNOWN;
+    const hasValidData =
+      this.currentZone !== null &&
+      this.currentSignalGroup !== null &&
+      this.signalState !== SignalState.UNKNOWN;
 
-    if (!hasValidData) return false;
-
-    // Lane 4 & 5: Use entry/exit line logic
-    const isLane4or5 = this.currentLaneId === 4 || this.currentLaneId === 5;
-    if (isLane4or5) {
-      return this.shouldDisplayLane4_5;
+    if (!hasValidData || !this.currentZone) {
+      return false;
     }
 
-    // Lane 10 & 11: Use entry/exit line logic
-    const isLane10or11 = this.currentLaneId === 10 || this.currentLaneId === 11;
-    if (isLane10or11) {
-      return this.shouldDisplayLane10_11;
-    }
-
-    // Other lanes: Simple zone-only logic
-    return true;
+    // Same behavior requirement: only show after crossing entry line,
+    // and hide again after crossing exit line.
+    return this.zoneDisplayState.get(this.currentZone.id) === true;
   }
-
 
   get signalStatusText(): string {
     switch (this.signalState) {
-      case SignalState.GREEN: return 'GO';
-      case SignalState.YELLOW: return 'CAUTION';
-      case SignalState.RED: return 'STOP';
-      default: return 'NO SIGNAL';
+      case SignalState.GREEN:
+        return 'GO';
+      case SignalState.YELLOW:
+        return 'CAUTION';
+      case SignalState.RED:
+        return 'STOP';
+      default:
+        return 'NO SIGNAL';
     }
   }
 
   get signalColor(): string {
     switch (this.signalState) {
-      case SignalState.GREEN: return '#22c55e';
-      case SignalState.YELLOW: return '#eab308';
-      case SignalState.RED: return '#ef4444';
-      default: return '#9ca3af';
+      case SignalState.GREEN:
+        return '#22c55e';
+      case SignalState.YELLOW:
+        return '#eab308';
+      case SignalState.RED:
+        return '#ef4444';
+      default:
+        return '#9ca3af';
     }
   }
 
   get laneDisplayText(): string {
-    if (!this.currentLaneId || !this.currentSignalGroup) return '';
+    if (this.currentSignalGroup === null || !this.currentIntersection) return '';
+
     const intersectionPrefix = this.currentIntersection === 'georgia' ? 'GA' : 'HOU';
-    return `${intersectionPrefix} L${this.currentLaneId} SG${this.currentSignalGroup}`;
+    const laneText = this.currentLaneIds.length ? `L${this.currentLaneIds.join(',')}` : 'L?';
+
+    return `${intersectionPrefix} ${laneText} SG${this.currentSignalGroup}`;
   }
 
   cleanup(): void {
     this.stopMonitoring();
     this.currentZone = null;
     this.previousPosition = null;
-    this.shouldDisplayLane4_5 = false;
-    this.shouldDisplayLane10_11 = false;
+    this.zoneDisplayState.clear();
+
+    runInAction(() => {
+      this.currentLaneId = null;
+      this.currentLaneIds = [];
+      this.currentSignalGroup = null;
+      this.currentIntersection = null;
+      this.currentZoneName = '';
+      this.signalState = SignalState.UNKNOWN;
+      this.error = null;
+      this.isLoading = false;
+    });
   }
 }

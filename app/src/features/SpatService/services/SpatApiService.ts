@@ -13,23 +13,28 @@ export interface SpatApiResponse {
 export class SpatApiService {
   private static readonly ENDPOINTS = {
     georgia: 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events/MLK_Georgia',
-    houston: 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events/MLK_Houston'
+    houston: 'http://roadaware.cuip.research.utc.edu/cv2x/latest/mlk_spat_events/MLK_Houston',
   };
-  
+
   private static readonly FAST_TIMEOUT = 1000;
-  private static cache: Map<string, { data: SpatApiResponse; timestamp: number }> = new Map();
   private static readonly CACHE_DURATION = 200;
+  private static cache: Map<string, { data: SpatApiResponse; timestamp: number }> = new Map();
+
+  static async fetchMlkGeorgiaSpatData(): Promise<SpatApiResponse | null> {
+    return this.fetchSpatDataByUrl(this.ENDPOINTS.georgia, 'mlk_georgia');
+  }
 
   static async fetchSpatData(intersection: 'georgia' | 'houston'): Promise<SpatApiResponse | null> {
-    const cacheKey = intersection;
+    return this.fetchSpatDataByUrl(this.ENDPOINTS[intersection], intersection);
+  }
+
+  private static async fetchSpatDataByUrl(url: string, cacheKey: string): Promise<SpatApiResponse | null> {
     const cached = this.cache.get(cacheKey);
     const now = Date.now();
 
-    if (cached && (now - cached.timestamp) < this.CACHE_DURATION) {
+    if (cached && now - cached.timestamp < this.CACHE_DURATION) {
       return cached.data;
     }
-
-    const url = this.ENDPOINTS[intersection];
 
     try {
       const controller = new AbortController();
@@ -39,21 +44,22 @@ export class SpatApiService {
         method: 'GET',
         signal: controller.signal,
         headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache'
-        }
+          Accept: 'application/json',
+          'Cache-Control': 'no-cache',
+        },
       });
 
       clearTimeout(timeoutId);
 
-      if (!response.ok) return null;
+      if (!response.ok) {
+        return null;
+      }
 
       const data = await response.json();
-      
       this.cache.set(cacheKey, { data, timestamp: now });
-      
+
       return data;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }

@@ -9,12 +9,6 @@ interface VehicleMarkersProps {
   viewModel: VehicleDisplayViewModel;
 }
 
-const VehicleIcon = () => (
-  <View style={styles.vehicleIcon}>
-    <View style={styles.vehicleIconInner} />
-  </View>
-);
-
 export const VehicleMarkers: React.FC<VehicleMarkersProps> = observer(({ viewModel }) => {
   if (!viewModel?.isActive || viewModel.vehicles.length === 0) {
     return null;
@@ -24,14 +18,26 @@ export const VehicleMarkers: React.FC<VehicleMarkersProps> = observer(({ viewMod
     <>
       {viewModel.vehicles.map((vehicle) => {
         const mapboxCoords = viewModel.getMapboxCoordinates(vehicle);
-        if (!mapboxCoords || mapboxCoords[0] === 0 || mapboxCoords[1] === 0) return null;
+
+        // Safety check for coordinates
+        if (!mapboxCoords || mapboxCoords.length !== 2 ||
+            typeof mapboxCoords[0] !== 'number' ||
+            typeof mapboxCoords[1] !== 'number' ||
+            mapboxCoords[0] === 0 || mapboxCoords[1] === 0) {
+          return null;
+        }
 
         return (
-          <VehicleMarkerItem
+          <MapboxGL.PointAnnotation
             key={`sdsm-vehicle-${vehicle.id}`}
-            vehicleId={vehicle.id}
-            coordinates={mapboxCoords}
-          />
+            id={`sdsm-vehicle-${vehicle.id}`}
+            coordinate={mapboxCoords}
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <View style={styles.vehicleIcon}>
+              <View style={styles.vehicleIconInner} />
+            </View>
+          </MapboxGL.PointAnnotation>
         );
       })}
     </>
@@ -64,11 +70,6 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
   },
   vehicleIconInner: {
     width: 10,
