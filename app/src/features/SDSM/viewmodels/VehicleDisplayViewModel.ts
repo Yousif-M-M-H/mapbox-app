@@ -567,7 +567,7 @@ export class VehicleDisplayViewModel {
   }
   
   /**
-   * Check if currently polling Georgia intersection
+   * Check if  currently polling Georgia intersection
    */
   isPollingGeorgia(): boolean {
     return this.API_URL.includes('MLK_Georgia');
@@ -579,7 +579,6 @@ export class VehicleDisplayViewModel {
   clearAllVehicles(): void {
     this.vehicleHistory.clear();
     this.vruHistory.clear();
-    
     runInAction(() => {
       this.vehicles = [];
       this.vrus = [];

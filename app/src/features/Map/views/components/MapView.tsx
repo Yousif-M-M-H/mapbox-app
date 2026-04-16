@@ -25,7 +25,7 @@ import { MainViewModel } from '../../../../Main/viewmodels/MainViewModel';
 import { SpatZone, SpatZoneService } from '../../../SpatService/services/SpatZoneService';
 import { MapLegend } from './MapLegend';
 import {
-  PreemptionButton,
+  PreemptionToggle,
   PreemptionViewModel,
 } from '../../../preemption';
 
@@ -71,15 +71,8 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   const [spatZones, setSpatZones] = useState<SpatZone[]>(() => SpatZoneService.getActiveZones());
   const [activeSpatZoneId, setActiveSpatZoneId] = useState<string | null>(null);
 
-  const configuredPreemptionZone = useMemo(() => {
-    const configuredZoneId = preemptionViewModel.configuredZoneId;
-    if (!configuredZoneId) return null;
-    return spatZones.find((zone) => zone.id === configuredZoneId) || null;
-  }, [spatZones, preemptionViewModel.configuredZoneId]);
-
   const lastCameraUpdate = useRef<number>(0);
   const CAMERA_UPDATE_THROTTLE = 2000;
-  const DASHBOARD_INTERSECTION_NUMBER = 1;
 
   const activeDetector = isTestingMode ? testingPedestrianDetectorViewModel : pedestrianDetectorViewModel;
   const SHOW_SDSM_VEHICLES = true;
@@ -178,9 +171,12 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
     return () => clearInterval(intervalId);
   }, []);
 
+  // Cleanup preemption view model on unmount
   useEffect(() => {
-    preemptionViewModel.loadZoneConfig(DASHBOARD_INTERSECTION_NUMBER);
-  }, [preemptionViewModel, DASHBOARD_INTERSECTION_NUMBER]);
+    return () => {
+      preemptionViewModel.destroy();
+    };
+  }, [preemptionViewModel]);
 
   useEffect(() => {
     if (userPosition[0] === 0 || userPosition[1] === 0) return;
@@ -199,8 +195,8 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
   }, [userPosition, spatZones, activeSpatZoneId]);
 
   useEffect(() => {
-    preemptionViewModel.syncPosition(userPosition, configuredPreemptionZone);
-  }, [preemptionViewModel, userPosition, configuredPreemptionZone]);
+    preemptionViewModel.syncPosition(userPosition, spatZones);
+  }, [preemptionViewModel, userPosition, spatZones]);
 
   useEffect(() => {
     let locationSubscription: Location.LocationSubscription;
@@ -224,6 +220,13 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
           updateAllViewModels(initialPosition);
         } catch (posError) {
           console.log('[Location] Could not get initial position:', posError);
+          // Fall back to MapViewModel's default location
+          const defaultPosition: [number, number] = [
+            mapViewModel.userLocation.latitude,
+            mapViewModel.userLocation.longitude,
+          ];
+          setUserPosition(defaultPosition);
+          updateAllViewModels(defaultPosition);
         }
 
         // Then set up continuous tracking
@@ -299,7 +302,7 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
       <MapboxGL.MapView
         ref={mapRef}
         style={styles.map}
-        styleURL="mapbox://styles/mapbox/outdoors-v12"
+        styleURL="mapbox://styles/mapbox/streets-v12"
         logoEnabled={false}
         attributionEnabled={false}
         compassEnabled={false}
@@ -494,11 +497,10 @@ export const MapViewComponent: React.FC<MapViewProps> = observer(({
 
       <TurnGuideDisplay spatViewModel={spatViewModel} />
 
-      <PreemptionButton
-        visible={preemptionViewModel.isButtonVisible}
-        zoneName={configuredPreemptionZone?.name || preemptionViewModel.configuredZoneName}
-        onPress={() => {
-          preemptionViewModel.requestPriority(configuredPreemptionZone);
+      <PreemptionToggle
+        enabled={preemptionViewModel.isEnabled}
+        onToggle={(enabled) => {
+          preemptionViewModel.toggleEnabled(enabled);
         }}
       />
 
